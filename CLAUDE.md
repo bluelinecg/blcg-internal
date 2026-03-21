@@ -216,22 +216,39 @@ across multiple files or executing multi-step tasks.
 ---
 
 ## Current build status
-**Phase**: Initial setup and proof of concept
+**Phase**: Foundation complete — dashboard shell next
 **Live URL**: https://admin.bluelinecg.com
-**Repo**: github.com/[personal-account]/blcg-internal
+**Repo**: github.com/bluelinecg/blcg-internal
 
 **Completed**:
 - GitHub repo created and connected to Vercel
-- Vercel auto-deploy pipeline active
+- Vercel auto-deploy pipeline active (PR preview + merge to main)
 - Custom subdomain admin.bluelinecg.com live and SSL confirmed
 - DNS managed via Wix (temporary)
+- Next.js 16 with App Router and TypeScript strict mode initialized
+- Tailwind v4 configured (no tailwind.config.ts — v4 auto-detects content)
+- Clerk v7 authentication installed and working end-to-end
+  - Sign-in and sign-up pages at /sign-in and /sign-up
+  - Clerk middleware protecting all /dashboard routes
+  - ClerkProvider in root layout with afterSignOutUrl configured
+- /lib/config.ts env variable validation pattern established
+- .env.example documenting all required variables
+- vercel.json declaring Next.js framework for correct Vercel detection
+- Hello world /dashboard page confirmed live in production
+
+**Stack notes**:
+- Next.js 16.2.1 (not 14 as originally planned — use 16 conventions)
+- Tailwind v4 — no tailwind.config.ts, uses @import "tailwindcss" in globals.css
+- Clerk v7 — use clerkMiddleware (not deprecated authMiddleware)
+- React 19
 
 **Next steps**:
-- Initialize Next.js project with App Router and TypeScript
-- Install and configure Tailwind CSS
-- Install and configure Clerk authentication
+- Build dashboard shell: Sidebar and TopNav layout components
+  - Sidebar with nav links: Dashboard, Clients, Proposals, Emails, Settings
+  - TopNav with page title and user avatar (UserButton)
+  - PageShell and PageHeader layout components
+  - Wire up /components/layout/ structure per CLAUDE.md
 - Install and configure Supabase client
-- Build authenticated dashboard shell with sidebar navigation
 - Build client/customer management module (first core feature)
 
 ---
@@ -240,13 +257,13 @@ across multiple files or executing multi-step tasks.
 When this project reaches a stable state, the following will be extracted
 into blcg-starter-template:
 
-- [ ] Next.js + Tailwind + TypeScript base configuration
-- [ ] Clerk authentication setup and middleware
+- [x] Next.js + Tailwind + TypeScript base configuration
+- [x] Clerk authentication setup and middleware
 - [ ] Supabase client configuration and type generation setup
 - [ ] /components/ui primitive library
-- [ ] /lib/config.ts environment variable validation pattern
+- [x] /lib/config.ts environment variable validation pattern
 - [ ] Standard API route response shape
 - [ ] GitHub Actions CI/CD workflow file
-- [ ] .env.example template
+- [x] .env.example template
 - [ ] Base Tailwind configuration with design tokens
 - [ ] This CLAUDE.md adapted as a generic template
