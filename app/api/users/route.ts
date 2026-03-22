@@ -11,6 +11,7 @@
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { AppUser, UserRole } from '@/lib/types/users';
+import { InviteUserSchema } from '@/lib/validations/users';
 
 const ALLOWED_ROLES: UserRole[] = ['owner', 'admin'];
 
@@ -63,19 +64,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ data: null, error: 'Forbidden' }, { status: 403 });
     }
 
-    const body = (await request.json()) as { email?: string; role?: UserRole };
+    const parsed = InviteUserSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
+      return NextResponse.json({ data: null, error }, { status: 400 });
+    }
 
-    if (!body.email?.trim()) {
-      return NextResponse.json({ data: null, error: 'Email is required' }, { status: 400 });
-    }
-    if (!body.role) {
-      return NextResponse.json({ data: null, error: 'Role is required' }, { status: 400 });
-    }
+    const { email, role } = parsed.data;
 
     const client = await clerkClient();
     const invitation = await client.invitations.createInvitation({
-      emailAddress: body.email.trim(),
-      publicMetadata: { role: body.role },
+      emailAddress: email,
+      publicMetadata: { role },
       redirectUrl: 'https://admin.bluelinecg.com/sign-up',
     });
 
