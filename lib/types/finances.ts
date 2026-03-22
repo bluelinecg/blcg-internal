@@ -9,24 +9,35 @@ export type ExpenseCategory =
   | 'office'
   | 'other';
 
+export type PaymentMethod = 'ach' | 'check' | 'credit_card';
+
 export interface InvoiceLineItem {
   id: string;
+  invoiceId: string;
   description: string;
-  quantity: number;
-  unitPrice: number;
+  subDescription?: string;   // optional detail line beneath main description
+  quantity?: number;         // null for flat-fee lines
+  unitPrice?: number;        // null for flat-fee lines
   total: number;
+  isIncluded: boolean;       // true = included in package, shown as $0
+  sortOrder: number;
 }
 
 export interface Invoice {
   id: string;
   clientId: string;
   projectId?: string;
-  invoiceNumber: string;
+  proposalId?: string;       // Agreement # reference (BL-YYYY-NNN)
+  invoiceNumber: string;     // BL-YYYY-NNN
   status: InvoiceStatus;
   lineItems: InvoiceLineItem[];
   subtotal: number;
-  tax?: number;
+  tax: number;
   total: number;
+  depositAmount?: number;
+  balanceDue?: number;
+  paymentTerms: string;      // default 'Net 15'
+  paymentMethod?: PaymentMethod;
   dueDate: string;
   paidDate?: string;
   notes?: string;
@@ -44,4 +55,5 @@ export interface Expense {
   date: string;
   notes?: string;
   createdAt: string;
+  updatedAt: string;
 }
