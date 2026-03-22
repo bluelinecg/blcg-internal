@@ -34,23 +34,27 @@ const CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }[] = [
   { value: 'other',       label: 'Other' },
 ];
 
-const DEFAULTS: ExpenseFormData = {
-  description: '',
-  category: 'software',
-  amount: 0,
-  projectId: undefined,
-  vendor: undefined,
-  date: new Date().toISOString().split('T')[0] + 'T00:00:00Z',
-  notes: undefined,
-};
+function makeDefaults(): ExpenseFormData {
+  const now = new Date().toISOString();
+  return {
+    description: '',
+    category: 'software',
+    amount: 0,
+    projectId: undefined,
+    vendor: undefined,
+    date: now.split('T')[0] + 'T00:00:00Z',
+    notes: undefined,
+    updatedAt: now,
+  };
+}
 
 export function ExpenseFormModal({ isOpen, onClose, onSave, initial, projects }: ExpenseFormModalProps) {
-  const [form, setForm] = useState<ExpenseFormData>({ ...DEFAULTS, ...initial });
+  const [form, setForm] = useState<ExpenseFormData>({ ...makeDefaults(), ...initial });
   const [errors, setErrors] = useState<Partial<Record<keyof ExpenseFormData, string>>>({});
 
   useEffect(() => {
     if (isOpen) {
-      setForm({ ...DEFAULTS, ...initial });
+      setForm({ ...makeDefaults(), ...initial });
       setErrors({});
     }
   }, [isOpen, initial]);

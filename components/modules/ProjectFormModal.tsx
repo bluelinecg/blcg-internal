@@ -84,7 +84,7 @@ export function ProjectFormModal({ isOpen, onClose, onSave, initial, clients, pr
 
   const clientOptions = [
     { value: '', label: 'Select a client...' },
-    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.company ? ` — ${c.company}` : ''}` })),
+    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.contactName ? ` · ${c.contactName}` : ''}` })),
   ];
 
   const proposalOptions = [

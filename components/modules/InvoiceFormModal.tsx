@@ -36,7 +36,7 @@ const STATUS_OPTIONS: { value: InvoiceStatus; label: string }[] = [
 ];
 
 function newLineItem(): InvoiceLineItem {
-  return { id: `ili_${Date.now()}`, description: '', quantity: 1, unitPrice: 0, total: 0 };
+  return { id: `ili_${Date.now()}`, invoiceId: '', description: '', quantity: 1, unitPrice: 0, total: 0, isIncluded: false, sortOrder: 0 };
 }
 
 function makeDefaults(invoiceNumber: string): InvoiceFormData {
@@ -46,11 +46,17 @@ function makeDefaults(invoiceNumber: string): InvoiceFormData {
   return {
     clientId: '',
     projectId: undefined,
+    proposalId: undefined,
     invoiceNumber,
     status: 'draft',
     lineItems: [newLineItem()],
     subtotal: 0,
+    tax: 0,
     total: 0,
+    paymentTerms: 'Net 15',
+    paymentMethod: undefined,
+    depositAmount: undefined,
+    balanceDue: undefined,
     dueDate: dueDate.toISOString(),
     paidDate: undefined,
     notes: undefined,
@@ -78,7 +84,7 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, n
       const items = prev.lineItems.map((item, i) => {
         if (i !== index) return item;
         const updated = { ...item, [field]: field === 'description' ? raw : parseFloat(raw) || 0 };
-        updated.total = updated.quantity * updated.unitPrice;
+        updated.total = (updated.quantity ?? 0) * (updated.unitPrice ?? 0);
         return updated;
       });
       const subtotal = items.reduce((s, it) => s + it.total, 0);
@@ -122,7 +128,7 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, n
 
   const clientOptions = [
     { value: '', label: 'Select a client...' },
-    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.company ? ` — ${c.company}` : ''}` })),
+    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.contactName ? ` · ${c.contactName}` : ''}` })),
   ];
 
   const projectOptions = [
@@ -205,7 +211,7 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, n
                   <input
                     className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue"
                     type="number" min="1"
-                    value={item.quantity}
+                    value={item.quantity ?? ''}
                     onChange={(e) => updateLineItem(i, 'quantity', e.target.value)}
                   />
                 </div>
@@ -213,7 +219,7 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, n
                   <input
                     className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue"
                     type="number" min="0" step="0.01"
-                    value={item.unitPrice}
+                    value={item.unitPrice ?? ''}
                     onChange={(e) => updateLineItem(i, 'unitPrice', e.target.value)}
                   />
                 </div>

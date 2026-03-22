@@ -247,7 +247,7 @@ export function FinancesPage() {
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{inv.invoiceNumber}</td>
                         <td className="px-6 py-4">
                           <p className="text-sm text-gray-800">{client?.name ?? '—'}</p>
-                          <p className="text-xs text-gray-400">{client?.company ?? ''}</p>
+                          <p className="text-xs text-gray-400">{client?.contactName ?? ''}</p>
                         </td>
                         <td className="px-6 py-4"><Badge variant={cfg.variant}>{cfg.label}</Badge></td>
                         <td className="px-6 py-4 text-sm text-gray-500">{formatDate(inv.dueDate)}</td>

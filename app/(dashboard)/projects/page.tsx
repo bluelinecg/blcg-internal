@@ -54,7 +54,7 @@ export function ProjectsPage() {
         q === '' ||
         p.name.toLowerCase().includes(q) ||
         (client?.name.toLowerCase().includes(q) ?? false) ||
-        (client?.company?.toLowerCase().includes(q) ?? false);
+        (client?.contactName?.toLowerCase().includes(q) ?? false);
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -166,7 +166,7 @@ export function ProjectsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-700">{client?.name ?? '—'}</p>
-                      <p className="text-xs text-gray-400">{client?.company ?? ''}</p>
+                      <p className="text-xs text-gray-400">{client?.contactName ?? ''}</p>
                     </td>
                     <td className="px-6 py-4"><Badge variant={cfg.variant}>{cfg.label}</Badge></td>
                     <td className="px-6 py-4">

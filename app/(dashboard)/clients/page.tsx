@@ -35,7 +35,7 @@ export function ClientsPage() {
       const matchesSearch =
         q === '' ||
         client.name.toLowerCase().includes(q) ||
-        (client.company?.toLowerCase().includes(q) ?? false) ||
+        (client.contactName?.toLowerCase().includes(q) ?? false) ||
         client.email.toLowerCase().includes(q);
 
       const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
@@ -59,7 +59,7 @@ export function ClientsPage() {
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4">
         <Input
-          placeholder="Search by name, company, or email..."
+          placeholder="Search by company, contact, or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-72"
@@ -83,10 +83,10 @@ export function ClientsPage() {
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Name
+                  Client
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Company
+                  Contact
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Email
@@ -111,7 +111,7 @@ export function ClientsPage() {
                       <span className="text-sm font-medium text-gray-900">{client.name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{client.company ?? '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{client.contactName ?? '—'}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{client.email}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{client.phone ?? '—'}</td>
                   <td className="px-6 py-4">

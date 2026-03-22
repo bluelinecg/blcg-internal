@@ -25,7 +25,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'sent',     label: 'Sent' },
   { value: 'viewed',   label: 'Viewed' },
   { value: 'accepted', label: 'Accepted' },
-  { value: 'rejected', label: 'Rejected' },
+  { value: 'declined', label: 'Declined' },
   { value: 'expired',  label: 'Expired' },
 ];
 
@@ -53,7 +53,7 @@ export function ProposalsPage() {
         q === '' ||
         p.title.toLowerCase().includes(q) ||
         (client?.name.toLowerCase().includes(q) ?? false) ||
-        (client?.company?.toLowerCase().includes(q) ?? false);
+        (client?.contactName?.toLowerCase().includes(q) ?? false);
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -101,8 +101,8 @@ export function ProposalsPage() {
   }
 
   // --- Summary stats ---
-  const totalValue    = proposals.reduce((s, p) => s + p.total, 0);
-  const acceptedValue = proposals.filter((p) => p.status === 'accepted').reduce((s, p) => s + p.total, 0);
+  const totalValue    = proposals.reduce((s, p) => s + p.totalValue, 0);
+  const acceptedValue = proposals.filter((p) => p.status === 'accepted').reduce((s, p) => s + p.totalValue, 0);
   const openCount     = proposals.filter((p) => p.status === 'sent' || p.status === 'viewed').length;
   const draftCount    = proposals.filter((p) => p.status === 'draft').length;
 
@@ -121,7 +121,7 @@ export function ProposalsPage() {
         return (
           <div>
             <p className="text-sm text-gray-800">{client?.name ?? '—'}</p>
-            <p className="text-xs text-gray-400">{client?.company ?? ''}</p>
+            <p className="text-xs text-gray-400">{client?.contactName ?? ''}</p>
           </div>
         );
       },
@@ -136,7 +136,7 @@ export function ProposalsPage() {
       key: 'total',
       header: 'Total',
       align: 'right',
-      render: (p) => <span className="font-semibold text-gray-900">{formatCurrency(p.total)}</span>,
+      render: (p) => <span className="font-semibold text-gray-900">{formatCurrency(p.totalValue)}</span>,
       width: '120px',
     },
     {
@@ -267,7 +267,7 @@ function ProposalLineItemsPanel({ proposal }: { proposal: Proposal }) {
           <tfoot>
             <tr className="border-t border-gray-300">
               <td colSpan={3} className="pt-2 text-right font-semibold text-gray-700">Total</td>
-              <td className="pt-2 text-right font-bold text-gray-900">{formatCurrency(proposal.total)}</td>
+              <td className="pt-2 text-right font-bold text-gray-900">{formatCurrency(proposal.totalValue)}</td>
             </tr>
           </tfoot>
         </table>
@@ -277,7 +277,7 @@ function ProposalLineItemsPanel({ proposal }: { proposal: Proposal }) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Client</p>
             <p className="text-sm font-medium text-gray-800">{client.name}</p>
-            <p className="text-xs text-gray-500">{client.company}</p>
+            <p className="text-xs text-gray-500">{client.contactName}</p>
             <Link href={`/clients/${client.id}`} className="mt-1 text-xs text-brand-blue hover:underline">View client →</Link>
           </div>
         )}

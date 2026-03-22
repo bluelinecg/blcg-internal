@@ -23,15 +23,16 @@ interface ClientFormProps {
 
 interface FormState {
   name: string;
+  contactName: string;
   email: string;
   phone: string;
-  company: string;
   status: ClientStatus;
   notes: string;
 }
 
 interface FormErrors {
   name?: string;
+  contactName?: string;
   email?: string;
 }
 
@@ -45,7 +46,8 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validate(form: FormState): FormErrors {
   const errors: FormErrors = {};
-  if (!form.name.trim()) errors.name = 'Name is required.';
+  if (!form.name.trim()) errors.name = 'Company name is required.';
+  if (!form.contactName.trim()) errors.contactName = 'Contact name is required.';
   if (!form.email.trim()) errors.email = 'Email is required.';
   else if (!EMAIL_REGEX.test(form.email)) errors.email = 'Enter a valid email address.';
   return errors;
@@ -57,9 +59,9 @@ export function ClientForm({ client }: ClientFormProps) {
 
   const [form, setForm] = useState<FormState>({
     name: client?.name ?? '',
+    contactName: client?.contactName ?? '',
     email: client?.email ?? '',
     phone: client?.phone ?? '',
-    company: client?.company ?? '',
     status: client?.status ?? 'prospect',
     notes: client?.notes ?? '',
   });
@@ -106,18 +108,27 @@ export function ClientForm({ client }: ClientFormProps) {
         <div className="grid grid-cols-2 gap-4">
           <Input
             id="name"
-            label="Name"
-            placeholder="Jane Smith"
+            label="Company Name"
+            placeholder="Acme Corp"
             value={form.name}
             onChange={(e) => handleChange('name', e.target.value)}
             error={errors.name}
             required
           />
           <Input
+            id="contactName"
+            label="Contact Name"
+            placeholder="Jane Smith"
+            value={form.contactName}
+            onChange={(e) => handleChange('contactName', e.target.value)}
+            error={errors.contactName}
+            required
+          />
+          <Input
             id="email"
             label="Email"
             type="email"
-            placeholder="jane@company.com"
+            placeholder="jane@acmecorp.com"
             value={form.email}
             onChange={(e) => handleChange('email', e.target.value)}
             error={errors.email}
@@ -129,13 +140,6 @@ export function ClientForm({ client }: ClientFormProps) {
             placeholder="(555) 123-4567"
             value={form.phone}
             onChange={(e) => handleChange('phone', e.target.value)}
-          />
-          <Input
-            id="company"
-            label="Company"
-            placeholder="Acme Corp"
-            value={form.company}
-            onChange={(e) => handleChange('company', e.target.value)}
           />
         </div>
 

@@ -62,8 +62,8 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{client.name}</h2>
-            {client.company && (
-              <p className="mt-0.5 text-sm text-gray-500">{client.company}</p>
+            {client.contactName && (
+              <p className="mt-0.5 text-sm text-gray-500">{client.contactName}</p>
             )}
           </div>
         </div>
@@ -105,8 +105,8 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
                 <dd className="text-sm text-gray-900">{client.phone ?? '—'}</dd>
               </div>
               <div>
-                <dt className="mb-0.5 text-xs text-gray-500">Company</dt>
-                <dd className="text-sm text-gray-900">{client.company ?? '—'}</dd>
+                <dt className="mb-0.5 text-xs text-gray-500">Contact</dt>
+                <dd className="text-sm text-gray-900">{client.contactName ?? '—'}</dd>
               </div>
             </dl>
           </Card>

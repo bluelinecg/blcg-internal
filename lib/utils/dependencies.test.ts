@@ -62,8 +62,8 @@ describe('getClientDeleteBlockers', () => {
     expect(getClientDeleteBlockers(clientId, [proposal], [], [])).toEqual([]);
   });
 
-  it('does not block for rejected proposal', () => {
-    const proposal = createMockProposal({ clientId, status: 'rejected' });
+  it('does not block for declined proposal', () => {
+    const proposal = createMockProposal({ clientId, status: 'declined' });
     expect(getClientDeleteBlockers(clientId, [proposal], [], [])).toEqual([]);
   });
 

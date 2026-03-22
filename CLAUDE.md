@@ -573,10 +573,10 @@ primary context document.
 
 ## Current build status
 
-**Phase**: Full frontend UI complete (mock data) — ready for Supabase wiring
+**Phase**: Supabase setup in progress — type alignment complete, one build fix remaining
 **Live URL**: https://admin.bluelinecg.com
 **Repo**: github.com/bluelinecg/blcg-internal
-**Open branch**: feature/full-frontend-ui (local only — push and open PR before merging)
+**Open branch**: feature/supabase-setup
 
 ### Completed
 - GitHub repo created and connected to Vercel
@@ -589,8 +589,8 @@ primary context document.
   - Sign-in and sign-up pages at /sign-in and /sign-up
   - Clerk middleware protecting all /dashboard routes
   - ClerkProvider in root layout with afterSignOutUrl configured
-- /lib/config.ts env variable validation pattern established
-- .env.example documenting all required variables
+- /lib/config.ts env variable validation pattern established (includes Supabase vars)
+- .env.example documenting all required variables (includes Supabase vars)
 - vercel.json declaring Next.js framework for correct Vercel detection
 - Dashboard shell built and live
   - Sidebar with alphabetical nav, Settings pinned to bottom
@@ -620,18 +620,53 @@ primary context document.
 - lib/mock data established for all modules
 - lib/utils/dependencies.ts — frontend dependency-delete enforcement for all entities
 - Dependency-delete rule enforced at frontend layer across all deletable entities
+- **Supabase setup (feature/supabase-setup branch)**
+  - @supabase/supabase-js installed
+  - supabase/migrations/20260322000000_initial_schema.sql created and run against local DB
+  - lib/db/supabase.ts created (serverClient + browserClient)
+  - lib/config.ts updated with Supabase env var validation
+  - .env.example updated with Supabase variables
+  - Supabase env vars added to Vercel dashboard
+  - All TypeScript types redesigned to match DB schema:
+    - Client: `name` = org/company, `contactName` = person (removed `company`)
+    - Proposal: `totalValue` (was `total`), `expiresAt` (was `validUntil`), status `declined` (was `rejected`), added `proposalNumber`
+    - Finances: InvoiceLineItem has `invoiceId`, `isIncluded`, `sortOrder`; quantity/unitPrice optional; Invoice has required `paymentTerms`/`tax`, optional `proposalId`/`depositAmount`/`balanceDue`/`paymentMethod`; Expense has required `updatedAt`
+  - All mock data files rewritten to match new types
+  - All form modals updated: ProposalFormModal, InvoiceFormModal, ClientForm, ClientDetailView
+  - All pages updated: clients, proposals, projects, projects/[id], finances, dashboard
+  - Zod validation schemas updated for clients, proposals, finances
+  - lib/utils/dependencies.test.ts updated (declined vs rejected)
 
-### Next steps
-1. **Push and merge** feature/full-frontend-ui — open PR, verify preview deploy, merge to main
-2. **Supabase setup**
-   - Install @supabase/supabase-js (flag for approval before installing)
-   - Create /lib/db/supabase.ts client (server and browser variants)
-   - Define schema for all modules — confirm migrations before running
-   - Enable RLS and write policies on every table
-   - Replace lib/mock/* with lib/db/* query functions one module at a time
-3. **API routes** — add /app/api routes for each entity with server-side dependency checks
-4. **Testing** — add Jest + RTL unit/component tests and Playwright E2E tests
-5. **Agentic workflow** — implement two-agent Claude Code pipeline (dev + review agents)
+### Immediate next task — PICK UP HERE
+**Fix ExpenseFormModal.tsx build error** (branch: feature/supabase-setup)
+
+The Vercel build is failing with:
+```
+Type error: Property 'updatedAt' is missing in type
+'{ description: string; category: "software"; amount: number; ... }'
+but required in type 'ExpenseFormData'.
+```
+
+Steps to complete:
+1. Read `components/modules/ExpenseFormModal.tsx`
+2. Add `updatedAt: new Date().toISOString()` to the `makeDefaults()` function (or wherever
+   the initial form state is defined) — this field is set by a DB trigger in production
+   but must exist in the TypeScript shape for the form to compile
+3. Run `npm run build` locally to confirm clean build
+4. Run `npm test` to verify all tests still pass
+5. Commit all changes to feature/supabase-setup with message:
+   `feat: supabase setup — schema, clients, type alignment`
+6. Push and verify Vercel preview build passes
+7. Merge feature/supabase-setup PR into main
+
+### Next steps after merge
+1. **Wiring phase** — replace lib/mock/* with lib/db/* query functions, one module at a time
+   - Start with clients: lib/db/clients.ts → app/api/clients/route.ts → update frontend
+   - Each module: db query functions → API routes → frontend wired to API
+   - Module order: clients → proposals → projects → tasks → finances → emails
+2. **API routes** — /app/api routes for each entity with server-side dependency checks
+3. **Testing** — add Jest + RTL unit/component tests and Playwright E2E tests
+4. **Agentic workflow** — implement two-agent Claude Code pipeline (dev + review agents)
 
 ---
 
@@ -639,7 +674,7 @@ primary context document.
 
 - [x] Next.js + Tailwind + TypeScript base configuration
 - [x] Clerk authentication setup and middleware
-- [ ] Supabase client configuration and type generation setup
+- [x] Supabase client configuration and type generation setup
 - [x] /components/ui primitive library
 - [x] /lib/config.ts environment variable validation pattern
 - [x] Brand token system (brand.ts + @theme pattern)
@@ -649,6 +684,6 @@ primary context document.
 - [ ] Jest and Playwright test configuration
 - [x] .env.example template
 - [x] Base Tailwind configuration with brand design tokens
-- [ ] Zod validation schemas pattern in /lib/validations
+- [x] Zod validation schemas pattern in /lib/validations
 - [ ] This CLAUDE.md adapted as a generic template
 - [ ] Writer Agent and Reviewer Agent instruction files
