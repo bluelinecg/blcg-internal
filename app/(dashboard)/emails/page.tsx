@@ -147,10 +147,10 @@ export function EmailsPage() {
             </div>
           ) : (
             filteredThreads.map((thread) => (
-              <button
+              <div
                 key={thread.id}
                 onClick={() => setSelectedThreadId(thread.id)}
-                className={`flex flex-col gap-1 px-4 py-3.5 text-left border-b border-gray-100 transition-colors hover:bg-gray-50 ${
+                className={`flex flex-col gap-1 px-4 py-3.5 text-left border-b border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
                   selectedThreadId === thread.id ? 'bg-brand-blue/5 border-l-2 border-l-brand-blue' : ''
                 }`}
               >
@@ -185,7 +185,7 @@ export function EmailsPage() {
                     title="Delete thread"
                   >✕</button>
                 </div>
-              </button>
+              </div>
             ))
           )}
         </div>
