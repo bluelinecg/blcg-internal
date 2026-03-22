@@ -1,13 +1,26 @@
 // Dashboard shell layout.
 // Auth protection is handled by Clerk middleware — no auth check needed here.
-// This layout will grow to include Sidebar and TopNav in a future phase.
+// Composes Sidebar and TopNav around the page content area.
+
+import { Sidebar } from '@/components/layout';
+import { TopNav } from '@/components/layout';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  return <div className="min-h-screen bg-gray-100">{children}</div>;
+  return (
+    <div className="flex h-screen bg-gray-100">
+      <Sidebar />
+      <div className="flex flex-col flex-1 min-w-0">
+        <TopNav />
+        <main className="flex flex-col flex-1 overflow-hidden">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
 }
 
 export default DashboardLayout;

@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BRAND TOKENS
+   These CSS custom properties are registered as Tailwind color utilities.
+   Use them as: bg-brand-navy, text-brand-blue, ring-brand-steel, etc.
+
+   To rebrand: update these hex values to match the new client's palette,
+   then update the corresponding values in lib/constants/brand.ts.
+   ───────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-brand-navy: #1C2D44;   /* primary dark — sidebar, headings */
+  --color-brand-blue: #2B6DB5;   /* accent — buttons, active states, logo dot */
+  --color-brand-steel: #8BACC8;  /* secondary — logo lines, subtle accents */
+}
