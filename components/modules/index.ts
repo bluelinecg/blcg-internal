@@ -8,3 +8,4 @@ export { TaskFormModal } from './TaskFormModal';
 export { InvoiceFormModal } from './InvoiceFormModal';
 export { ExpenseFormModal } from './ExpenseFormModal';
 export { ComposeEmailModal } from './ComposeEmailModal';
+export { InviteUserModal } from './InviteUserModal';
