@@ -1,20 +1,16 @@
 'use client';
 
-// Proposals list page — full CRUD via local state.
+// Proposals list page — fetches live data from /api/proposals.
 // Create/edit via ProposalFormModal, delete with dependency check via ConfirmDialog.
-// TODO: replace state initialiser and CRUD handlers with /lib/db/proposals.ts calls.
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, Input, Select, ExpandableTable, ConfirmDialog } from '@/components/ui';
+import { Button, Card, Input, Select, Spinner, ExpandableTable, ConfirmDialog } from '@/components/ui';
 import type { TableColumn } from '@/components/ui/ExpandableTable';
 import { ProposalStatusBadge, ProposalFormModal } from '@/components/modules';
-import { MOCK_PROPOSALS } from '@/lib/mock/proposals';
 import { MOCK_CLIENTS } from '@/lib/mock/clients';
-import { MOCK_PROJECTS } from '@/lib/mock/projects';
-import { getProposalDeleteBlockers } from '@/lib/utils/dependencies';
 import type { Proposal, ProposalStatus } from '@/lib/types/proposals';
 
 type StatusFilter = ProposalStatus | 'all';
@@ -31,19 +27,50 @@ const STATUS_FILTER_OPTIONS = [
 
 const CLIENT_MAP = Object.fromEntries(MOCK_CLIENTS.map((c) => [c.id, c]));
 
+type ProposalFormData = Omit<Proposal, 'id' | 'createdAt' | 'updatedAt'>;
+
 export function ProposalsPage() {
-  const [proposals, setProposals] = useState<Proposal[]>(MOCK_PROPOSALS);
-  const [projects, setProjects] = useState(MOCK_PROJECTS);
-  const [search, setSearch] = useState('');
+  const [proposals, setProposals]   = useState<Proposal[]>([]);
+  const [isLoading, setIsLoading]   = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [search, setSearch]         = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   // Create/edit modal
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Proposal | null>(null);
+  const [formOpen, setFormOpen]   = useState(false);
+  const [editing, setEditing]     = useState<Proposal | null>(null);
+  const [isSaving, setIsSaving]   = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Delete confirm
-  const [deleteTarget, setDeleteTarget] = useState<Proposal | null>(null);
+  const [deleteTarget, setDeleteTarget]   = useState<Proposal | null>(null);
   const [deleteBlockers, setDeleteBlockers] = useState<string[]>([]);
+  const [isCheckingDeps, setIsCheckingDeps] = useState(false);
+  const [isDeleting, setIsDeleting]       = useState(false);
+  const [deleteError, setDeleteError]     = useState<string | null>(null);
+
+  // Load proposals
+  useEffect(() => {
+    void loadProposals();
+  }, []);
+
+  async function loadProposals() {
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const res  = await fetch('/api/proposals');
+      const json = await res.json() as { data: Proposal[] | null; error: string | null };
+      if (!res.ok || json.error) {
+        setFetchError(json.error ?? 'Failed to load proposals');
+      } else {
+        setProposals(json.data ?? []);
+      }
+    } catch {
+      setFetchError('Failed to load proposals');
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     return proposals.filter((p) => {
@@ -53,7 +80,7 @@ export function ProposalsPage() {
         q === '' ||
         p.title.toLowerCase().includes(q) ||
         (client?.name.toLowerCase().includes(q) ?? false) ||
-        (client?.contactName?.toLowerCase().includes(q) ?? false);
+        (client?.contactName.toLowerCase().includes(q) ?? false);
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -61,43 +88,105 @@ export function ProposalsPage() {
 
   // --- CRUD handlers ---
 
-  function handleCreate(data: Omit<Proposal, 'id' | 'createdAt' | 'updatedAt'>) {
-    const now = new Date().toISOString();
-    setProposals((prev) => [
-      ...prev,
-      { ...data, id: `prop_${Date.now()}`, createdAt: now, updatedAt: now },
-    ]);
+  async function handleCreate(data: ProposalFormData) {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const res  = await fetch('/api/proposals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json() as { data: Proposal | null; error: string | null };
+      if (!res.ok || json.error) {
+        setSaveError(json.error ?? 'Failed to create proposal');
+        return;
+      }
+      if (json.data) setProposals((prev) => [json.data!, ...prev]);
+      setFormOpen(false);
+    } catch {
+      setSaveError('Network error. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  function handleEdit(data: Omit<Proposal, 'id' | 'createdAt' | 'updatedAt'>) {
+  async function handleEdit(data: ProposalFormData) {
     if (!editing) return;
-    setProposals((prev) =>
-      prev.map((p) =>
-        p.id === editing.id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p
-      )
-    );
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const res  = await fetch(`/api/proposals/${editing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json() as { data: Proposal | null; error: string | null };
+      if (!res.ok || json.error) {
+        setSaveError(json.error ?? 'Failed to update proposal');
+        return;
+      }
+      if (json.data) {
+        setProposals((prev) => prev.map((p) => (p.id === editing.id ? json.data! : p)));
+      }
+      closeForm();
+    } catch {
+      setSaveError('Network error. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function openEdit(proposal: Proposal) {
     setEditing(proposal);
+    setSaveError(null);
     setFormOpen(true);
   }
 
-  function openDelete(proposal: Proposal) {
-    const blockers = getProposalDeleteBlockers(proposal.id, projects);
-    setDeleteBlockers(blockers);
-    setDeleteTarget(proposal);
+  async function openDelete(proposal: Proposal) {
+    setIsCheckingDeps(true);
+    setDeleteError(null);
+    try {
+      const res  = await fetch(`/api/proposals/${proposal.id}/blockers`);
+      const json = await res.json() as { data: string[] | null; error: string | null };
+      if (!res.ok || json.error) {
+        setDeleteError(json.error ?? 'Could not check dependencies');
+        return;
+      }
+      setDeleteBlockers(json.data ?? []);
+      setDeleteTarget(proposal);
+    } catch {
+      setDeleteError('Network error. Please try again.');
+    } finally {
+      setIsCheckingDeps(false);
+    }
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return;
-    setProposals((prev) => prev.filter((p) => p.id !== deleteTarget.id));
-    setDeleteTarget(null);
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const res  = await fetch(`/api/proposals/${deleteTarget.id}`, { method: 'DELETE' });
+      const json = await res.json() as { data: unknown; error: string | null };
+      if (!res.ok || json.error) {
+        setDeleteError(json.error ?? 'Failed to delete proposal');
+        setDeleteTarget(null);
+        return;
+      }
+      setProposals((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch {
+      setDeleteError('Network error. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   function closeForm() {
     setFormOpen(false);
     setEditing(null);
+    setSaveError(null);
   }
 
   // --- Summary stats ---
@@ -152,7 +241,15 @@ export function ProposalsPage() {
       render: (p) => (
         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>Edit</Button>
-          <Button variant="ghost" size="sm" onClick={() => openDelete(p)} className="text-red-500 hover:text-red-600 hover:bg-red-50">Delete</Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openDelete(p)}
+            disabled={isCheckingDeps}
+            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+          >
+            Delete
+          </Button>
         </div>
       ),
       width: '140px',
@@ -163,13 +260,19 @@ export function ProposalsPage() {
     <PageShell>
       <PageHeader
         title="Proposals"
-        subtitle={`${proposals.length} total proposals`}
+        subtitle={isLoading ? 'Loading…' : `${proposals.length} total proposals`}
         actions={
-          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+          <Button onClick={() => { setEditing(null); setSaveError(null); setFormOpen(true); }}>
             + New Proposal
           </Button>
         }
       />
+
+      {deleteError && (
+        <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3">
+          <p className="text-sm text-red-600">{deleteError}</p>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4">
@@ -190,10 +293,10 @@ export function ProposalsPage() {
       {/* Summary stats */}
       <div className="flex gap-4 mb-5">
         {[
-          { label: 'Total Value',   value: formatCurrency(totalValue) },
-          { label: 'Accepted',      value: formatCurrency(acceptedValue) },
-          { label: 'Open',          value: openCount },
-          { label: 'Drafts',        value: draftCount },
+          { label: 'Total Value', value: formatCurrency(totalValue) },
+          { label: 'Accepted',    value: formatCurrency(acceptedValue) },
+          { label: 'Open',        value: openCount },
+          { label: 'Drafts',      value: draftCount },
         ].map((s) => (
           <div key={s.label} className="flex flex-col rounded-md border border-gray-200 bg-white px-4 py-3 min-w-32">
             <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">{s.label}</span>
@@ -202,15 +305,23 @@ export function ProposalsPage() {
         ))}
       </div>
 
-      {/* Expandable table */}
+      {/* Table */}
       <Card>
-        <ExpandableTable
-          columns={COLUMNS}
-          rows={filtered}
-          getRowId={(p) => p.id}
-          renderExpanded={(p) => <ProposalLineItemsPanel proposal={p} />}
-          emptyMessage="No proposals match your search."
-        />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16"><Spinner /></div>
+        ) : fetchError ? (
+          <div className="flex items-center justify-center py-16">
+            <p className="text-sm text-red-500">{fetchError}</p>
+          </div>
+        ) : (
+          <ExpandableTable
+            columns={COLUMNS}
+            rows={filtered}
+            getRowId={(p) => p.id}
+            renderExpanded={(p) => <ProposalLineItemsPanel proposal={p} />}
+            emptyMessage="No proposals match your search."
+          />
+        )}
       </Card>
 
       {/* Create / Edit modal */}
@@ -220,6 +331,8 @@ export function ProposalsPage() {
         onSave={editing ? handleEdit : handleCreate}
         initial={editing ?? undefined}
         clients={MOCK_CLIENTS}
+        isSaving={isSaving}
+        saveError={saveError}
       />
 
       {/* Delete confirm */}
@@ -237,7 +350,7 @@ export function ProposalsPage() {
 
 export default ProposalsPage;
 
-// --- Line items expanded panel (unchanged) ---
+// --- Line items expanded panel ---
 
 function ProposalLineItemsPanel({ proposal }: { proposal: Proposal }) {
   const client = CLIENT_MAP[proposal.clientId];

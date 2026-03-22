@@ -23,6 +23,8 @@ interface ProposalFormModalProps {
   onSave: (data: ProposalFormData) => void;
   initial?: Partial<ProposalFormData>;
   clients: Client[];
+  isSaving?: boolean;
+  saveError?: string | null;
 }
 
 const STATUS_OPTIONS: { value: ProposalStatus; label: string }[] = [
@@ -50,7 +52,7 @@ const DEFAULTS: ProposalFormData = {
   sentAt: undefined,
 };
 
-export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients }: ProposalFormModalProps) {
+export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, isSaving, saveError }: ProposalFormModalProps) {
   const [form, setForm] = useState<ProposalFormData>({ ...DEFAULTS, ...initial });
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
@@ -257,9 +259,15 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients }:
           placeholder="Payment terms, special conditions..."
         />
 
+        {saveError && (
+          <p className="text-sm text-red-500">{saveError}</p>
+        )}
+
         <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>{isEdit ? 'Save Changes' : 'Create Proposal'}</Button>
+          <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Proposal'}
+          </Button>
         </div>
       </div>
     </Modal>
