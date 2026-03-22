@@ -7,9 +7,9 @@ import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { Badge, Card, MilestoneTracker } from '@/components/ui';
-import { getProjectById } from '@/lib/mock/projects';
-import { getClientById } from '@/lib/mock/clients';
-import { getProposalById } from '@/lib/mock/proposals';
+import { getProjectById } from '@/lib/db/projects';
+import { getClientById } from '@/lib/db/clients';
+import { getProposalById } from '@/lib/db/proposals';
 import type { ProjectStatus, MilestoneStatus } from '@/lib/types/projects';
 
 const STATUS_BADGE: Record<ProjectStatus, { variant: 'green' | 'blue' | 'yellow' | 'red' | 'gray'; label: string }> = {
@@ -25,12 +25,19 @@ interface PageProps {
 
 export default async function ProjectDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const project = getProjectById(id);
+  const { data: project, error } = await getProjectById(id);
 
+  if (error) throw new Error(error);
   if (!project) notFound();
 
-  const client = project.clientId ? getClientById(project.clientId) : undefined;
-  const proposal = project.proposalId ? getProposalById(project.proposalId) : undefined;
+  const [clientResult, proposalResult] = await Promise.all([
+    getClientById(project.clientId),
+    project.proposalId
+      ? getProposalById(project.proposalId)
+      : Promise.resolve({ data: undefined, error: null }),
+  ]);
+  const client = clientResult.data;
+  const proposal = proposalResult.data;
   const statusCfg = STATUS_BADGE[project.status];
   const completedCount = project.milestones.filter((m) => m.status === 'completed').length;
   const totalCount = project.milestones.length;
