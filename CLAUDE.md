@@ -98,6 +98,53 @@ Always code with that extraction in mind.
 
 ---
 
+## Data integrity — dependency deletion rule
+
+**RULE: Never allow deletion of a record that has active dependencies.**
+
+Before any delete operation is permitted, check for child records that would be
+orphaned or broken. Surface a blocking error to the user that names the specific
+dependencies and what must be resolved first. Do NOT silently skip or cascade-delete.
+
+**Dependency matrix:**
+
+| Record       | Blocked if...                                                              |
+|--------------|---------------------------------------------------------------------------|
+| Client       | Has any proposals with status `sent`, `viewed`, or `accepted`; OR any projects with status `active` or `on_hold`; OR any invoices with status `sent`, `viewed`, or `overdue` |
+| Proposal     | Has a linked project (any status)                                         |
+| Project      | Has invoices with status `sent`, `viewed`, or `overdue`                   |
+| Invoice      | Status is anything other than `draft` or `cancelled`                      |
+| Task         | No restrictions — always deletable                                        |
+| Expense      | No restrictions — always deletable                                        |
+| Email thread | No restrictions — always deletable                                        |
+
+**This rule is enforced at three layers — all three must be in place before a module is
+considered production-ready:**
+
+1. **Frontend (always required, even in mock-data phase)**
+   - All dependency check functions live in `lib/utils/dependencies.ts`, one per entity
+   - Every delete button calls the relevant checker before opening any dialog
+   - Pass the result to `ConfirmDialog`'s `blockedBy` prop
+   - If blocked: red dependency list shown, confirm button disabled
+   - If clear: standard "Are you sure?" confirm, then execute delete
+   - This is UX — it tells the user *why* they can't delete and what to fix
+
+2. **Server / API layer (required when API routes are added)**
+   - Every delete API route re-runs the same dependency check against live DB data
+   - Returns a structured `{ data: null, error: string }` response if blocked
+   - Never trust the frontend check alone — a direct API call would bypass it
+
+3. **Database constraints (required when Supabase schema is defined)**
+   - Add foreign key constraints on all relationship columns
+     (e.g. `proposals.client_id → clients.id`, `projects.proposal_id → proposals.id`)
+   - This is the ultimate safety net — Postgres rejects orphaning deletes at the query level
+   - Translate Postgres FK violation errors into user-friendly messages at the API layer
+
+**The `lib/utils/dependencies.ts` functions must not be removed when the DB layer is added.
+They serve a different purpose (UX clarity) than DB constraints (data integrity). Both coexist.**
+
+---
+
 ## Coding conventions
 - **Named exports only** — no default exports on components
 - **TypeScript strict mode** — no use of `any` type, ever
@@ -216,9 +263,10 @@ across multiple files or executing multi-step tasks.
 ---
 
 ## Current build status
-**Phase**: Foundation complete — dashboard shell next
+**Phase**: Dashboard shell and clients UI complete — Supabase wiring next
 **Live URL**: https://admin.bluelinecg.com
 **Repo**: github.com/bluelinecg/blcg-internal
+**Open PR**: feature/dashboard-shell-and-clients-ui
 
 **Completed**:
 - GitHub repo created and connected to Vercel
@@ -234,22 +282,68 @@ across multiple files or executing multi-step tasks.
 - /lib/config.ts env variable validation pattern established
 - .env.example documenting all required variables
 - vercel.json declaring Next.js framework for correct Vercel detection
-- Hello world /dashboard page confirmed live in production
+- Dashboard shell built and live
+  - Sidebar with nav links and active route highlighting
+  - TopNav with page title and Clerk UserButton
+  - PageShell and PageHeader layout components
+  - BrandLogo inline SVG component (light/dark variants)
+- Brand token system established
+  - lib/constants/brand.ts as single source of truth
+  - @theme block in globals.css registers bg-brand-navy, bg-brand-blue, bg-brand-steel
+  - All UI primitives wired to brand tokens
+- Full /components/ui primitive library built
+  - Button, Badge, Card, Input, Select, Textarea, Spinner
+- Clients module UI complete (mock data, no Supabase yet)
+  - /clients — searchable, filterable list with table layout
+  - /clients/new — create form with validation
+  - /clients/[id] — detail view with contact info, notes, proposals placeholder
+  - /clients/[id]/edit — edit form pre-filled from mock data
+- lib/types/clients.ts, lib/mock/clients.ts, lib/utils/format.ts established
 
 **Stack notes**:
 - Next.js 16.2.1 (not 14 as originally planned — use 16 conventions)
 - Tailwind v4 — no tailwind.config.ts, uses @import "tailwindcss" in globals.css
 - Clerk v7 — use clerkMiddleware (not deprecated authMiddleware)
 - React 19
+- params in dynamic routes are async (Promise<{ id: string }>) — always await them
 
 **Next steps**:
-- Build dashboard shell: Sidebar and TopNav layout components
-  - Sidebar with nav links: Dashboard, Clients, Proposals, Emails, Settings
-  - TopNav with page title and user avatar (UserButton)
-  - PageShell and PageHeader layout components
-  - Wire up /components/layout/ structure per CLAUDE.md
-- Install and configure Supabase client
-- Build client/customer management module (first core feature)
+1. **Review and merge** feature/dashboard-shell-and-clients-ui PR
+2. **Supabase setup**
+   - Install @supabase/supabase-js (flag for approval before installing)
+   - Create /lib/db/supabase.ts client (server and browser variants)
+   - Define clients table schema (confirm before running migration)
+   - Enable RLS and write policies
+   - Replace mock data in /lib/mock/clients.ts with /lib/db/clients.ts queries
+3. **Dashboard home page** — replace placeholder with real summary widgets
+   (active client count, open proposals, recent activity)
+4. **Proposals module** — UI first (same mock-data-first approach as clients),
+   then wire to Supabase once schema is settled
+5. **Agentic workflow** — build a two-agent Claude Code workflow:
+   - Dev agent: picks up tasks and implements them end-to-end on a feature branch
+   - Review agent: code reviews the PR, checks conventions, approves or requests changes
+   See Claude Code hooks and sub-agent documentation for implementation approach
+
+---
+
+## Agentic workflow (planned)
+The goal is a two-agent pipeline that mirrors a real dev/review process:
+
+**Dev agent** responsibilities:
+- Read CLAUDE.md and memory at the start of every task
+- Create a feature branch before touching any files
+- Implement the task end-to-end (components, types, tests where applicable)
+- Commit with conventional messages and open a PR
+
+**Review agent** responsibilities:
+- Read the diff of the open PR
+- Check against CLAUDE.md conventions (naming, exports, no `any`, brand tokens, etc.)
+- Verify folder structure is correct
+- Approve if passing, or request changes with specific file:line feedback
+
+Implementation approach: Claude Code sub-agents via the Agent SDK, triggered by
+a hook or manual invocation. Both agents share this CLAUDE.md as their primary
+context document.
 
 ---
 
@@ -260,10 +354,12 @@ into blcg-starter-template:
 - [x] Next.js + Tailwind + TypeScript base configuration
 - [x] Clerk authentication setup and middleware
 - [ ] Supabase client configuration and type generation setup
-- [ ] /components/ui primitive library
+- [x] /components/ui primitive library
 - [x] /lib/config.ts environment variable validation pattern
+- [x] Brand token system (brand.ts + @theme pattern)
+- [x] BrandLogo component (swap-ready for client rebranding)
 - [ ] Standard API route response shape
 - [ ] GitHub Actions CI/CD workflow file
 - [x] .env.example template
-- [ ] Base Tailwind configuration with design tokens
+- [x] Base Tailwind configuration with brand design tokens
 - [ ] This CLAUDE.md adapted as a generic template

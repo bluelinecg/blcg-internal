@@ -51,6 +51,33 @@ function IconProposals() {
   );
 }
 
+function IconProjects() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function IconTasks() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="5" height="18" rx="1" />
+      <rect x="10" y="3" width="5" height="12" rx="1" />
+      <rect x="17" y="3" width="5" height="16" rx="1" />
+    </svg>
+  );
+}
+
+function IconFinances() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="12" y1="1" x2="12" y2="23" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  );
+}
+
 function IconEmails() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -71,13 +98,37 @@ function IconSettings() {
 
 // --- Nav items ---
 
-const NAV_ITEMS: NavItem[] = [
+// Main nav — Dashboard first, then alphabetical. Settings is pinned to the bottom separately.
+const MAIN_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard /> },
-  { label: 'Clients', href: '/clients', icon: <IconClients /> },
+  { label: 'Clients',   href: '/clients',   icon: <IconClients /> },
+  { label: 'Emails',    href: '/emails',    icon: <IconEmails /> },
+  { label: 'Finances',  href: '/finances',  icon: <IconFinances /> },
+  { label: 'Projects',  href: '/projects',  icon: <IconProjects /> },
   { label: 'Proposals', href: '/proposals', icon: <IconProposals /> },
-  { label: 'Emails', href: '/emails', icon: <IconEmails /> },
-  { label: 'Settings', href: '/settings', icon: <IconSettings /> },
+  { label: 'Tasks',     href: '/tasks',     icon: <IconTasks /> },
 ];
+
+const SETTINGS_ITEM: NavItem = { label: 'Settings', href: '/settings', icon: <IconSettings /> };
+
+// --- Nav link ---
+
+function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+  return (
+    <Link
+      href={item.href}
+      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+        isActive
+          ? 'bg-brand-blue text-white'
+          : 'text-brand-steel hover:bg-white/10 hover:text-white'
+      }`}
+    >
+      {item.icon}
+      {item.label}
+    </Link>
+  );
+}
 
 // --- Component ---
 
@@ -92,26 +143,18 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex flex-col flex-1 px-3 py-5 gap-0.5">
-        {NAV_ITEMS.map((item) => {
-          const isActive =
-            pathname === item.href || pathname.startsWith(item.href + '/');
+      <nav className="flex flex-col flex-1 px-3 py-5">
+        {/* Main nav items */}
+        <div className="flex flex-col gap-0.5 flex-1">
+          {MAIN_NAV_ITEMS.map((item) => (
+            <NavLink key={item.href} item={item} pathname={pathname} />
+          ))}
+        </div>
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-brand-blue text-white'
-                  : 'text-brand-steel hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          );
-        })}
+        {/* Settings pinned to bottom */}
+        <div className="pt-2 border-t border-white/10">
+          <NavLink item={SETTINGS_ITEM} pathname={pathname} />
+        </div>
       </nav>
     </aside>
   );

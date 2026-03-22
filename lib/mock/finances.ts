@@ -1,0 +1,194 @@
+import type { Invoice, Expense } from '@/lib/types/finances';
+
+export const MOCK_INVOICES: Invoice[] = [
+  {
+    id: 'inv_1',
+    clientId: 'cl_1',
+    projectId: 'proj_1',
+    invoiceNumber: 'INV-2026-001',
+    status: 'paid',
+    lineItems: [
+      { id: 'ili_1_1', description: 'E-Commerce Redesign — 50% Deposit', quantity: 1, unitPrice: 6250, total: 6250 },
+    ],
+    subtotal: 6250,
+    total: 6250,
+    dueDate: '2026-02-15T00:00:00Z',
+    paidDate: '2026-02-10T00:00:00Z',
+    notes: 'Project kickoff deposit.',
+    createdAt: '2026-02-01T10:00:00Z',
+    updatedAt: '2026-02-10T14:00:00Z',
+  },
+  {
+    id: 'inv_2',
+    clientId: 'cl_3',
+    projectId: 'proj_2',
+    invoiceNumber: 'INV-2026-002',
+    status: 'sent',
+    lineItems: [
+      { id: 'ili_2_1', description: 'SEO Retainer — April 2026', quantity: 1, unitPrice: 800, total: 800 },
+    ],
+    subtotal: 800,
+    total: 800,
+    dueDate: '2026-04-07T00:00:00Z',
+    notes: 'First month of Q2 retainer.',
+    createdAt: '2026-03-20T09:00:00Z',
+    updatedAt: '2026-03-20T09:00:00Z',
+  },
+  {
+    id: 'inv_3',
+    clientId: 'cl_4',
+    projectId: 'proj_4',
+    invoiceNumber: 'INV-2025-008',
+    status: 'paid',
+    lineItems: [
+      { id: 'ili_3_1', description: 'Owens Roofing Website — Final Payment', quantity: 1, unitPrice: 3250, total: 3250 },
+    ],
+    subtotal: 3250,
+    total: 3250,
+    dueDate: '2025-12-07T00:00:00Z',
+    paidDate: '2025-12-03T00:00:00Z',
+    notes: 'Final 50% on project completion.',
+    createdAt: '2025-11-25T10:00:00Z',
+    updatedAt: '2025-12-03T14:00:00Z',
+  },
+  {
+    id: 'inv_4',
+    clientId: 'cl_5',
+    projectId: 'proj_3',
+    invoiceNumber: 'INV-2026-003',
+    status: 'draft',
+    lineItems: [
+      { id: 'ili_4_1', description: 'Rivera Law Client Portal — Kickoff Deposit (50%)', quantity: 1, unitPrice: 9000, total: 9000 },
+    ],
+    subtotal: 9000,
+    total: 9000,
+    dueDate: '2026-04-01T00:00:00Z',
+    notes: 'Pending proposal acceptance. Hold until signed.',
+    createdAt: '2026-03-20T11:00:00Z',
+    updatedAt: '2026-03-20T11:00:00Z',
+  },
+  {
+    id: 'inv_5',
+    clientId: 'cl_2',
+    invoiceNumber: 'INV-2026-004',
+    status: 'overdue',
+    lineItems: [
+      { id: 'ili_5_1', description: 'CRM Consultation — 2hr Discovery Session', quantity: 2, unitPrice: 150, total: 300 },
+    ],
+    subtotal: 300,
+    total: 300,
+    dueDate: '2026-03-10T00:00:00Z',
+    notes: 'Follow up with Marcus.',
+    createdAt: '2026-02-25T09:00:00Z',
+    updatedAt: '2026-03-11T09:00:00Z',
+  },
+];
+
+export const MOCK_EXPENSES: Expense[] = [
+  {
+    id: 'exp_1',
+    description: 'Figma Professional — Monthly',
+    category: 'software',
+    amount: 15,
+    vendor: 'Figma',
+    date: '2026-03-01T00:00:00Z',
+    createdAt: '2026-03-01T08:00:00Z',
+  },
+  {
+    id: 'exp_2',
+    description: 'Vercel Pro — Monthly',
+    category: 'software',
+    amount: 20,
+    vendor: 'Vercel',
+    date: '2026-03-01T00:00:00Z',
+    createdAt: '2026-03-01T08:00:00Z',
+  },
+  {
+    id: 'exp_3',
+    description: 'GitHub Teams — Monthly',
+    category: 'software',
+    amount: 8,
+    vendor: 'GitHub',
+    date: '2026-03-01T00:00:00Z',
+    createdAt: '2026-03-01T08:00:00Z',
+  },
+  {
+    id: 'exp_4',
+    description: 'Supabase Pro — Monthly',
+    category: 'software',
+    amount: 25,
+    vendor: 'Supabase',
+    date: '2026-03-01T00:00:00Z',
+    createdAt: '2026-03-01T08:00:00Z',
+  },
+  {
+    id: 'exp_5',
+    description: 'Clerk Pro — Monthly',
+    category: 'software',
+    amount: 25,
+    vendor: 'Clerk',
+    date: '2026-03-01T00:00:00Z',
+    createdAt: '2026-03-01T08:00:00Z',
+  },
+  {
+    id: 'exp_6',
+    description: 'Google Workspace — Monthly (2 seats)',
+    category: 'software',
+    amount: 14,
+    vendor: 'Google',
+    date: '2026-03-01T00:00:00Z',
+    createdAt: '2026-03-01T08:00:00Z',
+  },
+  {
+    id: 'exp_7',
+    description: 'Freelance copywriter — Acme blog posts',
+    category: 'contractors',
+    amount: 350,
+    projectId: 'proj_1',
+    vendor: 'Jessica Moore (Freelance)',
+    date: '2026-03-15T00:00:00Z',
+    notes: 'Two 800-word blog posts for Acme Corp launch content.',
+    createdAt: '2026-03-15T10:00:00Z',
+  },
+  {
+    id: 'exp_8',
+    description: 'Google Ads — March campaign',
+    category: 'marketing',
+    amount: 200,
+    vendor: 'Google Ads',
+    date: '2026-03-01T00:00:00Z',
+    notes: 'BLCG brand awareness campaign.',
+    createdAt: '2026-03-01T09:00:00Z',
+  },
+  {
+    id: 'exp_9',
+    description: 'Business cards reprint',
+    category: 'marketing',
+    amount: 45,
+    vendor: 'Moo.com',
+    date: '2026-02-20T00:00:00Z',
+    createdAt: '2026-02-20T11:00:00Z',
+  },
+  {
+    id: 'exp_10',
+    description: 'Client lunch — Marcus Lee / Brightpath',
+    category: 'travel',
+    amount: 78,
+    vendor: 'The Capital Grille',
+    date: '2026-03-08T00:00:00Z',
+    notes: 'Pre-proposal lunch, Denver.',
+    createdAt: '2026-03-08T20:00:00Z',
+  },
+];
+
+export function getAllInvoices(): Invoice[] {
+  return MOCK_INVOICES;
+}
+
+export function getAllExpenses(): Expense[] {
+  return MOCK_EXPENSES;
+}
+
+export function getInvoicesByClientId(clientId: string): Invoice[] {
+  return MOCK_INVOICES.filter((i) => i.clientId === clientId);
+}
