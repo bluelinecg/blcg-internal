@@ -3,11 +3,14 @@
 // Modal form for creating Invoices.
 // Includes a dynamic line items editor that auto-calculates totals.
 // Props:
-//   isOpen    — controls visibility
-//   onClose   — dismiss callback
-//   onSave    — called with the new invoice data
-//   clients   — list of clients
-//   projects  — list of projects for optional linking
+//   isOpen            — controls visibility
+//   onClose           — dismiss callback
+//   onSave            — called with the new invoice data
+//   clients           — list of clients
+//   projects          — list of projects for optional linking
+//   nextInvoiceNumber — pre-filled invoice number
+//   isSaving          — disables buttons while the async save is in flight
+//   saveError         — inline error message shown above the action buttons
 
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
@@ -25,6 +28,8 @@ interface InvoiceFormModalProps {
   clients: Client[];
   projects: Project[];
   nextInvoiceNumber: string;
+  isSaving?: boolean;
+  saveError?: string | null;
 }
 
 const STATUS_OPTIONS: { value: InvoiceStatus; label: string }[] = [
@@ -63,7 +68,7 @@ function makeDefaults(invoiceNumber: string): InvoiceFormData {
   };
 }
 
-export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, nextInvoiceNumber }: InvoiceFormModalProps) {
+export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, nextInvoiceNumber, isSaving, saveError }: InvoiceFormModalProps) {
   const [form, setForm] = useState<InvoiceFormData>(makeDefaults(nextInvoiceNumber));
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
@@ -123,7 +128,6 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, n
       projectId: form.projectId || undefined,
       notes: form.notes || undefined,
     });
-    onClose();
   }
 
   const clientOptions = [
@@ -255,8 +259,11 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, n
         />
 
         <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>Create Invoice</Button>
+          {saveError && <p className="text-sm text-red-500 mr-auto">{saveError}</p>}
+          <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? 'Saving…' : 'Create Invoice'}
+          </Button>
         </div>
       </div>
     </Modal>
