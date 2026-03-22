@@ -1,2 +1,10 @@
 export { StatusBadge } from './StatusBadge';
 export { ClientForm } from './ClientForm';
+export { ClientDetailView } from './ClientDetailView';
+export { ProposalStatusBadge } from './ProposalStatusBadge';
+export { ProposalFormModal } from './ProposalFormModal';
+export { ProjectFormModal } from './ProjectFormModal';
+export { TaskFormModal } from './TaskFormModal';
+export { InvoiceFormModal } from './InvoiceFormModal';
+export { ExpenseFormModal } from './ExpenseFormModal';
+export { ComposeEmailModal } from './ComposeEmailModal';

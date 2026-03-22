@@ -1,0 +1,205 @@
+import type { Project } from '@/lib/types/projects';
+
+export const MOCK_PROJECTS: Project[] = [
+  {
+    id: 'proj_1',
+    clientId: 'cl_1',
+    proposalId: 'prop_1',
+    name: 'Acme Corp — E-Commerce Redesign',
+    status: 'active',
+    startDate: '2026-02-01T00:00:00Z',
+    targetDate: '2026-05-15T00:00:00Z',
+    budget: 12500,
+    milestones: [
+      {
+        id: 'ms_1_1',
+        name: 'Discovery & UX Research',
+        description: 'Stakeholder interviews, competitor analysis, user flow mapping.',
+        status: 'completed',
+        dueDate: '2026-02-14T00:00:00Z',
+        completedDate: '2026-02-12T00:00:00Z',
+        order: 1,
+      },
+      {
+        id: 'ms_1_2',
+        name: 'UI/UX Design',
+        description: 'Figma wireframes and high-fidelity mockups for all key screens.',
+        status: 'completed',
+        dueDate: '2026-03-07T00:00:00Z',
+        completedDate: '2026-03-05T00:00:00Z',
+        order: 2,
+      },
+      {
+        id: 'ms_1_3',
+        name: 'Frontend Development',
+        description: 'Build all UI components, pages, and routing.',
+        status: 'in_progress',
+        dueDate: '2026-04-11T00:00:00Z',
+        order: 3,
+      },
+      {
+        id: 'ms_1_4',
+        name: 'Backend & API Integration',
+        description: 'Connect Stripe, product catalog API, and order management.',
+        status: 'pending',
+        dueDate: '2026-04-30T00:00:00Z',
+        order: 4,
+      },
+      {
+        id: 'ms_1_5',
+        name: 'QA & Launch',
+        description: 'Cross-browser testing, performance audit, and go-live.',
+        status: 'pending',
+        dueDate: '2026-05-15T00:00:00Z',
+        order: 5,
+      },
+    ],
+    notes: 'Client prefers weekly status updates via email. Main contact is Sarah Johnson.',
+    createdAt: '2026-01-22T11:00:00Z',
+    updatedAt: '2026-03-20T14:00:00Z',
+  },
+  {
+    id: 'proj_2',
+    clientId: 'cl_3',
+    proposalId: 'prop_3',
+    name: 'Nova Bloom — SEO Retainer Q2',
+    status: 'active',
+    startDate: '2026-04-01T00:00:00Z',
+    targetDate: '2026-06-30T00:00:00Z',
+    budget: 2400,
+    milestones: [
+      {
+        id: 'ms_2_1',
+        name: 'April Audit & Optimization',
+        description: 'Full site audit, keyword review, and April content optimization.',
+        status: 'pending',
+        dueDate: '2026-04-30T00:00:00Z',
+        order: 1,
+      },
+      {
+        id: 'ms_2_2',
+        name: 'May Audit & Optimization',
+        description: 'Monthly audit, backlink analysis, and May content optimization.',
+        status: 'pending',
+        dueDate: '2026-05-31T00:00:00Z',
+        order: 2,
+      },
+      {
+        id: 'ms_2_3',
+        name: 'June Audit & Q2 Report',
+        description: 'Final monthly audit and comprehensive Q2 performance report.',
+        status: 'pending',
+        dueDate: '2026-06-30T00:00:00Z',
+        order: 3,
+      },
+    ],
+    notes: 'Retainer auto-renews. Linda reviews reports within 48 hours.',
+    createdAt: '2026-03-03T10:00:00Z',
+    updatedAt: '2026-03-03T10:00:00Z',
+  },
+  {
+    id: 'proj_3',
+    clientId: 'cl_5',
+    name: 'Rivera Law — Client Portal',
+    status: 'active',
+    startDate: '2026-03-15T00:00:00Z',
+    targetDate: '2026-07-01T00:00:00Z',
+    budget: 18000,
+    milestones: [
+      {
+        id: 'ms_3_1',
+        name: 'Architecture & Planning',
+        description: 'Define data models, auth flows, storage strategy, and tech stack.',
+        status: 'in_progress',
+        dueDate: '2026-04-01T00:00:00Z',
+        order: 1,
+      },
+      {
+        id: 'ms_3_2',
+        name: 'Authentication & Roles',
+        description: 'Clerk SSO, lawyer vs. client role separation, MFA enforcement.',
+        status: 'pending',
+        dueDate: '2026-04-21T00:00:00Z',
+        order: 2,
+      },
+      {
+        id: 'ms_3_3',
+        name: 'Document Storage System',
+        description: 'Supabase Storage integration, upload UI, permission-based access.',
+        status: 'pending',
+        dueDate: '2026-05-16T00:00:00Z',
+        order: 3,
+      },
+      {
+        id: 'ms_3_4',
+        name: 'Client-Facing Portal UI',
+        description: 'Client dashboard, document viewer, case status display.',
+        status: 'pending',
+        dueDate: '2026-06-06T00:00:00Z',
+        order: 4,
+      },
+      {
+        id: 'ms_3_5',
+        name: 'Admin Dashboard & Security Audit',
+        description: 'Internal admin view, audit logging, penetration test.',
+        status: 'pending',
+        dueDate: '2026-07-01T00:00:00Z',
+        order: 5,
+      },
+    ],
+    notes: 'Document all architectural decisions. Tanya will review each milestone before sign-off.',
+    createdAt: '2026-03-15T11:00:00Z',
+    updatedAt: '2026-03-20T16:00:00Z',
+  },
+  {
+    id: 'proj_4',
+    clientId: 'cl_4',
+    name: 'Owens Roofing — Company Website',
+    status: 'completed',
+    startDate: '2025-08-15T00:00:00Z',
+    targetDate: '2025-11-30T00:00:00Z',
+    completedDate: '2025-11-22T00:00:00Z',
+    budget: 6500,
+    milestones: [
+      {
+        id: 'ms_4_1',
+        name: 'Design',
+        status: 'completed',
+        dueDate: '2025-09-15T00:00:00Z',
+        completedDate: '2025-09-12T00:00:00Z',
+        order: 1,
+      },
+      {
+        id: 'ms_4_2',
+        name: 'Development',
+        status: 'completed',
+        dueDate: '2025-10-31T00:00:00Z',
+        completedDate: '2025-10-28T00:00:00Z',
+        order: 2,
+      },
+      {
+        id: 'ms_4_3',
+        name: 'Launch',
+        status: 'completed',
+        dueDate: '2025-11-30T00:00:00Z',
+        completedDate: '2025-11-22T00:00:00Z',
+        order: 3,
+      },
+    ],
+    notes: 'Project delivered on time and under budget. Client satisfied.',
+    createdAt: '2025-08-10T13:00:00Z',
+    updatedAt: '2025-11-22T17:00:00Z',
+  },
+];
+
+export function getAllProjects(): Project[] {
+  return MOCK_PROJECTS;
+}
+
+export function getProjectById(id: string): Project | undefined {
+  return MOCK_PROJECTS.find((p) => p.id === id);
+}
+
+export function getProjectsByClientId(clientId: string): Project[] {
+  return MOCK_PROJECTS.filter((p) => p.clientId === clientId);
+}
