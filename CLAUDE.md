@@ -263,10 +263,10 @@ across multiple files or executing multi-step tasks.
 ---
 
 ## Current build status
-**Phase**: Dashboard shell and clients UI complete — Supabase wiring next
+**Phase**: Full frontend UI complete (mock data) — ready for Supabase wiring
 **Live URL**: https://admin.bluelinecg.com
 **Repo**: github.com/bluelinecg/blcg-internal
-**Open PR**: feature/dashboard-shell-and-clients-ui
+**Open branch**: feature/full-frontend-ui (not yet pushed — push and open PR before merging)
 
 **Completed**:
 - GitHub repo created and connected to Vercel
@@ -283,7 +283,7 @@ across multiple files or executing multi-step tasks.
 - .env.example documenting all required variables
 - vercel.json declaring Next.js framework for correct Vercel detection
 - Dashboard shell built and live
-  - Sidebar with nav links and active route highlighting
+  - Sidebar with nav links (alphabetical, Settings pinned bottom)
   - TopNav with page title and Clerk UserButton
   - PageShell and PageHeader layout components
   - BrandLogo inline SVG component (light/dark variants)
@@ -293,12 +293,21 @@ across multiple files or executing multi-step tasks.
   - All UI primitives wired to brand tokens
 - Full /components/ui primitive library built
   - Button, Badge, Card, Input, Select, Textarea, Spinner
-- Clients module UI complete (mock data, no Supabase yet)
-  - /clients — searchable, filterable list with table layout
-  - /clients/new — create form with validation
-  - /clients/[id] — detail view with contact info, notes, proposals placeholder
-  - /clients/[id]/edit — edit form pre-filled from mock data
-- lib/types/clients.ts, lib/mock/clients.ts, lib/utils/format.ts established
+  - Modal, ConfirmDialog, ExpandableTable, KanbanBoard, MilestoneTracker, StatCard, Tabs
+- All dashboard pages built with mock data and full CRUD via local state
+  - /dashboard — summary widgets (active clients, projects, invoices, tasks)
+  - /clients — list, create, edit, delete (with dependency checks)
+  - /clients/[id] — detail view with dependency-checked delete
+  - /clients/new and /clients/[id]/edit — forms with validation
+  - /proposals — expandable table with line items, full CRUD
+  - /projects — milestone progress tracking, full CRUD
+  - /projects/[id] — detail with MilestoneTracker visual
+  - /tasks — Kanban board (drag-and-drop), full CRUD
+  - /finances — tabbed: overview, invoices, expenses; full CRUD
+  - /emails — unified multi-account inbox with compose and delete
+  - /settings — tabbed: profile, notifications, preferences
+- lib/types, lib/mock, lib/utils/dependencies.ts established for all modules
+- Dependency-delete rule enforced at frontend layer across all deletable entities
 
 **Stack notes**:
 - Next.js 16.2.1 (not 14 as originally planned — use 16 conventions)
@@ -306,20 +315,18 @@ across multiple files or executing multi-step tasks.
 - Clerk v7 — use clerkMiddleware (not deprecated authMiddleware)
 - React 19
 - params in dynamic routes are async (Promise<{ id: string }>) — always await them
+- Never nest <button> inside <button> — use <div> with onClick and cursor-pointer instead
 
 **Next steps**:
-1. **Review and merge** feature/dashboard-shell-and-clients-ui PR
+1. **Push and merge** feature/full-frontend-ui — open PR, verify preview deploy, merge to main
 2. **Supabase setup**
    - Install @supabase/supabase-js (flag for approval before installing)
    - Create /lib/db/supabase.ts client (server and browser variants)
-   - Define clients table schema (confirm before running migration)
-   - Enable RLS and write policies
-   - Replace mock data in /lib/mock/clients.ts with /lib/db/clients.ts queries
-3. **Dashboard home page** — replace placeholder with real summary widgets
-   (active client count, open proposals, recent activity)
-4. **Proposals module** — UI first (same mock-data-first approach as clients),
-   then wire to Supabase once schema is settled
-5. **Agentic workflow** — build a two-agent Claude Code workflow:
+   - Define schema for all modules (clients, proposals, projects, tasks, finances, emails)
+   - Enable RLS and write policies on every table
+   - Replace mock data in /lib/mock/* with /lib/db/* query functions
+3. **API routes** — add /app/api routes for each entity with server-side dependency checks
+4. **Agentic workflow** — build a two-agent Claude Code workflow:
    - Dev agent: picks up tasks and implements them end-to-end on a feature branch
    - Review agent: code reviews the PR, checks conventions, approves or requests changes
    See Claude Code hooks and sub-agent documentation for implementation approach
