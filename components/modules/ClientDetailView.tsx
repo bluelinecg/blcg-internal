@@ -1,8 +1,13 @@
 'use client';
 
 // ClientDetailView — client component for the /clients/[id] detail page.
-// Handles delete with dependency-checked ConfirmDialog, plus all page UI.
-// Receives pre-fetched client data as a prop from the server wrapper in page.tsx.
+// Delete flow:
+//   1. User clicks Delete → fetch /api/clients/[id]/blockers
+//   2. Open ConfirmDialog with blockers (if any); confirm button disabled when blocked
+//   3. User confirms → DELETE /api/clients/[id] → navigate to /clients
+//
+// Props:
+//   client — the client record to display
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,10 +15,6 @@ import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { Button, Card, ConfirmDialog } from '@/components/ui';
 import { StatusBadge } from '@/components/modules';
-import { MOCK_PROPOSALS } from '@/lib/mock/proposals';
-import { MOCK_PROJECTS } from '@/lib/mock/projects';
-import { MOCK_INVOICES } from '@/lib/mock/finances';
-import { getClientDeleteBlockers } from '@/lib/utils/dependencies';
 import { formatDate } from '@/lib/utils/format';
 import type { Client } from '@/lib/types/clients';
 
@@ -23,25 +24,53 @@ interface ClientDetailViewProps {
 
 export function ClientDetailView({ client }: ClientDetailViewProps) {
   const router = useRouter();
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen]         = useState(false);
   const [deleteBlockers, setDeleteBlockers] = useState<string[]>([]);
+  const [isCheckingDeps, setIsCheckingDeps] = useState(false);
+  const [isDeleting, setIsDeleting]         = useState(false);
+  const [actionError, setActionError]       = useState<string | null>(null);
 
-  function openDelete() {
-    const blockers = getClientDeleteBlockers(
-      client.id,
-      MOCK_PROPOSALS,
-      MOCK_PROJECTS,
-      MOCK_INVOICES,
-    );
-    setDeleteBlockers(blockers);
-    setDeleteOpen(true);
+  async function openDelete() {
+    setIsCheckingDeps(true);
+    setActionError(null);
+    try {
+      const res  = await fetch(`/api/clients/${client.id}/blockers`);
+      const json = await res.json() as { data: string[] | null; error: string | null };
+
+      if (!res.ok || json.error) {
+        setActionError(json.error ?? 'Could not check dependencies');
+        return;
+      }
+
+      setDeleteBlockers(json.data ?? []);
+      setDeleteOpen(true);
+    } catch {
+      setActionError('Network error. Please try again.');
+    } finally {
+      setIsCheckingDeps(false);
+    }
   }
 
-  function confirmDelete() {
-    // TODO: call /lib/db/clients.ts delete function when Supabase is connected.
-    // For now, mock deletion just navigates back to the list.
-    setDeleteOpen(false);
-    router.push('/clients');
+  async function confirmDelete() {
+    setIsDeleting(true);
+    setActionError(null);
+    try {
+      const res  = await fetch(`/api/clients/${client.id}`, { method: 'DELETE' });
+      const json = await res.json() as { data: unknown; error: string | null };
+
+      if (!res.ok || json.error) {
+        setActionError(json.error ?? 'Failed to delete client');
+        setDeleteOpen(false);
+        return;
+      }
+
+      router.push('/clients');
+      router.refresh();
+    } catch {
+      setActionError('Network error. Please try again.');
+      setIsDeleting(false);
+      setDeleteOpen(false);
+    }
   }
 
   return (
@@ -74,12 +103,19 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
           <Button
             variant="ghost"
             onClick={openDelete}
+            disabled={isCheckingDeps || isDeleting}
             className="text-red-500 hover:text-red-600 hover:bg-red-50"
           >
-            Delete
+            {isCheckingDeps ? 'Checking…' : 'Delete'}
           </Button>
         </div>
       </div>
+
+      {actionError && (
+        <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3">
+          <p className="text-sm text-red-600">{actionError}</p>
+        </div>
+      )}
 
       {/* Body: 2-col layout */}
       <div className="grid grid-cols-3 gap-6">
@@ -92,10 +128,7 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
               <div>
                 <dt className="mb-0.5 text-xs text-gray-500">Email</dt>
                 <dd className="text-sm text-gray-900">
-                  <a
-                    href={`mailto:${client.email}`}
-                    className="text-blue-600 hover:underline"
-                  >
+                  <a href={`mailto:${client.email}`} className="text-blue-600 hover:underline">
                     {client.email}
                   </a>
                 </dd>
@@ -106,7 +139,7 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
               </div>
               <div>
                 <dt className="mb-0.5 text-xs text-gray-500">Contact</dt>
-                <dd className="text-sm text-gray-900">{client.contactName ?? '—'}</dd>
+                <dd className="text-sm text-gray-900">{client.contactName}</dd>
               </div>
             </dl>
           </Card>
@@ -123,9 +156,7 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-700">Proposals</h3>
-              <Button size="sm" variant="secondary">
-                + New Proposal
-              </Button>
+              <Button size="sm" variant="secondary">+ New Proposal</Button>
             </div>
             <div className="flex items-center justify-center rounded-md border-2 border-dashed border-gray-200 py-8">
               <p className="text-sm text-gray-400">No proposals yet.</p>
@@ -136,16 +167,12 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
         {/* Right sidebar */}
         <div className="flex flex-col gap-4">
           <Card className="p-5">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-              Status
-            </h3>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Status</h3>
             <StatusBadge status={client.status} />
           </Card>
 
           <Card className="p-5">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-              Timeline
-            </h3>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Timeline</h3>
             <dl className="flex flex-col gap-3">
               <div>
                 <dt className="mb-0.5 text-xs text-gray-500">Client since</dt>

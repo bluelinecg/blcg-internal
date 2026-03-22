@@ -1,54 +1,71 @@
 'use client';
 
-// Clients list page with live search and status filter.
-// TODO: when Supabase is connected, refactor to a server component using
-// searchParams for filtering so results are server-rendered.
+// Clients list page — fetches live data from /api/clients.
+// Search and status filter run client-side against the fetched list.
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Button } from '@/components/ui';
-import { Card } from '@/components/ui';
-import { Input } from '@/components/ui';
-import { Select } from '@/components/ui';
+import { Button, Card, Input, Select, Spinner } from '@/components/ui';
 import { StatusBadge } from '@/components/modules';
-import { MOCK_CLIENTS } from '@/lib/mock/clients';
-import type { ClientStatus } from '@/lib/types/clients';
+import type { Client, ClientStatus } from '@/lib/types/clients';
 
 type StatusFilter = ClientStatus | 'all';
 
 const STATUS_FILTER_OPTIONS = [
-  { value: 'all', label: 'All Clients' },
-  { value: 'active', label: 'Active' },
+  { value: 'all',      label: 'All Clients' },
+  { value: 'active',   label: 'Active' },
   { value: 'prospect', label: 'Prospect' },
   { value: 'inactive', label: 'Inactive' },
 ];
 
 export function ClientsPage() {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
+  useEffect(() => {
+    async function load() {
+      setIsLoading(true);
+      setFetchError(null);
+      try {
+        const res = await fetch('/api/clients');
+        const json = await res.json() as { data: Client[] | null; error: string | null };
+        if (!res.ok || json.error) {
+          setFetchError(json.error ?? 'Failed to load clients');
+        } else {
+          setClients(json.data ?? []);
+        }
+      } catch {
+        setFetchError('Failed to load clients');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    void load();
+  }, []);
+
   const filtered = useMemo(() => {
-    return MOCK_CLIENTS.filter((client) => {
+    return clients.filter((client) => {
       const q = search.toLowerCase();
       const matchesSearch =
         q === '' ||
         client.name.toLowerCase().includes(q) ||
-        (client.contactName?.toLowerCase().includes(q) ?? false) ||
+        client.contactName.toLowerCase().includes(q) ||
         client.email.toLowerCase().includes(q);
-
       const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
-
       return matchesSearch && matchesStatus;
     });
-  }, [search, statusFilter]);
+  }, [clients, search, statusFilter]);
 
   return (
     <PageShell>
       <PageHeader
         title="Clients"
-        subtitle={`${MOCK_CLIENTS.length} total clients`}
+        subtitle={isLoading ? 'Loading…' : `${clients.length} total clients`}
         actions={
           <Link href="/clients/new">
             <Button>+ New Client</Button>
@@ -74,7 +91,15 @@ export function ClientsPage() {
 
       {/* Table */}
       <Card>
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Spinner />
+          </div>
+        ) : fetchError ? (
+          <div className="flex items-center justify-center py-16">
+            <p className="text-sm text-red-500">{fetchError}</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center py-16">
             <p className="text-sm text-gray-400">No clients match your search.</p>
           </div>
@@ -82,21 +107,11 @@ export function ClientsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Client
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Contact
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Phone
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Status
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Client</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Phone</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
@@ -111,17 +126,13 @@ export function ClientsPage() {
                       <span className="text-sm font-medium text-gray-900">{client.name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{client.contactName ?? '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{client.contactName}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{client.email}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{client.phone ?? '—'}</td>
-                  <td className="px-6 py-4">
-                    <StatusBadge status={client.status} />
-                  </td>
+                  <td className="px-6 py-4"><StatusBadge status={client.status} /></td>
                   <td className="px-6 py-4 text-right">
                     <Link href={`/clients/${client.id}`}>
-                      <Button variant="ghost" size="sm">
-                        View →
-                      </Button>
+                      <Button variant="ghost" size="sm">View →</Button>
                     </Link>
                   </td>
                 </tr>

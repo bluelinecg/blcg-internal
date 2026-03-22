@@ -1,20 +1,15 @@
 'use client';
 
 // Shared form for creating and editing clients.
-// In create mode (no client prop), submits navigate to /clients.
-// In edit mode (client prop provided), submits navigate to /clients/[id].
-// TODO: replace console.log with Supabase insert/update when backend is connected.
+// In create mode (no client prop), POSTs to /api/clients then navigates to /clients.
+// In edit mode (client prop provided), PATCHes /api/clients/[id] then navigates back.
 //
 // Props:
 //   client — pre-filled Client data; omit for create mode
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui';
-import { Card } from '@/components/ui';
-import { Input } from '@/components/ui';
-import { Select } from '@/components/ui';
-import { Textarea } from '@/components/ui';
+import { Button, Card, Input, Select, Textarea } from '@/components/ui';
 import type { Client, ClientStatus } from '@/lib/types/clients';
 
 interface ClientFormProps {
@@ -34,11 +29,12 @@ interface FormErrors {
   name?: string;
   contactName?: string;
   email?: string;
+  submit?: string;
 }
 
 const STATUS_OPTIONS = [
   { value: 'prospect', label: 'Prospect' },
-  { value: 'active', label: 'Active' },
+  { value: 'active',   label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
 ];
 
@@ -58,15 +54,16 @@ export function ClientForm({ client }: ClientFormProps) {
   const isEdit = Boolean(client);
 
   const [form, setForm] = useState<FormState>({
-    name: client?.name ?? '',
+    name:        client?.name ?? '',
     contactName: client?.contactName ?? '',
-    email: client?.email ?? '',
-    phone: client?.phone ?? '',
-    status: client?.status ?? 'prospect',
-    notes: client?.notes ?? '',
+    email:       client?.email ?? '',
+    phone:       client?.phone ?? '',
+    status:      client?.status ?? 'prospect',
+    notes:       client?.notes ?? '',
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleChange(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -75,7 +72,7 @@ export function ClientForm({ client }: ClientFormProps) {
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const validationErrors = validate(form);
     if (Object.keys(validationErrors).length > 0) {
@@ -83,23 +80,45 @@ export function ClientForm({ client }: ClientFormProps) {
       return;
     }
 
-    if (isEdit && client) {
-      // TODO: wire to Supabase update
-      console.log('Update client:', { id: client.id, ...form });
-      router.push(`/clients/${client.id}`);
-    } else {
-      // TODO: wire to Supabase insert
-      console.log('Create client:', form);
-      router.push('/clients');
+    setIsSubmitting(true);
+    setErrors({});
+
+    try {
+      const payload = {
+        name:        form.name.trim(),
+        contactName: form.contactName.trim(),
+        email:       form.email.trim(),
+        phone:       form.phone.trim() || undefined,
+        status:      form.status,
+        notes:       form.notes.trim() || undefined,
+      };
+
+      const url    = isEdit ? `/api/clients/${client!.id}` : '/api/clients';
+      const method = isEdit ? 'PATCH' : 'POST';
+
+      const res  = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json() as { data: Client | null; error: string | null };
+
+      if (!res.ok || json.error) {
+        setErrors({ submit: json.error ?? 'Something went wrong. Please try again.' });
+        return;
+      }
+
+      router.push(isEdit ? `/clients/${client!.id}` : '/clients');
+      router.refresh();
+    } catch {
+      setErrors({ submit: 'Network error. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   function handleCancel() {
-    if (isEdit && client) {
-      router.push(`/clients/${client.id}`);
-    } else {
-      router.push('/clients');
-    }
+    router.push(isEdit ? `/clients/${client!.id}` : '/clients');
   }
 
   return (
@@ -161,9 +180,15 @@ export function ClientForm({ client }: ClientFormProps) {
           rows={4}
         />
 
+        {errors.submit && (
+          <p className="text-sm text-red-500">{errors.submit}</p>
+        )}
+
         <div className="flex items-center gap-3 pt-2">
-          <Button type="submit">{isEdit ? 'Save Changes' : 'Save Client'}</Button>
-          <Button type="button" variant="secondary" onClick={handleCancel}>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving…' : isEdit ? 'Save Changes' : 'Save Client'}
+          </Button>
+          <Button type="button" variant="secondary" onClick={handleCancel} disabled={isSubmitting}>
             Cancel
           </Button>
         </div>
