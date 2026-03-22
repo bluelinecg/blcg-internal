@@ -1,24 +1,20 @@
-// Hello world skeleton — proves the full auth pipeline end-to-end:
-// sign in → protected route → server-side user data → sign out.
-// Replace with real dashboard content in a future phase.
-import { auth } from "@clerk/nextjs/server";
-import { UserButton } from "@clerk/nextjs";
+// Dashboard overview page — first page users land on after sign-in.
+// Currently a placeholder; replace with real dashboard content in a future phase.
 
-export async function DashboardPage() {
-  const { userId } = await auth();
+import { PageShell } from '@/components/layout';
+import { PageHeader } from '@/components/layout';
 
+export function DashboardPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-3xl font-bold text-gray-900">BLCG Internal Admin</h1>
-      <p className="text-lg text-gray-600">
-        Signed in as:{" "}
-        <span className="font-mono text-gray-800">{userId}</span>
-      </p>
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-gray-500">Account:</span>
-        <UserButton />
+    <PageShell>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Welcome to the BLCG internal admin."
+      />
+      <div className="flex items-center justify-center flex-1 rounded-lg border-2 border-dashed border-gray-300 bg-white">
+        <p className="text-sm text-gray-400">Dashboard content coming soon.</p>
       </div>
-    </main>
+    </PageShell>
   );
 }
 
