@@ -2,11 +2,13 @@
 
 // Modal form for creating and editing Tasks.
 // Props:
-//   isOpen    — controls visibility
-//   onClose   — dismiss callback
-//   onSave    — called with the new/updated task data
-//   initial   — pre-filled values for edit mode (omit for create)
-//   projects  — list of projects for the project selector
+//   isOpen     — controls visibility
+//   onClose    — dismiss callback
+//   onSave     — called with the new/updated task data
+//   initial    — pre-filled values for edit mode (omit for create)
+//   projects   — list of projects for the project selector
+//   isSaving   — disables buttons while the async save is in flight
+//   saveError  — inline error message shown above the action buttons
 
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
@@ -22,6 +24,8 @@ interface TaskFormModalProps {
   onSave: (data: TaskFormData) => void;
   initial?: Partial<TaskFormData>;
   projects: Project[];
+  isSaving?: boolean;
+  saveError?: string | null;
 }
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
@@ -55,7 +59,7 @@ const DEFAULTS: TaskFormData = {
   dueDate: undefined,
 };
 
-export function TaskFormModal({ isOpen, onClose, onSave, initial, projects }: TaskFormModalProps) {
+export function TaskFormModal({ isOpen, onClose, onSave, initial, projects, isSaving, saveError }: TaskFormModalProps) {
   const [form, setForm] = useState<TaskFormData>({ ...DEFAULTS, ...initial });
   const [errors, setErrors] = useState<Partial<Record<keyof TaskFormData, string>>>({});
 
@@ -87,7 +91,6 @@ export function TaskFormModal({ isOpen, onClose, onSave, initial, projects }: Ta
       assignee: form.assignee || undefined,
       dueDate: form.dueDate || undefined,
     });
-    onClose();
   }
 
   const projectOptions = [
@@ -149,8 +152,11 @@ export function TaskFormModal({ isOpen, onClose, onSave, initial, projects }: Ta
           onChange={(e) => set('dueDate', e.target.value ? `${e.target.value}T00:00:00Z` : undefined)}
         />
         <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>{isEdit ? 'Save Changes' : 'Create Task'}</Button>
+          {saveError && <p className="text-sm text-red-500 mr-auto">{saveError}</p>}
+          <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Task'}
+          </Button>
         </div>
       </div>
     </Modal>
