@@ -18,6 +18,10 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function optionalEnv(name: string): string | null {
+  return process.env[name] ?? null;
+}
+
 export const config = {
   clerk: {
     publishableKey: requireEnv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
@@ -28,11 +32,13 @@ export const config = {
     anonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     serviceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
   },
+  // Gmail credentials are optional — the emails page shows a "not configured" state
+  // when these are absent. See TASKS.md for the OAuth setup steps.
   gmail: {
-    clientId: requireEnv("GMAIL_CLIENT_ID"),
-    clientSecret: requireEnv("GMAIL_CLIENT_SECRET"),
-    refreshTokenRyan: requireEnv("GMAIL_REFRESH_TOKEN_RYAN"),
-    refreshTokenNick: requireEnv("GMAIL_REFRESH_TOKEN_NICK"),
-    refreshTokenGmail: requireEnv("GMAIL_REFRESH_TOKEN_GMAIL"),
+    clientId: optionalEnv("GMAIL_CLIENT_ID"),
+    clientSecret: optionalEnv("GMAIL_CLIENT_SECRET"),
+    refreshTokenRyan: optionalEnv("GMAIL_REFRESH_TOKEN_RYAN"),
+    refreshTokenNick: optionalEnv("GMAIL_REFRESH_TOKEN_NICK"),
+    refreshTokenGmail: optionalEnv("GMAIL_REFRESH_TOKEN_GMAIL"),
   },
 } as const;

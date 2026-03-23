@@ -28,19 +28,23 @@ export const EMAIL_TO_ACCOUNT_KEY: Record<EmailAccount, AccountKey> = {
 
 export const ACCOUNT_KEYS: AccountKey[] = ['ryan', 'nick', 'gmail'];
 
-/** Returns an authenticated Gmail API client for the given account key. */
+/** Returns an authenticated Gmail API client for the given account key.
+ *  Throws a descriptive error if Gmail credentials have not been configured yet. */
 export function getGmailClient(accountKey: AccountKey) {
-  const refreshTokens: Record<AccountKey, string> = {
+  const { clientId, clientSecret } = config.gmail;
+  const refreshTokens: Record<AccountKey, string | null> = {
     ryan: config.gmail.refreshTokenRyan,
     nick: config.gmail.refreshTokenNick,
     gmail: config.gmail.refreshTokenGmail,
   };
 
-  const auth = new google.auth.OAuth2(
-    config.gmail.clientId,
-    config.gmail.clientSecret,
-  );
+  if (!clientId || !clientSecret || !refreshTokens[accountKey]) {
+    throw new Error(
+      'Gmail integration not configured. Complete the OAuth setup in TASKS.md before using the emails page.'
+    );
+  }
 
+  const auth = new google.auth.OAuth2(clientId, clientSecret);
   auth.setCredentials({ refresh_token: refreshTokens[accountKey] });
 
   return google.gmail({ version: 'v1', auth });
