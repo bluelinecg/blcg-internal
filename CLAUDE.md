@@ -1,13 +1,17 @@
 # BLCG Internal Admin — Claude Context
 
+> For current build status, active tasks, and the project backlog, see [TASKS.md](TASKS.md).
+
+---
+
 ## Company overview
+
 Blue Line Consulting Group (BLCG) is a technical consulting firm that builds web
 applications for small business clients. The public-facing site lives at
 bluelinecg.com.
 
 This internal admin application (admin.bluelinecg.com) serves two purposes:
-1. A working operations hub for BLCG to manage clients, proposals, and internal
-   workflows
+1. A working operations hub for BLCG to manage clients, proposals, and internal workflows
 2. A proof of concept and template for the exact stack and process used for all
    future client deliverables
 
@@ -19,6 +23,7 @@ documented, and reused.
 ---
 
 ## Tech stack
+
 - **Framework**: Next.js 16 with App Router
 - **Language**: TypeScript throughout — no plain JavaScript files
 - **Styling**: Tailwind CSS v4 — no inline styles, no CSS modules, no styled components
@@ -30,6 +35,7 @@ documented, and reused.
 - **Version control**: GitHub (personal account, repo: blcg-internal)
 
 ## Stack notes — read before writing any code
+
 These are active gotchas that will cause errors if ignored:
 
 - **Next.js 16.2.1** — not 14 as originally planned. Use 16 conventions throughout.
@@ -45,6 +51,7 @@ These are active gotchas that will cause errors if ignored:
 ---
 
 ## Folder structure
+
 ```
 /app
     /layout.tsx           → root layout, Clerk provider wraps everything here
@@ -70,6 +77,7 @@ These are active gotchas that will cause errors if ignored:
                             Sidebar, TopNav, PageHeader, PageShell
 /lib
     /db                   → all Supabase query functions live here only
+    /integrations         → third-party service clients (e.g. gmail.ts)
     /utils                → general utility functions
         /dependencies.ts  → dependency check functions for all entities
         /format.ts        → formatting utilities
@@ -77,7 +85,7 @@ These are active gotchas that will cause errors if ignored:
     /types                → shared TypeScript type definitions
     /constants            → app-wide constants and config values
         /brand.ts         → single source of truth for brand tokens
-    /mock                 → mock data used before Supabase is wired
+    /mock                 → mock data used before live data is wired
     /validations          → Zod schemas for all form and API inputs
     /config.ts            → env variable validation — runs on startup
 /styles
@@ -87,12 +95,14 @@ public                    → static assets, logo, favicon
 .github
     /workflows            → GitHub Actions CI/CD pipeline
     /agents               → writer and reviewer agent instructions
-CLAUDE.md                 → this file
+CLAUDE.md                 → development standards and conventions (this file)
+TASKS.md                  → current build status, active tasks, and backlog
 ```
 
 ---
 
 ## Reusability principles
+
 This codebase is the master template. Every component, hook, and pattern built
 here will be extracted into blcg-starter-template for future client projects.
 Always code with that extraction in mind.
@@ -110,6 +120,7 @@ Always code with that extraction in mind.
 
 **Patterns to establish and follow consistently**:
 - All database access through /lib/db — never query Supabase directly in a component
+- All third-party service clients through /lib/integrations
 - All authentication checks through Clerk middleware — never roll custom auth
 - All environment variables accessed through /lib/config.ts which validates
   their presence on startup
@@ -143,28 +154,19 @@ dependencies and what must be resolved first. Do NOT silently skip or cascade-de
 **This rule is enforced at three layers — all three must be in place before a module
 is considered production-ready:**
 
-1. **Frontend (required even in mock-data phase)**
-   - All dependency check functions live in `lib/utils/dependencies.ts`,
-     one function per entity
-   - Every delete button calls the relevant checker before opening any dialog
-   - Pass the result to `ConfirmDialog`'s `blockedBy` prop
-   - If blocked: red dependency list shown, confirm button disabled
-   - If clear: standard "Are you sure?" confirm, then execute delete
-   - This is UX — it tells the user why they cannot delete and what to fix first
+1. **Frontend** — dependency check functions in `lib/utils/dependencies.ts`; every
+   delete button calls the relevant checker before opening ConfirmDialog; blocked
+   state shows red dependency list with confirm button disabled
+2. **Server / API layer** — every delete route re-runs the dependency check against
+   live DB data; returns 409 with blocker message if blocked; never trust the
+   frontend check alone
+3. **Database constraints** — foreign key constraints on all relationship columns;
+   Postgres rejects orphaning deletes at query level; FK violation errors translated
+   to user-friendly messages at the API layer
 
-2. **Server / API layer (required when API routes are added)**
-   - Every delete API route re-runs the same dependency check against live DB data
-   - Returns `{ data: null, error: string }` if blocked
-   - Never trust the frontend check alone — a direct API call would bypass it
-
-3. **Database constraints (required when Supabase schema is defined)**
-   - Add foreign key constraints on all relationship columns
-   - This is the ultimate safety net — Postgres rejects orphaning deletes at query level
-   - Translate Postgres FK violation errors into user-friendly messages at the API layer
-
-**The `lib/utils/dependencies.ts` functions must not be removed when the DB layer is
-added. They serve UX clarity — a different purpose from DB constraint enforcement.
-Both coexist permanently.**
+The `lib/utils/dependencies.ts` functions must not be removed when the DB layer is
+added — they serve UX clarity, which is a different purpose from DB enforcement.
+Both coexist permanently.
 
 ---
 
@@ -210,7 +212,7 @@ Both coexist permanently.**
 ### General
 - **No magic numbers** — any numeric value with meaning goes in /lib/constants
 - **Error handling** — every async function has a try/catch, errors are logged
-  and surfaced to the user via a toast notification, never silently swallowed
+  and surfaced to the user, never silently swallowed
 - **No commented-out code** left in committed files
 - **No console.log statements** left in committed files
 
@@ -225,8 +227,7 @@ future client projects built from this template.
 - All deployments go through the GitHub → Vercel pipeline — no manual deploys
 - Every feature branch goes through a PR before merging to main
 - Errors are logged and observable — never silently swallowed
-- CLAUDE.md kept current as the project evolves
-- Runbooks documented in blcg-docs for common operations
+- CLAUDE.md and TASKS.md kept current as the project evolves
 
 Claude must:
 - Write observable code — meaningful error messages, clear failure states in UI
@@ -237,8 +238,7 @@ Claude must:
 - Authentication via Clerk on every protected route
 - Authorisation checked server-side — never trust the client
 - Row Level Security enabled on every Supabase table
-- Principle of least privilege — users and service accounts access only what
-  they need
+- Principle of least privilege — users and service accounts access only what they need
 - All secrets in environment variables — never in code
 - Input validated with Zod on every form and API route
 - HTTPS enforced everywhere
@@ -257,7 +257,6 @@ Claude must:
 - Environment variables validated on startup via /lib/config.ts — app fails
   loudly on misconfiguration rather than silently at runtime
 - Vercel instant rollback available — use it immediately if a deploy breaks
-- No single points of failure in critical user flows
 
 Claude must:
 - Always implement loading, error, and empty states in UI components
@@ -445,7 +444,7 @@ A feature is not done until all of these are true:
 All environment variables must be:
 - Added to .env.local for local development (gitignored — never commit this file)
 - Added to .env.example with a descriptive comment and placeholder value
-- Added to Vercel environment settings before deploying
+- Added to Vercel environment settings before deploying (all environments)
 - Validated in /lib/config.ts on startup — never access process.env directly
 - Never hardcoded anywhere in the codebase
 
@@ -472,7 +471,7 @@ export const config = {
 }
 ```
 
-Required variables:
+Current required variables:
 ```
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 CLERK_SECRET_KEY
@@ -495,7 +494,7 @@ SUPABASE_SERVICE_ROLE_KEY
 
 ## Database conventions
 - All Supabase queries live exclusively in /lib/db
-- Each domain area has its own file: clients.ts, proposals.ts, emails.ts
+- Each domain area has its own file: clients.ts, proposals.ts, projects.ts, etc.
 - Query functions are async and always return `{ data, error }` shape
 - Use Supabase generated TypeScript types — regenerate when schema changes
 - Row Level Security must be enabled on every table
@@ -508,7 +507,7 @@ SUPABASE_SERVICE_ROLE_KEY
 ## Agentic development instructions
 
 ### Before starting any task
-- Read this entire file before writing a single line of code
+- Read CLAUDE.md and TASKS.md before writing a single line of code
 - Check existing folder structure before creating new files
 - Identify components or utilities that can be reused
 - Do not install new packages without flagging it first
@@ -542,7 +541,7 @@ SUPABASE_SERVICE_ROLE_KEY
 - Change authentication or security configuration
 - Push to main or merge pull requests
 - Install packages without explicit user confirmation
-- Modify this CLAUDE.md without being explicitly asked
+- Modify CLAUDE.md or TASKS.md without being explicitly asked
 - Skip writing tests to save time
 - Use `any` type to resolve a TypeScript error
 - Disable TypeScript strict checks for any reason
@@ -554,7 +553,7 @@ SUPABASE_SERVICE_ROLE_KEY
 The goal is a two-agent pipeline that mirrors a real dev/review process:
 
 **Dev agent** responsibilities:
-- Read CLAUDE.md at the start of every task
+- Read CLAUDE.md and TASKS.md at the start of every task
 - Create a feature branch before touching any files
 - Implement the task end-to-end: components, types, tests
 - Commit with conventional messages and open a PR with full description
@@ -566,157 +565,8 @@ The goal is a two-agent pipeline that mirrors a real dev/review process:
 - Approve if passing, or request changes with specific file:line feedback
 
 Implementation approach: Claude Code sub-agents via the Agent SDK, triggered
-by a hook or manual invocation. Both agents share this CLAUDE.md as their
-primary context document.
-
----
-
-## Current build status
-
-**Phase**: Supabase wiring complete for all modules except emails (Gmail API integration pending)
-**Live URL**: https://admin.bluelinecg.com
-**Repo**: github.com/bluelinecg/blcg-internal
-**Open branch**: feature/wire-clients (ready to PR → main)
-
-### Completed
-- GitHub repo created and connected to Vercel
-- Vercel auto-deploy pipeline active (PR preview + merge to main)
-- Custom subdomain admin.bluelinecg.com live and SSL confirmed
-- DNS managed via Wix (temporary)
-- Next.js 16 with App Router and TypeScript strict mode
-- Tailwind v4 configured (no tailwind.config.ts — v4 auto-detects content)
-- Clerk v7 authentication working end-to-end
-  - Sign-in and sign-up pages at /sign-in and /sign-up
-  - Clerk middleware protecting all /dashboard routes
-  - ClerkProvider in root layout with afterSignOutUrl configured
-- /lib/config.ts env variable validation pattern established (includes Supabase vars)
-- .env.example documenting all required variables (includes Supabase vars)
-- vercel.json declaring Next.js framework for correct Vercel detection
-- Dashboard shell built and live
-  - Sidebar with alphabetical nav, Settings pinned to bottom
-  - TopNav with page title and Clerk UserButton
-  - PageShell and PageHeader layout components
-  - BrandLogo inline SVG component (light/dark variants)
-- Brand token system established
-  - lib/constants/brand.ts as single source of truth
-  - @theme block in globals.css registers bg-brand-navy, bg-brand-blue, bg-brand-steel
-  - All UI primitives wired to brand tokens
-- Full /components/ui primitive library built
-  - Button, Badge, Card, Input, Select, Textarea, Spinner
-  - Modal, ConfirmDialog, ExpandableTable, KanbanBoard, MilestoneTracker, StatCard, Tabs
-- All dashboard pages built with mock data and full CRUD via local React state
-  - /dashboard — summary widgets (active clients, projects, invoices, tasks)
-  - /clients — searchable/filterable list, create, edit, delete with dependency checks
-  - /clients/[id] — detail view with dependency-checked delete
-  - /clients/new and /clients/[id]/edit — forms with validation
-  - /proposals — expandable table with inline line items, full CRUD
-  - /projects — milestone progress tracking, full CRUD
-  - /projects/[id] — detail with MilestoneTracker visual + milestone table
-  - /tasks — Kanban board with HTML5 drag-and-drop, full CRUD
-  - /finances — tabbed view: overview, invoices, expenses; full CRUD
-  - /emails — unified multi-account inbox (3 accounts), compose, delete (still mock)
-  - /settings — tabbed: profile, notifications, preferences
-- lib/types established for all modules (clients, proposals, projects, tasks, finances, emails)
-- lib/mock data established for all modules
-- lib/utils/dependencies.ts — frontend dependency-delete enforcement for all entities
-- Dependency-delete rule enforced at frontend layer across all deletable entities
-- **Supabase setup** (merged)
-  - @supabase/supabase-js installed
-  - supabase/migrations/20260322000000_initial_schema.sql — initial schema
-  - lib/db/supabase.ts — serverClient + browserClient
-  - lib/config.ts updated with Supabase env var validation
-  - All TypeScript types redesigned to match DB schema
-  - All mock data, form modals, pages, and Zod schemas updated
-- **Supabase wiring — all non-email modules** (branch: feature/wire-clients)
-  - lib/db/clients.ts + API routes + updated pages + 11 unit tests
-  - lib/db/proposals.ts + API routes + updated pages + 12 unit tests
-  - lib/db/projects.ts + API routes + updated pages + 13 unit tests
-  - lib/db/tasks.ts + API routes + updated pages + 11 unit tests
-  - lib/db/finances.ts + API routes (invoices + expenses) + updated pages + 18 unit tests
-  - All form modals updated with isSaving/saveError async feedback props
-  - All delete flows use two-step pattern: GET /blockers → ConfirmDialog → DELETE
-  - 253 tests passing across all test suites
-
-### Immediate next task — PICK UP HERE
-**Merge feature/wire-clients PR, then wire the emails module via Gmail API**
-
-#### Step 1 — Merge the open branch
-Push `feature/wire-clients` and open a PR against `main`. Verify the Vercel preview
-build passes, then merge.
-
-#### Step 2 — Gmail API setup (manual steps, done by Ryan)
-Before any code can be written, the following must be completed in Google Cloud:
-
-1. **Create a Google Cloud project** (or use an existing one)
-   - Go to https://console.cloud.google.com
-   - Create a new project named "BLCG Internal"
-
-2. **Enable the Gmail API**
-   - In the project: APIs & Services → Enable APIs
-   - Search for "Gmail API" and enable it
-
-3. **Create OAuth 2.0 credentials**
-   - APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
-   - Application type: **Web application**
-   - Authorized redirect URIs: add `http://localhost:3000/api/auth/gmail/callback`
-     and `https://admin.bluelinecg.com/api/auth/gmail/callback`
-   - Save the **Client ID** and **Client Secret**
-
-4. **Configure OAuth consent screen**
-   - User type: Internal (since all 3 accounts are in the same Google Workspace org)
-     OR External with the 3 addresses added as test users if not on Workspace
-   - Add scopes: `https://www.googleapis.com/auth/gmail.modify`
-     (covers read, send, and modify — marks as read, etc.)
-
-5. **Run the OAuth consent flow for each of the 3 accounts**
-   - This is a one-time step per account to generate a refresh token
-   - Claude can build a temporary `/api/auth/gmail/[account]` route to handle this
-   - After authorisation, the refresh token is printed to the console / returned
-     so you can copy it into your env vars
-
-6. **Add credentials to .env.local and Vercel**
-   ```
-   GMAIL_CLIENT_ID=...
-   GMAIL_CLIENT_SECRET=...
-   GMAIL_REFRESH_TOKEN_RYAN=...        # ryan@bluelinecg.com
-   GMAIL_REFRESH_TOKEN_NICK=...        # nick@bluelinecg.com
-   GMAIL_REFRESH_TOKEN_GMAIL=...       # bluelinecgllc@gmail.com
-   ```
-
-#### Step 3 — Gmail integration code (Claude builds this)
-Once the credentials are in place, the integration follows this pattern:
-
-**New files to create:**
-- `lib/integrations/gmail.ts` — Gmail API client factory; one authenticated client
-  per account using `googleapis` npm package; refresh tokens loaded from config
-- `lib/config.ts` — add Gmail credential validation
-- `.env.example` — document the 5 new Gmail env vars
-- `app/api/emails/route.ts` — GET: fetches threads from all 3 accounts in parallel,
-  merges and sorts by date, returns unified list
-- `app/api/emails/send/route.ts` — POST: sends a new email from the specified account
-- `app/api/emails/[id]/reply/route.ts` — POST: sends a reply in an existing thread
-- `app/api/emails/[id]/read/route.ts` — PATCH: marks a thread as read
-- `app/api/emails/[id]/route.ts` — DELETE: moves thread to trash on the correct account
-- `app/(dashboard)/emails/page.tsx` — rewrite to fetch from /api/emails, remove
-  MOCK_EMAIL_THREADS import
-
-**Architecture decisions:**
-- Emails are NOT stored in Supabase — fetched live from Gmail API each load
-- Each API route identifies which Gmail account a thread belongs to via the
-  `account` field on the thread and routes the API call to the correct client
-- The `googleapis` package handles OAuth token refresh automatically given a
-  valid refresh token — no manual token management needed
-- Threads from all 3 accounts are fetched in parallel (Promise.all) and merged
-- Reply threads are matched by Gmail thread ID stored on the EmailThread object
-
-**Package to install:** `googleapis` (official Google API client for Node.js)
-Run `npm audit` after install before committing.
-
-### Next steps after Gmail integration
-1. **Testing** — add Jest + RTL unit/component tests and Playwright E2E tests
-2. **Dashboard wiring** — /dashboard page still uses MOCK_* imports for stat cards;
-   wire to live API data
-3. **Agentic workflow** — implement two-agent Claude Code pipeline (dev + review agents)
+by a hook or manual invocation. Both agents share CLAUDE.md as their primary
+context document.
 
 ---
 
@@ -729,11 +579,11 @@ Run `npm audit` after install before committing.
 - [x] /lib/config.ts environment variable validation pattern
 - [x] Brand token system (brand.ts + @theme pattern)
 - [x] BrandLogo component (swap-ready for client rebranding)
-- [ ] Standard API route response shape
-- [ ] GitHub Actions CI/CD workflow file
-- [ ] Jest and Playwright test configuration
 - [x] .env.example template
 - [x] Base Tailwind configuration with brand design tokens
 - [x] Zod validation schemas pattern in /lib/validations
+- [ ] Standard API route response shape documented
+- [ ] GitHub Actions CI/CD workflow file
+- [ ] Jest and Playwright test configuration
 - [ ] This CLAUDE.md adapted as a generic template
 - [ ] Writer Agent and Reviewer Agent instruction files
