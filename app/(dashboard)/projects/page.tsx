@@ -10,9 +10,9 @@ import { PageHeader } from '@/components/layout';
 import { Button, Card, Input, Select, Badge, Spinner, ConfirmDialog } from '@/components/ui';
 import { useRole } from '@/lib/auth/use-role';
 import { ProjectFormModal } from '@/components/modules';
-import { MOCK_CLIENTS } from '@/lib/mock/clients';
-import { MOCK_PROPOSALS } from '@/lib/mock/proposals';
 import type { Project, ProjectStatus } from '@/lib/types/projects';
+import type { Client } from '@/lib/types/clients';
+import type { Proposal } from '@/lib/types/proposals';
 
 type StatusFilter = ProjectStatus | 'all';
 
@@ -31,14 +31,14 @@ const STATUS_BADGE: Record<ProjectStatus, { variant: 'green' | 'blue' | 'yellow'
   cancelled: { variant: 'red',    label: 'Cancelled' },
 };
 
-const CLIENT_MAP = Object.fromEntries(MOCK_CLIENTS.map((c) => [c.id, c]));
-
 type ProjectFormData = Omit<Project, 'id' | 'milestones' | 'createdAt' | 'updatedAt'>;
 
 export function ProjectsPage() {
   const isAdmin = useRole() === 'admin';
-  const [projects, setProjects]   = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [projects, setProjects]     = useState<Project[]>([]);
+  const [clients, setClients]       = useState<Client[]>([]);
+  const [proposals, setProposals]   = useState<Proposal[]>([]);
+  const [isLoading, setIsLoading]   = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -54,19 +54,27 @@ export function ProjectsPage() {
   const [isDeleting, setIsDeleting]         = useState(false);
   const [deleteError, setDeleteError]       = useState<string | null>(null);
 
-  useEffect(() => { void loadProjects(); }, []);
+  useEffect(() => { void loadData(); }, []);
 
-  async function loadProjects() {
+  async function loadData() {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const res  = await fetch('/api/projects');
-      const json = await res.json() as { data: Project[] | null; error: string | null };
-      if (!res.ok || json.error) {
-        setFetchError(json.error ?? 'Failed to load projects');
+      const [projectsRes, clientsRes, proposalsRes] = await Promise.all([
+        fetch('/api/projects'),
+        fetch('/api/clients'),
+        fetch('/api/proposals'),
+      ]);
+      const projectsJson  = await projectsRes.json()  as { data: Project[]  | null; error: string | null };
+      const clientsJson   = await clientsRes.json()   as { data: Client[]   | null; error: string | null };
+      const proposalsJson = await proposalsRes.json() as { data: Proposal[] | null; error: string | null };
+      if (!projectsRes.ok || projectsJson.error) {
+        setFetchError(projectsJson.error ?? 'Failed to load projects');
       } else {
-        setProjects(json.data ?? []);
+        setProjects(projectsJson.data ?? []);
       }
+      if (clientsRes.ok && !clientsJson.error)     setClients(clientsJson.data ?? []);
+      if (proposalsRes.ok && !proposalsJson.error) setProposals(proposalsJson.data ?? []);
     } catch {
       setFetchError('Failed to load projects');
     } finally {
@@ -74,9 +82,14 @@ export function ProjectsPage() {
     }
   }
 
+  const clientMap = useMemo(
+    () => Object.fromEntries(clients.map((c) => [c.id, c])),
+    [clients]
+  );
+
   const filtered = useMemo(() => {
     return projects.filter((p) => {
-      const client = CLIENT_MAP[p.clientId];
+      const client = clientMap[p.clientId];
       const q = search.toLowerCase();
       const matchesSearch =
         q === '' ||
@@ -241,7 +254,7 @@ export function ProjectsPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((project) => {
-                const client  = CLIENT_MAP[project.clientId];
+                const client  = clientMap[project.clientId];
                 const cfg     = STATUS_BADGE[project.status];
                 const completed = project.milestones.filter((m) => m.status === 'completed').length;
                 const total   = project.milestones.length;
@@ -289,8 +302,8 @@ export function ProjectsPage() {
         onClose={closeForm}
         onSave={editing ? handleEdit : handleCreate}
         initial={editing ?? undefined}
-        clients={MOCK_CLIENTS}
-        proposals={MOCK_PROPOSALS}
+        clients={clients}
+        proposals={proposals}
         isSaving={isSaving}
         saveError={saveError}
       />

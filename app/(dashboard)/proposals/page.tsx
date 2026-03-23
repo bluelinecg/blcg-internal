@@ -11,8 +11,8 @@ import { Button, Card, Input, Select, Spinner, ExpandableTable, ConfirmDialog } 
 import { useRole } from '@/lib/auth/use-role';
 import type { TableColumn } from '@/components/ui/ExpandableTable';
 import { ProposalStatusBadge, ProposalFormModal } from '@/components/modules';
-import { MOCK_CLIENTS } from '@/lib/mock/clients';
 import type { Proposal, ProposalStatus } from '@/lib/types/proposals';
+import type { Client } from '@/lib/types/clients';
 
 type StatusFilter = ProposalStatus | 'all';
 
@@ -26,13 +26,12 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'expired',  label: 'Expired' },
 ];
 
-const CLIENT_MAP = Object.fromEntries(MOCK_CLIENTS.map((c) => [c.id, c]));
-
 type ProposalFormData = Omit<Proposal, 'id' | 'createdAt' | 'updatedAt'>;
 
 export function ProposalsPage() {
   const isAdmin = useRole() === 'admin';
   const [proposals, setProposals]   = useState<Proposal[]>([]);
+  const [clients, setClients]       = useState<Client[]>([]);
   const [isLoading, setIsLoading]   = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch]         = useState('');
@@ -51,21 +50,28 @@ export function ProposalsPage() {
   const [isDeleting, setIsDeleting]       = useState(false);
   const [deleteError, setDeleteError]     = useState<string | null>(null);
 
-  // Load proposals
+  // Load proposals and clients in parallel
   useEffect(() => {
-    void loadProposals();
+    void loadData();
   }, []);
 
-  async function loadProposals() {
+  async function loadData() {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const res  = await fetch('/api/proposals');
-      const json = await res.json() as { data: Proposal[] | null; error: string | null };
-      if (!res.ok || json.error) {
-        setFetchError(json.error ?? 'Failed to load proposals');
+      const [proposalsRes, clientsRes] = await Promise.all([
+        fetch('/api/proposals'),
+        fetch('/api/clients'),
+      ]);
+      const proposalsJson = await proposalsRes.json() as { data: Proposal[] | null; error: string | null };
+      const clientsJson   = await clientsRes.json()   as { data: Client[]   | null; error: string | null };
+      if (!proposalsRes.ok || proposalsJson.error) {
+        setFetchError(proposalsJson.error ?? 'Failed to load proposals');
       } else {
-        setProposals(json.data ?? []);
+        setProposals(proposalsJson.data ?? []);
+      }
+      if (clientsRes.ok && !clientsJson.error) {
+        setClients(clientsJson.data ?? []);
       }
     } catch {
       setFetchError('Failed to load proposals');
@@ -74,9 +80,14 @@ export function ProposalsPage() {
     }
   }
 
+  const clientMap = useMemo(
+    () => Object.fromEntries(clients.map((c) => [c.id, c])),
+    [clients]
+  );
+
   const filtered = useMemo(() => {
     return proposals.filter((p) => {
-      const client = CLIENT_MAP[p.clientId];
+      const client = clientMap[p.clientId];
       const q = search.toLowerCase();
       const matchesSearch =
         q === '' ||
@@ -208,7 +219,7 @@ export function ProposalsPage() {
       key: 'client',
       header: 'Client',
       render: (p) => {
-        const client = CLIENT_MAP[p.clientId];
+        const client = clientMap[p.clientId];
         return (
           <div>
             <p className="text-sm text-gray-800">{client?.name ?? '—'}</p>
@@ -322,7 +333,7 @@ export function ProposalsPage() {
             columns={COLUMNS}
             rows={filtered}
             getRowId={(p) => p.id}
-            renderExpanded={(p) => <ProposalLineItemsPanel proposal={p} />}
+            renderExpanded={(p) => <ProposalLineItemsPanel proposal={p} client={clientMap[p.clientId]} />}
             emptyMessage="No proposals match your search."
           />
         )}
@@ -334,7 +345,7 @@ export function ProposalsPage() {
         onClose={closeForm}
         onSave={editing ? handleEdit : handleCreate}
         initial={editing ?? undefined}
-        clients={MOCK_CLIENTS}
+        clients={clients}
         isSaving={isSaving}
         saveError={saveError}
       />
@@ -356,8 +367,7 @@ export default ProposalsPage;
 
 // --- Line items expanded panel ---
 
-function ProposalLineItemsPanel({ proposal }: { proposal: Proposal }) {
-  const client = CLIENT_MAP[proposal.clientId];
+function ProposalLineItemsPanel({ proposal, client }: { proposal: Proposal; client: Client | undefined }) {
   return (
     <div className="flex gap-8">
       <div className="flex-1">
