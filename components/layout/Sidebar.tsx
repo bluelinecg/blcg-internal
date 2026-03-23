@@ -3,11 +3,13 @@
 // Sidebar navigation for the dashboard shell.
 // Uses brand-navy background with brand-blue active state indicator.
 // Highlights the active route via usePathname.
+// Finances nav item is hidden for non-admin users.
 // Props: none — nav items are defined as a module-level constant.
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BrandLogo } from './BrandLogo';
+import { useRole } from '@/lib/auth/use-role';
 
 interface NavItem {
   label: string;
@@ -148,6 +150,10 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const role = useRole();
+  const visibleNavItems = MAIN_NAV_ITEMS.filter(
+    (item) => item.href !== '/finances' || role === 'admin'
+  );
 
   return (
     <aside className="flex flex-col w-64 min-h-screen bg-brand-navy">
@@ -160,7 +166,7 @@ export function Sidebar() {
       <nav className="flex flex-col flex-1 px-3 py-5">
         {/* Main nav items */}
         <div className="flex flex-col gap-0.5 flex-1">
-          {MAIN_NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink key={item.href} item={item} pathname={pathname} />
           ))}
         </div>

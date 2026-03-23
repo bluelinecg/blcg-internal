@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { Button, Card, Input, Select, Spinner, ExpandableTable, ConfirmDialog } from '@/components/ui';
+import { useRole } from '@/lib/auth/use-role';
 import type { TableColumn } from '@/components/ui/ExpandableTable';
 import { ProposalStatusBadge, ProposalFormModal } from '@/components/modules';
 import { MOCK_CLIENTS } from '@/lib/mock/clients';
@@ -30,6 +31,7 @@ const CLIENT_MAP = Object.fromEntries(MOCK_CLIENTS.map((c) => [c.id, c]));
 type ProposalFormData = Omit<Proposal, 'id' | 'createdAt' | 'updatedAt'>;
 
 export function ProposalsPage() {
+  const isAdmin = useRole() === 'admin';
   const [proposals, setProposals]   = useState<Proposal[]>([]);
   const [isLoading, setIsLoading]   = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -241,15 +243,17 @@ export function ProposalsPage() {
       render: (p) => (
         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>Edit</Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => openDelete(p)}
-            disabled={isCheckingDeps}
-            className="text-red-500 hover:text-red-600 hover:bg-red-50"
-          >
-            Delete
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openDelete(p)}
+              disabled={isCheckingDeps}
+              className="text-red-500 hover:text-red-600 hover:bg-red-50"
+            >
+              Delete
+            </Button>
+          )}
         </div>
       ),
       width: '140px',

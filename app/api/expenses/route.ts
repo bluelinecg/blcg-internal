@@ -8,6 +8,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { listExpenses, createExpense } from '@/lib/db/finances';
 import { ExpenseSchema } from '@/lib/validations/finances';
+import { guardAdmin } from '@/lib/auth/roles';
 
 export async function GET() {
   try {
@@ -15,6 +16,9 @@ export async function GET() {
     if (!userId) {
       return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
     }
+
+    const guard = await guardAdmin();
+    if (guard) return guard;
 
     const { data, error } = await listExpenses();
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
@@ -32,6 +36,9 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
     }
+
+    const guard = await guardAdmin();
+    if (guard) return guard;
 
     const parsed = ExpenseSchema.safeParse(await request.json());
     if (!parsed.success) {
