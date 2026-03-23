@@ -12,3 +12,5 @@ export { KanbanBoard } from './KanbanBoard';
 export { MilestoneTracker } from './MilestoneTracker';
 export { Modal } from './Modal';
 export { ConfirmDialog } from './ConfirmDialog';
+export { Pagination } from './Pagination';
+export { SortableHeader } from './SortableHeader';

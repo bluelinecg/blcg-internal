@@ -2,7 +2,6 @@ export type EmailFolder = 'inbox' | 'sent' | 'drafts';
 
 export type EmailAccount =
   | 'ryan@bluelinecg.com'
-  | 'nick@bluelinecg.com'
   | 'bluelinecgllc@gmail.com';
 
 export interface EmailMessage {

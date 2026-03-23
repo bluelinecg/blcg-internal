@@ -2,15 +2,14 @@
 
 **Live URL**: https://admin.bluelinecg.com
 **Repo**: github.com/bluelinecg/blcg-internal
-**Current branch**: main (feature/wire-clients merged)
+**Current branch**: feature/live-client-data (ready to PR)
 
 ---
 
 ## Current status
 
-**Phase**: Supabase wiring complete for all modules except emails.
-Gmail API integration is the active next task — requires manual Google Cloud
-setup steps before code can be written (see below).
+**Phase**: Pagination/sorting, live data wiring, and Gmail integration all complete
+on `feature/live-client-data`. Branch is pushed and ready to open a PR to main.
 
 ---
 
@@ -34,7 +33,8 @@ setup steps before code can be written (see below).
 - [x] Brand token system — lib/constants/brand.ts + @theme in globals.css
 - [x] Full /components/ui primitive library:
   Button, Badge, Card, Input, Select, Textarea, Spinner,
-  Modal, ConfirmDialog, ExpandableTable, KanbanBoard, MilestoneTracker, StatCard, Tabs
+  Modal, ConfirmDialog, ExpandableTable, KanbanBoard, MilestoneTracker, StatCard, Tabs,
+  Pagination, SortableHeader
 
 ### Pages (all with full CRUD)
 - [x] /dashboard — summary widgets
@@ -46,7 +46,7 @@ setup steps before code can be written (see below).
 - [x] /projects/[id] — detail with MilestoneTracker visual + milestone table
 - [x] /tasks — Kanban board with drag-and-drop
 - [x] /finances — tabbed: overview, invoices, expenses
-- [x] /emails — unified multi-account inbox (still on mock data)
+- [x] /emails — unified multi-account inbox (live Gmail API data)
 - [x] /settings — tabbed: profile, notifications, preferences
 
 ### Supabase wiring (all non-email modules)
@@ -59,93 +59,77 @@ setup steps before code can be written (see below).
 - [x] All form modals: isSaving/saveError async feedback props
 - [x] 253 tests passing across all test suites
 
+### RBAC (merged via feature/rbac)
+- [x] lib/auth/roles.ts — getRole(), isAdmin(), guardAdmin() (uses currentUser(), NOT sessionClaims)
+- [x] lib/auth/use-role.ts — client-side useRole() hook
+- [x] guardAdmin() applied to all DELETE routes and all finances API routes
+- [x] Finances layout.tsx — server-side redirect for non-admins
+- [x] Sidebar hides Finances nav item for non-admin users
+- [x] Tasks, Proposals, Projects pages hide Delete buttons for non-admin users
+
+### Live data wiring
+- [x] Proposals page — removed MOCK_CLIENTS, fetches live clients + proposals in parallel
+- [x] Projects page — removed MOCK_CLIENTS + MOCK_PROPOSALS, fetches all three live
+- [x] 52 prospect leads imported to Supabase via scripts/import-leads.ts
+
+### Pagination / sorting (feature/live-client-data)
+- [x] lib/types/pagination.ts — ListOptions, PaginatedResult, PaginatedApiResponse
+- [x] lib/constants/pagination.ts — DEFAULT_PAGE_SIZE=25, MAX_PAGE_SIZE=100
+- [x] lib/utils/parse-list-params.ts — parseListParams() utility
+- [x] components/ui/Pagination.tsx — page window with ellipsis, Prev/Next
+- [x] components/ui/SortableHeader.tsx — sortable <th> with ↑/↓/↕ indicators
+- [x] components/ui/index.ts — exports for Pagination and SortableHeader
+- [x] lib/hooks/use-list-state.ts — generic hook managing page/sort state + API fetch
+- [x] All DB list functions updated: ListOptions param + PaginatedResult<T> return
+- [x] All GET API routes updated: parse ?page/?pageSize/?sort/?order via parseListParams()
+- [x] Clients page — useListState + SortableHeader + Pagination
+- [x] Proposals page — useListState + SortableHeader + Pagination
+- [x] Projects page — useListState + SortableHeader + Pagination
+- [x] Finances page — separate useListState for invoices + expenses tabs + Pagination each
+- [x] ExpandableTable — TableColumn.header widened to ReactNode (supports SortableHeader)
+
+### Gmail integration (feature/live-client-data)
+- [x] lib/integrations/gmail.ts — authenticated Gmail client, thread/message mappers
+- [x] lib/config.ts — Gmail credentials use optionalEnv (app does not crash if unconfigured)
+- [x] Gmail API — 2 accounts only: ryan@bluelinecg.com and bluelinecgllc@gmail.com
+- [x] /emails page rewired to live Gmail API via /api/emails
+- [x] Nick's account fully removed from EmailAccount type, all UI, Zod schemas, config
+- [x] One-time OAuth callback routes deleted (tokens captured, no longer needed)
+
+### Bug fixes (feature/live-client-data)
+- [x] tasks.ts — TaskRow.assignee renamed to assignee_id to match DB column schema
+- [x] emails — invalid_grant fixed by removing Nick's revoked OAuth account from the integration
+
 ---
 
 ## Immediate next task — PICK UP HERE
 
-### Gmail API integration for /emails
+### Open PR for feature/live-client-data
 
-The emails page currently uses mock data. The goal is a unified inbox that
-aggregates all 3 Gmail accounts (ryan@bluelinecg.com, nick@bluelinecg.com,
-bluelinecgllc@gmail.com) into one view with read/reply capability.
+Branch is pushed and build is clean. Open a PR from `feature/live-client-data` → `main`.
 
-**Architecture decision**: Emails are fetched live from the Gmail API — NOT
-stored in Supabase. Always in sync, no storage costs, no sync complexity.
-
----
-
-#### Step 1 — Google Cloud setup (manual, done by Ryan — ~15 min)
-
-1. **Create a Google Cloud project**
-   - Go to https://console.cloud.google.com
-   - Create a new project named "BLCG Internal"
-
-2. **Enable the Gmail API**
-   - APIs & Services → Enable APIs → search "Gmail API" → enable
-
-3. **Create OAuth 2.0 credentials**
-   - APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
-   - Application type: **Web application**
-   - Authorized redirect URIs:
-     - `http://localhost:3000/api/auth/gmail/callback`
-     - `https://admin.bluelinecg.com/api/auth/gmail/callback`
-   - Save the **Client ID** and **Client Secret**
-
-4. **Configure OAuth consent screen**
-   - User type: External (add all 3 addresses as test users)
-   - Scopes: `https://www.googleapis.com/auth/gmail.modify`
-     (covers read, send, mark as read, trash)
-
-5. **Run OAuth consent flow once per account**
-   - Claude will build a temporary `/api/auth/gmail/[account]` route for this
-   - After each authorisation, copy the refresh token into your env vars
-
-6. **Add to .env.local and Vercel (all environments)**
-   ```
-   GMAIL_CLIENT_ID=...
-   GMAIL_CLIENT_SECRET=...
-   GMAIL_REFRESH_TOKEN_RYAN=...        # ryan@bluelinecg.com
-   GMAIL_REFRESH_TOKEN_NICK=...        # nick@bluelinecg.com
-   GMAIL_REFRESH_TOKEN_GMAIL=...       # bluelinecgllc@gmail.com
-   ```
+PR covers:
+- Pagination/sorting on all list pages (clients, proposals, projects, finances)
+- Gmail integration live (emails page off mock data)
+- Bug fixes: assignee_id column, invalid_grant, optional Gmail config
+- Nick account removal from entire codebase
 
 ---
 
-#### Step 2 — Code (Claude builds once credentials are in place)
-
-**Package to install**: `googleapis` — run `npm audit` after install.
-
-**New files:**
-- `lib/integrations/gmail.ts` — Gmail API client factory; one authenticated
-  client per account; refresh tokens loaded from config; token refresh handled
-  automatically by the googleapis SDK
-- `lib/config.ts` — add Gmail credential validation
-- `.env.example` — document the 5 new Gmail env vars
-- `app/api/auth/gmail/[account]/route.ts` — temporary OAuth callback route
-  for generating refresh tokens (can be removed after setup)
-- `app/api/emails/route.ts` — GET: fetches threads from all 3 accounts in
-  parallel, merges and sorts by date
-- `app/api/emails/send/route.ts` — POST: sends new email from specified account
-- `app/api/emails/[id]/reply/route.ts` — POST: sends reply in existing thread
-- `app/api/emails/[id]/read/route.ts` — PATCH: marks thread as read
-- `app/api/emails/[id]/route.ts` — DELETE: moves thread to trash
-- `app/(dashboard)/emails/page.tsx` — rewrite to fetch from /api/emails,
-  remove MOCK_EMAIL_THREADS import
-
----
-
-## Backlog (next after Gmail)
+## Backlog (after PR merged)
 
 - [ ] **Dashboard wiring** — /dashboard page still uses MOCK_* imports for
       stat cards; wire to live API data from /api/clients, /api/projects, etc.
+- [ ] **Tasks page pagination** — Kanban board is not paginated; if task count
+      grows large, add server-side pagination or a list/table view alternative
 - [ ] **Testing** — Jest + RTL component tests and Playwright E2E tests
-      (unit tests for lib/db are done; UI and E2E coverage still needed)
+      (unit tests for lib/db are done; UI component tests and E2E coverage still needed;
+      new components: Pagination, SortableHeader; new hook: use-list-state)
+- [ ] **Supabase RLS policies** — RLS is enabled on all 9 tables (confirmed in
+      migration); permissive policies still need to be defined per-table
+      (currently only service role can read/write)
 - [ ] **Agentic workflow** — implement two-agent Claude Code pipeline
       (dev agent + review agent via Agent SDK)
-- [ ] **Pagination** — all list views currently load all records; add
-      cursor-based pagination for production readiness
-- [ ] **Supabase RLS policies** — Row Level Security rules need to be defined
-      and applied to all tables
 
 ---
 
@@ -161,5 +145,4 @@ stored in Supabase. Always in sync, no storage costs, no sync complexity.
 | `GMAIL_CLIENT_ID` | Gmail API | Google Cloud → Credentials |
 | `GMAIL_CLIENT_SECRET` | Gmail API | Google Cloud → Credentials |
 | `GMAIL_REFRESH_TOKEN_RYAN` | Gmail API | Generated via OAuth flow |
-| `GMAIL_REFRESH_TOKEN_NICK` | Gmail API | Generated via OAuth flow |
 | `GMAIL_REFRESH_TOKEN_GMAIL` | Gmail API | Generated via OAuth flow |

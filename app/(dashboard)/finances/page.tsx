@@ -1,14 +1,15 @@
 'use client';
 
-// Finances page — live data via /api/invoices and /api/expenses.
-// Invoices: create via InvoiceFormModal, delete with dependency check via /api/invoices/[id]/blockers.
-// Expenses: create/edit via ExpenseFormModal, delete freely.
+// Finances page — live data via /api/invoices and /api/expenses (paginated, sortable).
+// Clients and projects are fetched in full for form dropdowns and display.
+// Text/category filters run client-side against the current page.
 
 import { useState, useEffect, useMemo } from 'react';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Tabs, StatCard, Card, Badge, Select, Input, Button, ConfirmDialog, Spinner } from '@/components/ui';
+import { Tabs, StatCard, Card, Badge, Select, Input, Button, ConfirmDialog, Spinner, Pagination, SortableHeader } from '@/components/ui';
 import type { TabItem } from '@/components/ui/Tabs';
+import { useListState } from '@/lib/hooks/use-list-state';
 import { InvoiceFormModal, ExpenseFormModal } from '@/components/modules';
 import type { Invoice, Expense, InvoiceStatus, ExpenseCategory } from '@/lib/types/finances';
 import type { Client } from '@/lib/types/clients';
@@ -57,92 +58,75 @@ type InvoiceFormData = Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>;
 type ExpenseFormData = Omit<Expense, 'id' | 'createdAt'>;
 
 export function FinancesPage() {
-  const [invoices, setInvoices]   = useState<Invoice[]>([]);
-  const [expenses, setExpenses]   = useState<Expense[]>([]);
-  const [clients, setClients]     = useState<Client[]>([]);
-  const [projects, setProjects]   = useState<Project[]>([]);
-  const [isLoading, setIsLoading]   = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  // Paginated lists
+  const invoices = useListState<Invoice>({ endpoint: '/api/invoices', defaultSort: 'created_at', defaultOrder: 'desc' });
+  const expenses = useListState<Expense>({ endpoint: '/api/expenses', defaultSort: 'date', defaultOrder: 'desc' });
 
-  const [activeTab, setActiveTab] = useState('overview');
-  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('all');
-  const [invoiceSearch, setInvoiceSearch] = useState('');
-  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState('all');
-
-  // Invoice CRUD
-  const [invoiceFormOpen, setInvoiceFormOpen]         = useState(false);
-  const [invoiceDeleteTarget, setInvoiceDeleteTarget] = useState<Invoice | null>(null);
-  const [invoiceDeleteBlockers, setInvoiceDeleteBlockers] = useState<string[]>([]);
-  const [isCheckingInvDeps, setIsCheckingInvDeps]     = useState(false);
-  const [isInvoiceSaving, setIsInvoiceSaving]         = useState(false);
-  const [invoiceSaveError, setInvoiceSaveError]       = useState<string | null>(null);
-  const [isInvoiceDeleting, setIsInvoiceDeleting]     = useState(false);
-  const [invoiceDeleteError, setInvoiceDeleteError]   = useState<string | null>(null);
-
-  // Expense CRUD
-  const [expenseFormOpen, setExpenseFormOpen]     = useState(false);
-  const [editingExpense, setEditingExpense]         = useState<Expense | null>(null);
-  const [expenseDeleteTarget, setExpenseDeleteTarget] = useState<Expense | null>(null);
-  const [isExpenseSaving, setIsExpenseSaving]       = useState(false);
-  const [expenseSaveError, setExpenseSaveError]     = useState<string | null>(null);
-  const [isExpenseDeleting, setIsExpenseDeleting]   = useState(false);
-  const [expenseDeleteError, setExpenseDeleteError] = useState<string | null>(null);
-
-  useEffect(() => { void loadData(); }, []);
-
-  async function loadData() {
-    setIsLoading(true);
-    setFetchError(null);
-    try {
-      const [invRes, expRes, cliRes, projRes] = await Promise.all([
-        fetch('/api/invoices'),
-        fetch('/api/expenses'),
-        fetch('/api/clients'),
-        fetch('/api/projects'),
-      ]);
-      const [invJson, expJson, cliJson, projJson] = await Promise.all([
-        invRes.json() as Promise<{ data: Invoice[] | null; error: string | null }>,
-        expRes.json() as Promise<{ data: Expense[] | null; error: string | null }>,
-        cliRes.json() as Promise<{ data: Client[] | null; error: string | null }>,
-        projRes.json() as Promise<{ data: Project[] | null; error: string | null }>,
-      ]);
-      if (!invRes.ok || invJson.error) { setFetchError(invJson.error ?? 'Failed to load invoices'); return; }
-      setInvoices(invJson.data ?? []);
-      setExpenses(expJson.data ?? []);
-      setClients(cliJson.data ?? []);
-      setProjects(projJson.data ?? []);
-    } catch {
-      setFetchError('Failed to load finances data');
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  // Full clients + projects for form dropdowns (unpaginated)
+  const [clients, setClients]   = useState<Client[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/clients?pageSize=100&sort=name').then((r) => r.json()),
+      fetch('/api/projects?pageSize=100&sort=name').then((r) => r.json()),
+    ]).then(([cj, pj]: [{ data: Client[] | null }, { data: Project[] | null }]) => {
+      setClients(cj.data ?? []);
+      setProjects(pj.data ?? []);
+    }).catch(() => { /* non-critical */ });
+  }, []);
 
   const clientMap = useMemo(
     () => Object.fromEntries(clients.map((c) => [c.id, c])),
     [clients],
   );
 
+  const [activeTab, setActiveTab]                           = useState('overview');
+  const [invoiceStatusFilter, setInvoiceStatusFilter]       = useState('all');
+  const [invoiceSearch, setInvoiceSearch]                   = useState('');
+  const [expenseCategoryFilter, setExpenseCategoryFilter]   = useState('all');
+
+  // Invoice CRUD
+  const [invoiceFormOpen, setInvoiceFormOpen]               = useState(false);
+  const [invoiceDeleteTarget, setInvoiceDeleteTarget]       = useState<Invoice | null>(null);
+  const [invoiceDeleteBlockers, setInvoiceDeleteBlockers]   = useState<string[]>([]);
+  const [isCheckingInvDeps, setIsCheckingInvDeps]           = useState(false);
+  const [isInvoiceSaving, setIsInvoiceSaving]               = useState(false);
+  const [invoiceSaveError, setInvoiceSaveError]             = useState<string | null>(null);
+  const [isInvoiceDeleting, setIsInvoiceDeleting]           = useState(false);
+  const [invoiceDeleteError, setInvoiceDeleteError]         = useState<string | null>(null);
+
+  // Expense CRUD
+  const [expenseFormOpen, setExpenseFormOpen]               = useState(false);
+  const [editingExpense, setEditingExpense]                 = useState<Expense | null>(null);
+  const [expenseDeleteTarget, setExpenseDeleteTarget]       = useState<Expense | null>(null);
+  const [isExpenseSaving, setIsExpenseSaving]               = useState(false);
+  const [expenseSaveError, setExpenseSaveError]             = useState<string | null>(null);
+  const [isExpenseDeleting, setIsExpenseDeleting]           = useState(false);
+  const [expenseDeleteError, setExpenseDeleteError]         = useState<string | null>(null);
+
+  const isLoading = invoices.isLoading || expenses.isLoading;
+  const fetchError = invoices.error ?? expenses.error;
+
   const filteredInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
+    return invoices.data.filter((inv) => {
       const client = clientMap[inv.clientId];
       const q = invoiceSearch.toLowerCase();
       const matchesSearch = q === '' || inv.invoiceNumber.toLowerCase().includes(q) || (client?.name.toLowerCase().includes(q) ?? false);
       const matchesStatus = invoiceStatusFilter === 'all' || inv.status === invoiceStatusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [invoices, invoiceSearch, invoiceStatusFilter, clientMap]);
+  }, [invoices.data, invoiceSearch, invoiceStatusFilter, clientMap]);
 
   const filteredExpenses = useMemo(() => {
-    return expenses.filter((exp) => expenseCategoryFilter === 'all' || exp.category === expenseCategoryFilter);
-  }, [expenses, expenseCategoryFilter]);
+    return expenses.data.filter((exp) => expenseCategoryFilter === 'all' || exp.category === expenseCategoryFilter);
+  }, [expenses.data, expenseCategoryFilter]);
 
   // --- Invoice handlers ---
 
   function nextInvoiceNum(): string {
     const year = new Date().getFullYear();
     const prefix = `BL-${year}-`;
-    const max = invoices
+    const max = invoices.data
       .filter((i) => i.invoiceNumber.startsWith(prefix))
       .map((i) => parseInt(i.invoiceNumber.split('-')[2] ?? '0', 10))
       .reduce((a, b) => Math.max(a, b), 0);
@@ -160,8 +144,8 @@ export function FinancesPage() {
       });
       const json = await res.json() as { data: Invoice | null; error: string | null };
       if (!res.ok || json.error) { setInvoiceSaveError(json.error ?? 'Failed to create invoice'); return; }
-      if (json.data) setInvoices((prev) => [json.data!, ...prev]);
       setInvoiceFormOpen(false);
+      invoices.reload();
     } catch {
       setInvoiceSaveError('Network error. Please try again.');
     } finally {
@@ -193,8 +177,8 @@ export function FinancesPage() {
       const res  = await fetch(`/api/invoices/${invoiceDeleteTarget.id}`, { method: 'DELETE' });
       const json = await res.json() as { data: unknown; error: string | null };
       if (!res.ok || json.error) { setInvoiceDeleteError(json.error ?? 'Failed to delete invoice'); setInvoiceDeleteTarget(null); return; }
-      setInvoices((prev) => prev.filter((i) => i.id !== invoiceDeleteTarget.id));
       setInvoiceDeleteTarget(null);
+      invoices.reload();
     } catch {
       setInvoiceDeleteError('Network error. Please try again.');
     } finally {
@@ -216,7 +200,6 @@ export function FinancesPage() {
         });
         const json = await res.json() as { data: Expense | null; error: string | null };
         if (!res.ok || json.error) { setExpenseSaveError(json.error ?? 'Failed to update expense'); return; }
-        if (json.data) setExpenses((prev) => prev.map((e) => (e.id === editingExpense.id ? json.data! : e)));
       } else {
         const res  = await fetch('/api/expenses', {
           method: 'POST',
@@ -225,9 +208,9 @@ export function FinancesPage() {
         });
         const json = await res.json() as { data: Expense | null; error: string | null };
         if (!res.ok || json.error) { setExpenseSaveError(json.error ?? 'Failed to create expense'); return; }
-        if (json.data) setExpenses((prev) => [json.data!, ...prev]);
       }
       closeExpenseForm();
+      expenses.reload();
     } catch {
       setExpenseSaveError('Network error. Please try again.');
     } finally {
@@ -249,8 +232,8 @@ export function FinancesPage() {
       const res  = await fetch(`/api/expenses/${expenseDeleteTarget.id}`, { method: 'DELETE' });
       const json = await res.json() as { data: unknown; error: string | null };
       if (!res.ok || json.error) { setExpenseDeleteError(json.error ?? 'Failed to delete expense'); setExpenseDeleteTarget(null); return; }
-      setExpenses((prev) => prev.filter((e) => e.id !== expenseDeleteTarget.id));
       setExpenseDeleteTarget(null);
+      expenses.reload();
     } catch {
       setExpenseDeleteError('Network error. Please try again.');
     } finally {
@@ -264,12 +247,12 @@ export function FinancesPage() {
     setExpenseSaveError(null);
   }
 
-  // Derived totals
-  const totalRevenue     = invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0);
-  const totalOutstanding = invoices.filter((i) => ['sent', 'viewed', 'overdue'].includes(i.status)).reduce((s, i) => s + i.total, 0);
-  const totalExpenses    = expenses.reduce((s, e) => s + e.amount, 0);
-  const netPL            = totalRevenue - totalExpenses;
-  const overdueCount     = invoices.filter((i) => i.status === 'overdue').length;
+  // Derived totals (current page)
+  const totalRevenue     = invoices.data.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0);
+  const totalOutstanding = invoices.data.filter((i) => ['sent', 'viewed', 'overdue'].includes(i.status)).reduce((s, i) => s + i.total, 0);
+  const totalExpensesAmt = expenses.data.reduce((s, e) => s + e.amount, 0);
+  const netPL            = totalRevenue - totalExpensesAmt;
+  const overdueCount     = invoices.data.filter((i) => i.status === 'overdue').length;
 
   if (isLoading) {
     return (
@@ -318,7 +301,7 @@ export function FinancesPage() {
           <div className="grid grid-cols-4 gap-4">
             <StatCard label="Total Revenue (Paid)" value={formatCurrency(totalRevenue)} sub="From paid invoices" accent="green" />
             <StatCard label="Outstanding" value={formatCurrency(totalOutstanding)} sub={overdueCount > 0 ? `${overdueCount} overdue` : 'None overdue'} accent={overdueCount > 0 ? 'red' : 'yellow'} />
-            <StatCard label="Total Expenses" value={formatCurrency(totalExpenses)} accent="yellow" />
+            <StatCard label="Total Expenses" value={formatCurrency(totalExpensesAmt)} accent="yellow" />
             <StatCard label="Net P&L" value={formatCurrency(netPL)} sub="Revenue minus expenses" accent={netPL >= 0 ? 'green' : 'red'} />
           </div>
           <div className="grid grid-cols-2 gap-6">
@@ -327,7 +310,7 @@ export function FinancesPage() {
                 <h3 className="text-sm font-semibold text-gray-700">Recent Invoices</h3>
               </div>
               <div className="divide-y divide-gray-50">
-                {invoices.slice(0, 5).map((inv) => {
+                {invoices.data.slice(0, 5).map((inv) => {
                   const client = clientMap[inv.clientId];
                   const cfg = INVOICE_STATUS_BADGE[inv.status];
                   return (
@@ -351,7 +334,7 @@ export function FinancesPage() {
               </div>
               <div className="divide-y divide-gray-50">
                 {Object.entries(CATEGORY_LABELS).map(([cat, label]) => {
-                  const total = expenses.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0);
+                  const total = expenses.data.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0);
                   if (total === 0) return null;
                   return (
                     <div key={cat} className="flex items-center justify-between px-5 py-3">
@@ -376,12 +359,12 @@ export function FinancesPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Invoice #</th>
+                  <SortableHeader column="invoice_number" currentSort={invoices.sort} order={invoices.order} onSort={invoices.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Invoice #</SortableHeader>
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Client</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Due</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Paid</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Total</th>
+                  <SortableHeader column="status" currentSort={invoices.sort} order={invoices.order} onSort={invoices.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</SortableHeader>
+                  <SortableHeader column="due_date" currentSort={invoices.sort} order={invoices.order} onSort={invoices.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Due</SortableHeader>
+                  <SortableHeader column="paid_date" currentSort={invoices.sort} order={invoices.order} onSort={invoices.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Paid</SortableHeader>
+                  <SortableHeader column="total" currentSort={invoices.sort} order={invoices.order} onSort={invoices.setSort} className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500" align="right">Total</SortableHeader>
                   <th className="px-6 py-3" />
                 </tr>
               </thead>
@@ -413,6 +396,7 @@ export function FinancesPage() {
               </tbody>
             </table>
           </Card>
+          <Pagination page={invoices.page} totalPages={invoices.totalPages} onPageChange={invoices.setPage} className="mt-4" />
         </div>
       )}
 
@@ -428,11 +412,11 @@ export function FinancesPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Category</th>
+                  <SortableHeader column="description" currentSort={expenses.sort} order={expenses.order} onSort={expenses.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Description</SortableHeader>
+                  <SortableHeader column="category" currentSort={expenses.sort} order={expenses.order} onSort={expenses.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Category</SortableHeader>
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Vendor</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Date</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Amount</th>
+                  <SortableHeader column="date" currentSort={expenses.sort} order={expenses.order} onSort={expenses.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Date</SortableHeader>
+                  <SortableHeader column="amount" currentSort={expenses.sort} order={expenses.order} onSort={expenses.setSort} className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500" align="right">Amount</SortableHeader>
                   <th className="px-6 py-3" />
                 </tr>
               </thead>
@@ -458,6 +442,7 @@ export function FinancesPage() {
               </tbody>
             </table>
           </Card>
+          <Pagination page={expenses.page} totalPages={expenses.totalPages} onPageChange={expenses.setPage} className="mt-4" />
         </div>
       )}
 

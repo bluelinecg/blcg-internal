@@ -14,7 +14,6 @@ import { z } from 'zod';
 const SendSchema = z.object({
   from: z.enum([
     'ryan@bluelinecg.com',
-    'nick@bluelinecg.com',
     'bluelinecgllc@gmail.com',
   ]),
   to: z.string().email('Invalid recipient email'),
@@ -36,6 +35,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { from, to, cc, subject, body } = parsed.data;
     const accountKey = EMAIL_TO_ACCOUNT_KEY[from as EmailAccount];
+    if (!accountKey) {
+      return NextResponse.json({ data: null, error: 'Unknown sender account' }, { status: 400 });
+    }
     const gmail = getGmailClient(accountKey);
 
     const rawLines = [

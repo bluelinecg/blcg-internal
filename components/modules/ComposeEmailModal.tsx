@@ -29,7 +29,6 @@ interface ComposeEmailModalProps {
 
 const ACCOUNT_OPTIONS: { value: EmailAccount; label: string }[] = [
   { value: 'ryan@bluelinecg.com',    label: 'ryan@bluelinecg.com' },
-  { value: 'nick@bluelinecg.com',    label: 'nick@bluelinecg.com' },
   { value: 'bluelinecgllc@gmail.com', label: 'bluelinecgllc@gmail.com' },
 ];
 

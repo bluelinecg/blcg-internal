@@ -1,28 +1,30 @@
-// GET  /api/tasks — list all tasks
+// GET  /api/tasks — list tasks (paginated, sortable)
 // POST /api/tasks — create a task
 //
 // Auth: requires a valid Clerk session.
-// Response shape: { data: T | null, error: string | null }
+// Response shape: { data: T | null, total: number | null, error: string | null }
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { listTasks, createTask } from '@/lib/db/tasks';
 import { TaskSchema } from '@/lib/validations/tasks';
+import { parseListParams } from '@/lib/utils/parse-list-params';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+      return NextResponse.json({ data: null, total: null, error: 'Unauthorised' }, { status: 401 });
     }
 
-    const { data, error } = await listTasks();
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+    const options = parseListParams(new URL(request.url).searchParams);
+    const { data, total, error } = await listTasks(options);
+    if (error) return NextResponse.json({ data: null, total: null, error }, { status: 500 });
 
-    return NextResponse.json({ data, error: null });
+    return NextResponse.json({ data, total, error: null });
   } catch (err) {
     console.error('[GET /api/tasks]', err);
-    return NextResponse.json({ data: null, error: 'Failed to load tasks' }, { status: 500 });
+    return NextResponse.json({ data: null, total: null, error: 'Failed to load tasks' }, { status: 500 });
   }
 }
 

@@ -14,7 +14,6 @@ import type { EmailThread, EmailAccount, EmailFolder } from '@/lib/types/emails'
 const ACCOUNT_OPTIONS = [
   { value: 'all', label: 'All Accounts' },
   { value: 'ryan@bluelinecg.com', label: 'ryan@bluelinecg.com' },
-  { value: 'nick@bluelinecg.com', label: 'nick@bluelinecg.com' },
   { value: 'bluelinecgllc@gmail.com', label: 'bluelinecgllc@gmail.com' },
 ];
 
@@ -27,13 +26,11 @@ const FOLDER_OPTIONS = [
 
 const ACCOUNT_COLORS: Record<EmailAccount, string> = {
   'ryan@bluelinecg.com':     'bg-brand-blue text-white',
-  'nick@bluelinecg.com':     'bg-brand-navy text-white',
   'bluelinecgllc@gmail.com': 'bg-red-500 text-white',
 };
 
 const ACCOUNT_SHORT: Record<EmailAccount, string> = {
   'ryan@bluelinecg.com':     'R',
-  'nick@bluelinecg.com':     'N',
   'bluelinecgllc@gmail.com': 'G',
 };
 

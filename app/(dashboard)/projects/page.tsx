@@ -1,18 +1,20 @@
 'use client';
 
-// Projects list page — fetches live data from /api/projects.
-// Create/edit via ProjectFormModal, delete with dependency check via ConfirmDialog.
+// Projects list page — fetches live data from /api/projects (paginated, sortable).
+// Clients and proposals are fetched in full (unpaginated) for form dropdowns and display.
+// Text search and status filter run client-side against the current page.
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, Input, Select, Badge, Spinner, ConfirmDialog } from '@/components/ui';
+import { Button, Card, Input, Select, Badge, Spinner, ConfirmDialog, Pagination, SortableHeader } from '@/components/ui';
 import { useRole } from '@/lib/auth/use-role';
+import { useListState } from '@/lib/hooks/use-list-state';
 import { ProjectFormModal } from '@/components/modules';
-import { MOCK_CLIENTS } from '@/lib/mock/clients';
-import { MOCK_PROPOSALS } from '@/lib/mock/proposals';
 import type { Project, ProjectStatus } from '@/lib/types/projects';
+import type { Client } from '@/lib/types/clients';
+import type { Proposal } from '@/lib/types/proposals';
 
 type StatusFilter = ProjectStatus | 'all';
 
@@ -31,52 +33,48 @@ const STATUS_BADGE: Record<ProjectStatus, { variant: 'green' | 'blue' | 'yellow'
   cancelled: { variant: 'red',    label: 'Cancelled' },
 };
 
-const CLIENT_MAP = Object.fromEntries(MOCK_CLIENTS.map((c) => [c.id, c]));
-
 type ProjectFormData = Omit<Project, 'id' | 'milestones' | 'createdAt' | 'updatedAt'>;
 
 export function ProjectsPage() {
   const isAdmin = useRole() === 'admin';
-  const [projects, setProjects]   = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [search, setSearch]       = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  const [formOpen, setFormOpen]   = useState(false);
-  const [editing, setEditing]     = useState<Project | null>(null);
-  const [isSaving, setIsSaving]   = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  // Paginated projects via hook
+  const { data: projects, isLoading, error: fetchError, page, totalPages, totalRecords, sort, order, setPage, setSort, reload } =
+    useListState<Project>({ endpoint: '/api/projects', defaultSort: 'created_at', defaultOrder: 'desc' });
 
-  const [deleteTarget, setDeleteTarget]     = useState<Project | null>(null);
+  // Full clients + proposals for form dropdowns (unpaginated)
+  const [clients, setClients]     = useState<Client[]>([]);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/clients?pageSize=100&sort=name').then((r) => r.json()),
+      fetch('/api/proposals?pageSize=100&sort=title').then((r) => r.json()),
+    ]).then(([cj, pj]: [{ data: Client[] | null }, { data: Proposal[] | null }]) => {
+      setClients(cj.data ?? []);
+      setProposals(pj.data ?? []);
+    }).catch(() => { /* non-critical */ });
+  }, []);
+
+  const clientMap = useMemo(
+    () => Object.fromEntries(clients.map((c) => [c.id, c])),
+    [clients],
+  );
+
+  const [search, setSearch]               = useState('');
+  const [statusFilter, setStatusFilter]   = useState<StatusFilter>('all');
+  const [formOpen, setFormOpen]           = useState(false);
+  const [editing, setEditing]             = useState<Project | null>(null);
+  const [isSaving, setIsSaving]           = useState(false);
+  const [saveError, setSaveError]         = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget]   = useState<Project | null>(null);
   const [deleteBlockers, setDeleteBlockers] = useState<string[]>([]);
   const [isCheckingDeps, setIsCheckingDeps] = useState(false);
-  const [isDeleting, setIsDeleting]         = useState(false);
-  const [deleteError, setDeleteError]       = useState<string | null>(null);
-
-  useEffect(() => { void loadProjects(); }, []);
-
-  async function loadProjects() {
-    setIsLoading(true);
-    setFetchError(null);
-    try {
-      const res  = await fetch('/api/projects');
-      const json = await res.json() as { data: Project[] | null; error: string | null };
-      if (!res.ok || json.error) {
-        setFetchError(json.error ?? 'Failed to load projects');
-      } else {
-        setProjects(json.data ?? []);
-      }
-    } catch {
-      setFetchError('Failed to load projects');
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const [isDeleting, setIsDeleting]       = useState(false);
+  const [deleteError, setDeleteError]     = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
-      const client = CLIENT_MAP[p.clientId];
+      const client = clientMap[p.clientId];
       const q = search.toLowerCase();
       const matchesSearch =
         q === '' ||
@@ -86,7 +84,7 @@ export function ProjectsPage() {
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [projects, search, statusFilter]);
+  }, [projects, search, statusFilter, clientMap]);
 
   // --- CRUD handlers ---
 
@@ -101,8 +99,8 @@ export function ProjectsPage() {
       });
       const json = await res.json() as { data: Project | null; error: string | null };
       if (!res.ok || json.error) { setSaveError(json.error ?? 'Failed to create project'); return; }
-      if (json.data) setProjects((prev) => [json.data!, ...prev]);
       closeForm();
+      reload();
     } catch {
       setSaveError('Network error. Please try again.');
     } finally {
@@ -122,8 +120,8 @@ export function ProjectsPage() {
       });
       const json = await res.json() as { data: Project | null; error: string | null };
       if (!res.ok || json.error) { setSaveError(json.error ?? 'Failed to update project'); return; }
-      if (json.data) setProjects((prev) => prev.map((p) => (p.id === editing.id ? json.data! : p)));
       closeForm();
+      reload();
     } catch {
       setSaveError('Network error. Please try again.');
     } finally {
@@ -161,8 +159,8 @@ export function ProjectsPage() {
       const res  = await fetch(`/api/projects/${deleteTarget.id}`, { method: 'DELETE' });
       const json = await res.json() as { data: unknown; error: string | null };
       if (!res.ok || json.error) { setDeleteError(json.error ?? 'Failed to delete project'); setDeleteTarget(null); return; }
-      setProjects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
       setDeleteTarget(null);
+      reload();
     } catch {
       setDeleteError('Network error. Please try again.');
     } finally {
@@ -180,7 +178,7 @@ export function ProjectsPage() {
     <PageShell>
       <PageHeader
         title="Projects"
-        subtitle={isLoading ? 'Loading…' : `${projects.length} total projects`}
+        subtitle={isLoading ? 'Loading…' : `${totalRecords} total projects`}
         actions={
           <Button onClick={() => { setEditing(null); setSaveError(null); setFormOpen(true); }}>
             + New Project
@@ -194,7 +192,7 @@ export function ProjectsPage() {
         </div>
       )}
 
-      {/* Summary row */}
+      {/* Summary row (current page) */}
       <div className="flex gap-4 mb-5">
         {(['active', 'on_hold', 'completed'] as ProjectStatus[]).map((status) => (
           <div key={status} className="flex flex-col rounded-md border border-gray-200 bg-white px-4 py-3 min-w-28">
@@ -230,22 +228,22 @@ export function ProjectsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Project</th>
+                <SortableHeader column="name" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Project</SortableHeader>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Client</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                <SortableHeader column="status" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</SortableHeader>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Milestones</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Budget</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Target</th>
+                <SortableHeader column="budget" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Budget</SortableHeader>
+                <SortableHeader column="end_date" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Target</SortableHeader>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((project) => {
-                const client  = CLIENT_MAP[project.clientId];
-                const cfg     = STATUS_BADGE[project.status];
+                const client    = clientMap[project.clientId];
+                const cfg       = STATUS_BADGE[project.status];
                 const completed = project.milestones.filter((m) => m.status === 'completed').length;
-                const total   = project.milestones.length;
-                const pct     = total > 0 ? Math.round((completed / total) * 100) : 0;
+                const total     = project.milestones.length;
+                const pct       = total > 0 ? Math.round((completed / total) * 100) : 0;
                 return (
                   <tr key={project.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
@@ -284,13 +282,15 @@ export function ProjectsPage() {
         )}
       </Card>
 
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-4" />
+
       <ProjectFormModal
         isOpen={formOpen}
         onClose={closeForm}
         onSave={editing ? handleEdit : handleCreate}
         initial={editing ?? undefined}
-        clients={MOCK_CLIENTS}
-        proposals={MOCK_PROPOSALS}
+        clients={clients}
+        proposals={proposals}
         isSaving={isSaving}
         saveError={saveError}
       />

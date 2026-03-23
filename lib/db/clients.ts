@@ -9,6 +9,8 @@
 import { serverClient } from '@/lib/db/supabase';
 import type { Client, ClientStatus } from '@/lib/types/clients';
 import type { ClientInput, UpdateClientInput } from '@/lib/validations/clients';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
 
 // ---------------------------------------------------------------------------
 // Row type (mirrors DB columns)
@@ -90,19 +92,24 @@ function toUpdate(data: UpdateClientInput): Partial<Omit<ClientRow, 'id' | 'crea
 // Query functions
 // ---------------------------------------------------------------------------
 
-/** Returns all clients ordered by name. */
-export async function listClients(): Promise<{ data: Client[] | null; error: string | null }> {
+/** Returns a paginated, sorted list of clients. */
+export async function listClients(options?: ListOptions): Promise<PaginatedResult<Client>> {
   try {
-    const { data, error } = await serverClient()
-      .from('clients')
-      .select('*')
-      .order('name');
+    const { page = 1, pageSize = DEFAULT_PAGE_SIZE, sort = 'name', order = 'asc' } = options ?? {};
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
-    if (error) return { data: null, error: error.message };
-    return { data: (data as ClientRow[]).map(fromRow), error: null };
+    const { data, count, error } = await serverClient()
+      .from('clients')
+      .select('*', { count: 'exact' })
+      .order(sort, { ascending: order !== 'desc' })
+      .range(from, to);
+
+    if (error) return { data: null, total: null, error: error.message };
+    return { data: (data as ClientRow[]).map(fromRow), total: count, error: null };
   } catch (err) {
     console.error('[listClients]', err);
-    return { data: null, error: 'Failed to load clients' };
+    return { data: null, total: null, error: 'Failed to load clients' };
   }
 }
 

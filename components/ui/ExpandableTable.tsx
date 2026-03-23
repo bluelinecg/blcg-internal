@@ -15,7 +15,7 @@ import React, { useState } from 'react';
 
 export interface TableColumn<T> {
   key: string;
-  header: string;
+  header: React.ReactNode;
   render: (row: T) => React.ReactNode;
   width?: string;
   align?: 'left' | 'right' | 'center';
