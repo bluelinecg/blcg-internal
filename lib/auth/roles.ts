@@ -1,22 +1,22 @@
 /**
  * Server-side role utilities.
- * Reads the user's role from Clerk JWT session claims (no extra network call).
- * Role is stored in Clerk publicMetadata.role and injected into every JWT automatically.
+ * Reads the user's role from Clerk publicMetadata via currentUser().
+ * Role is stored in Clerk publicMetadata.role — set per user in the Clerk dashboard.
  *
  * Usage in API routes:
  *   const guard = await guardAdmin();
  *   if (guard) return guard;
  */
 
-import { auth } from '@clerk/nextjs/server';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
 export type Role = 'admin' | 'member';
 
 /** Returns the authenticated user's role. Defaults to 'member' if unset. */
 export async function getRole(): Promise<Role> {
-  const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string } | undefined)?.role;
+  const user = await currentUser();
+  const role = user?.publicMetadata?.role as string | undefined;
   return role === 'admin' ? 'admin' : 'member';
 }
 
