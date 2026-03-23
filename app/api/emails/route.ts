@@ -24,13 +24,17 @@ export async function GET(): Promise<NextResponse> {
       ACCOUNT_KEYS.map(async (accountKey) => {
         const gmail = getGmailClient(accountKey);
 
-        const listRes = await gmail.users.threads.list({
-          userId: 'me',
-          maxResults: THREADS_PER_ACCOUNT,
-          labelIds: ['INBOX', 'SENT'],
-        });
+        // Fetch inbox and sent separately — Gmail treats these as mutually exclusive labels
+        const [inboxRes, sentRes] = await Promise.all([
+          gmail.users.threads.list({ userId: 'me', maxResults: THREADS_PER_ACCOUNT, labelIds: ['INBOX'] }),
+          gmail.users.threads.list({ userId: 'me', maxResults: THREADS_PER_ACCOUNT, labelIds: ['SENT'] }),
+        ]);
 
-        const threadIds = listRes.data.threads ?? [];
+        // Deduplicate by thread ID (a thread can appear in both if you replied)
+        const seen = new Set<string>();
+        const threadIds = [...(inboxRes.data.threads ?? []), ...(sentRes.data.threads ?? [])].filter(
+          (t) => t.id && !seen.has(t.id) && seen.add(t.id)
+        );
 
         const threads = await Promise.all(
           threadIds.map(async (t) => {
