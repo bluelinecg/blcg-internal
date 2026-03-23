@@ -28,4 +28,11 @@ export const config = {
     anonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     serviceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
   },
+  gmail: {
+    clientId: requireEnv("GMAIL_CLIENT_ID"),
+    clientSecret: requireEnv("GMAIL_CLIENT_SECRET"),
+    refreshTokenRyan: requireEnv("GMAIL_REFRESH_TOKEN_RYAN"),
+    refreshTokenNick: requireEnv("GMAIL_REFRESH_TOKEN_NICK"),
+    refreshTokenGmail: requireEnv("GMAIL_REFRESH_TOKEN_GMAIL"),
+  },
 } as const;
