@@ -2,14 +2,14 @@
 
 **Live URL**: https://admin.bluelinecg.com
 **Repo**: github.com/bluelinecg/blcg-internal
-**Current branch**: feature/live-client-data (in progress)
+**Current branch**: feature/live-client-data (ready to PR)
 
 ---
 
 ## Current status
 
-**Phase**: RBAC and live data wiring complete. Pagination/filtering/sorting
-implementation in progress on feature/live-client-data.
+**Phase**: Pagination/sorting, live data wiring, and Gmail integration all complete
+on `feature/live-client-data`. Branch is pushed and ready to open a PR to main.
 
 ---
 
@@ -33,7 +33,8 @@ implementation in progress on feature/live-client-data.
 - [x] Brand token system — lib/constants/brand.ts + @theme in globals.css
 - [x] Full /components/ui primitive library:
   Button, Badge, Card, Input, Select, Textarea, Spinner,
-  Modal, ConfirmDialog, ExpandableTable, KanbanBoard, MilestoneTracker, StatCard, Tabs
+  Modal, ConfirmDialog, ExpandableTable, KanbanBoard, MilestoneTracker, StatCard, Tabs,
+  Pagination, SortableHeader
 
 ### Pages (all with full CRUD)
 - [x] /dashboard — summary widgets
@@ -45,7 +46,7 @@ implementation in progress on feature/live-client-data.
 - [x] /projects/[id] — detail with MilestoneTracker visual + milestone table
 - [x] /tasks — Kanban board with drag-and-drop
 - [x] /finances — tabbed: overview, invoices, expenses
-- [x] /emails — unified multi-account inbox (still on mock data)
+- [x] /emails — unified multi-account inbox (live Gmail API data)
 - [x] /settings — tabbed: profile, notifications, preferences
 
 ### Supabase wiring (all non-email modules)
@@ -66,134 +67,69 @@ implementation in progress on feature/live-client-data.
 - [x] Sidebar hides Finances nav item for non-admin users
 - [x] Tasks, Proposals, Projects pages hide Delete buttons for non-admin users
 
-### Live data wiring (merged via feature/wire-clients → feature/live-client-data)
+### Live data wiring
 - [x] Proposals page — removed MOCK_CLIENTS, fetches live clients + proposals in parallel
 - [x] Projects page — removed MOCK_CLIENTS + MOCK_PROPOSALS, fetches all three live
-- [x] Temp Gmail OAuth routes (app/api/auth/gmail/) deleted
 - [x] 52 prospect leads imported to Supabase via scripts/import-leads.ts
 
-### Pagination foundation (in progress on feature/live-client-data)
+### Pagination / sorting (feature/live-client-data)
 - [x] lib/types/pagination.ts — ListOptions, PaginatedResult, PaginatedApiResponse
 - [x] lib/constants/pagination.ts — DEFAULT_PAGE_SIZE=25, MAX_PAGE_SIZE=100
 - [x] lib/utils/parse-list-params.ts — parseListParams() utility
 - [x] components/ui/Pagination.tsx — page window with ellipsis, Prev/Next
-- [x] components/ui/SortableHeader.tsx — sortable &lt;th&gt; with ↑/↓/↕ indicators
+- [x] components/ui/SortableHeader.tsx — sortable <th> with ↑/↓/↕ indicators
+- [x] components/ui/index.ts — exports for Pagination and SortableHeader
+- [x] lib/hooks/use-list-state.ts — generic hook managing page/sort state + API fetch
+- [x] All DB list functions updated: ListOptions param + PaginatedResult<T> return
+- [x] All GET API routes updated: parse ?page/?pageSize/?sort/?order via parseListParams()
+- [x] Clients page — useListState + SortableHeader + Pagination
+- [x] Proposals page — useListState + SortableHeader + Pagination
+- [x] Projects page — useListState + SortableHeader + Pagination
+- [x] Finances page — separate useListState for invoices + expenses tabs + Pagination each
+- [x] ExpandableTable — TableColumn.header widened to ReactNode (supports SortableHeader)
+
+### Gmail integration (feature/live-client-data)
+- [x] lib/integrations/gmail.ts — authenticated Gmail client, thread/message mappers
+- [x] lib/config.ts — Gmail credentials use optionalEnv (app does not crash if unconfigured)
+- [x] Gmail API — 2 accounts only: ryan@bluelinecg.com and bluelinecgllc@gmail.com
+- [x] /emails page rewired to live Gmail API via /api/emails
+- [x] Nick's account fully removed from EmailAccount type, all UI, Zod schemas, config
+- [x] One-time OAuth callback routes deleted (tokens captured, no longer needed)
+
+### Bug fixes (feature/live-client-data)
+- [x] tasks.ts — TaskRow.assignee renamed to assignee_id to match DB column schema
+- [x] emails — invalid_grant fixed by removing Nick's revoked OAuth account from the integration
 
 ---
 
 ## Immediate next task — PICK UP HERE
 
-### Complete pagination/filtering/sorting (branch: feature/live-client-data)
+### Open PR for feature/live-client-data
 
-Foundation already built (see Completed above). Remaining work:
+Branch is pushed and build is clean. Open a PR from `feature/live-client-data` → `main`.
 
-**1. Export new UI components**
-- Update `components/ui/index.ts` — add exports for `Pagination` and `SortableHeader`
-
-**2. Create `lib/hooks/use-list-state.ts`**
-Generic hook that manages page/sort state and fetches from an API endpoint.
-```typescript
-interface UseListStateOptions {
-  endpoint: string;       // e.g. '/api/clients'
-  defaultSort: string;    // e.g. 'name'
-  defaultOrder?: 'asc' | 'desc';
-}
-interface UseListStateReturn<T> {
-  data: T[];
-  isLoading: boolean;
-  error: string | null;
-  page: number;
-  totalPages: number;
-  totalRecords: number;
-  sort: string;
-  order: 'asc' | 'desc';
-  setPage: (page: number) => void;
-  setSort: (column: string) => void;  // toggles asc/desc if same column
-  reload: () => void;
-}
-```
-
-**3. Update DB layer** — add `ListOptions` param and return `PaginatedResult<T>`
-- `lib/db/clients.ts` — listClients(options?: ListOptions)
-- `lib/db/proposals.ts` — listProposals(options?: ListOptions)
-- `lib/db/projects.ts` — listProjects(options?: ListOptions)
-- `lib/db/tasks.ts` — listTasks(options?: ListOptions)
-- `lib/db/finances.ts` — listInvoices, listExpenses (options?: ListOptions)
-
-Pattern for each:
-```typescript
-const from = ((page ?? 1) - 1) * (pageSize ?? DEFAULT_PAGE_SIZE);
-const to = from + (pageSize ?? DEFAULT_PAGE_SIZE) - 1;
-const query = supabase.from('clients').select('*', { count: 'exact' });
-if (sort) query.order(sort, { ascending: order !== 'desc' });
-const { data, count, error } = await query.range(from, to);
-return { data, total: count, error: error?.message ?? null };
-```
-
-**4. Update API routes** — accept ?page, ?pageSize, ?sort, ?order via parseListParams()
-- `app/api/clients/route.ts` (GET)
-- `app/api/proposals/route.ts` (GET)
-- `app/api/projects/route.ts` (GET)
-- `app/api/tasks/route.ts` (GET)
-- `app/api/invoices/route.ts` (GET)
-- `app/api/expenses/route.ts` (GET)
-
-**5. Update page components** — swap manual fetch for useListState, add Pagination + SortableHeader to tables
-- `app/(dashboard)/clients/page.tsx`
-- `app/(dashboard)/proposals/page.tsx`
-- `app/(dashboard)/projects/page.tsx`
-- `app/(dashboard)/finances/page.tsx` (invoices + expenses tabs)
-
-**6. Run build check, commit, open PR**
+PR covers:
+- Pagination/sorting on all list pages (clients, proposals, projects, finances)
+- Gmail integration live (emails page off mock data)
+- Bug fixes: assignee_id column, invalid_grant, optional Gmail config
+- Nick account removal from entire codebase
 
 ---
 
-### Gmail API integration for /emails (after pagination)
-
-The emails page currently uses mock data. The goal is a unified inbox that
-aggregates all 3 Gmail accounts (ryan@bluelinecg.com, nick@bluelinecg.com,
-bluelinecgllc@gmail.com) into one view with read/reply capability.
-
-**Architecture decision**: Emails are fetched live from the Gmail API — NOT
-stored in Supabase. Always in sync, no storage costs, no sync complexity.
-
-#### Step 1 — Google Cloud setup (manual, done by Ryan — ~15 min)
-
-1. **Create a Google Cloud project** at https://console.cloud.google.com — "BLCG Internal"
-2. **Enable the Gmail API** — APIs & Services → Enable APIs → Gmail API
-3. **Create OAuth 2.0 credentials** — Web application type
-   - Redirect URIs: `http://localhost:3000/api/auth/gmail/callback` and `https://admin.bluelinecg.com/api/auth/gmail/callback`
-4. **Configure OAuth consent screen** — External, add all 3 addresses as test users
-   - Scope: `https://www.googleapis.com/auth/gmail.modify`
-5. **Add to .env.local and Vercel:**
-   ```
-   GMAIL_CLIENT_ID=...
-   GMAIL_CLIENT_SECRET=...
-   GMAIL_REFRESH_TOKEN_RYAN=...
-   GMAIL_REFRESH_TOKEN_NICK=...
-   GMAIL_REFRESH_TOKEN_GMAIL=...
-   ```
-
-#### Step 2 — Code (Claude builds once credentials are in place)
-
-**Package**: `googleapis` (run `npm audit` after)
-
-New files: `lib/integrations/gmail.ts`, API routes for list/send/reply/read/delete,
-rewrite `app/(dashboard)/emails/page.tsx` to fetch live data.
-
----
-
-## Backlog (after Gmail)
+## Backlog (after PR merged)
 
 - [ ] **Dashboard wiring** — /dashboard page still uses MOCK_* imports for
       stat cards; wire to live API data from /api/clients, /api/projects, etc.
+- [ ] **Tasks page pagination** — Kanban board is not paginated; if task count
+      grows large, add server-side pagination or a list/table view alternative
 - [ ] **Testing** — Jest + RTL component tests and Playwright E2E tests
-      (unit tests for lib/db are done; UI and E2E coverage still needed)
-- [ ] **Agentic workflow** — implement two-agent Claude Code pipeline
-      (dev agent + review agent via Agent SDK)
+      (unit tests for lib/db are done; UI component tests and E2E coverage still needed;
+      new components: Pagination, SortableHeader; new hook: use-list-state)
 - [ ] **Supabase RLS policies** — RLS is enabled on all 9 tables (confirmed in
       migration); permissive policies still need to be defined per-table
       (currently only service role can read/write)
+- [ ] **Agentic workflow** — implement two-agent Claude Code pipeline
+      (dev agent + review agent via Agent SDK)
 
 ---
 
@@ -209,5 +145,4 @@ rewrite `app/(dashboard)/emails/page.tsx` to fetch live data.
 | `GMAIL_CLIENT_ID` | Gmail API | Google Cloud → Credentials |
 | `GMAIL_CLIENT_SECRET` | Gmail API | Google Cloud → Credentials |
 | `GMAIL_REFRESH_TOKEN_RYAN` | Gmail API | Generated via OAuth flow |
-| `GMAIL_REFRESH_TOKEN_NICK` | Gmail API | Generated via OAuth flow |
 | `GMAIL_REFRESH_TOKEN_GMAIL` | Gmail API | Generated via OAuth flow |
