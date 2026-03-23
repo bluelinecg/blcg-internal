@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { Button, Card, Input, Select, Badge, Spinner, ConfirmDialog } from '@/components/ui';
+import { useRole } from '@/lib/auth/use-role';
 import { ProjectFormModal } from '@/components/modules';
 import { MOCK_CLIENTS } from '@/lib/mock/clients';
 import { MOCK_PROPOSALS } from '@/lib/mock/proposals';
@@ -35,6 +36,7 @@ const CLIENT_MAP = Object.fromEntries(MOCK_CLIENTS.map((c) => [c.id, c]));
 type ProjectFormData = Omit<Project, 'id' | 'milestones' | 'createdAt' | 'updatedAt'>;
 
 export function ProjectsPage() {
+  const isAdmin = useRole() === 'admin';
   const [projects, setProjects]   = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -269,7 +271,9 @@ export function ProjectsPage() {
                       <div className="flex items-center justify-end gap-2">
                         <Link href={`/projects/${project.id}`}><Button variant="ghost" size="sm">View →</Button></Link>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(project)}>Edit</Button>
-                        <Button variant="ghost" size="sm" onClick={() => openDelete(project)} disabled={isCheckingDeps} className="text-red-500 hover:text-red-600 hover:bg-red-50">Delete</Button>
+                        {isAdmin && (
+                          <Button variant="ghost" size="sm" onClick={() => openDelete(project)} disabled={isCheckingDeps} className="text-red-500 hover:text-red-600 hover:bg-red-50">Delete</Button>
+                        )}
                       </div>
                     </td>
                   </tr>

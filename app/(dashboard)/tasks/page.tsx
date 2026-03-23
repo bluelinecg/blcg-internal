@@ -8,6 +8,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { Button, Select, KanbanBoard, Badge, ConfirmDialog, Spinner } from '@/components/ui';
+import { useRole } from '@/lib/auth/use-role';
 import type { KanbanColumn } from '@/components/ui/KanbanBoard';
 import { TaskFormModal } from '@/components/modules';
 import type { Task, TaskStatus, TaskPriority } from '@/lib/types/tasks';
@@ -45,6 +46,7 @@ const ASSIGNEE_OPTIONS = [
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;
 
 export function TasksPage() {
+  const isAdmin = useRole() === 'admin';
   const [tasks, setTasks]       = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading]   = useState(true);
@@ -243,7 +245,7 @@ export function TasksPage() {
                 task={task}
                 projectMap={projectMap}
                 onEdit={(t) => { setEditing(t); setSaveError(null); setFormOpen(true); }}
-                onDelete={(t) => setDeleteTarget(t)}
+                onDelete={isAdmin ? (t) => setDeleteTarget(t) : undefined}
               />
             )}
           />
@@ -279,7 +281,7 @@ interface TaskCardProps {
   task: Task;
   projectMap: Record<string, Project>;
   onEdit: (task: Task) => void;
-  onDelete: (task: Task) => void;
+  onDelete?: (task: Task) => void;
 }
 
 function TaskCard({ task, projectMap, onEdit, onDelete }: TaskCardProps) {
@@ -324,13 +326,15 @@ function TaskCard({ task, projectMap, onEdit, onDelete }: TaskCardProps) {
           >
             ✎
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(task); }}
-            className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
-            title="Delete task"
-          >
-            ✕
-          </button>
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(task); }}
+              className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
+              title="Delete task"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
     </div>
