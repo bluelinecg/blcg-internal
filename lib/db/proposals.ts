@@ -8,6 +8,8 @@
 import { serverClient } from '@/lib/db/supabase';
 import type { Proposal, ProposalLineItem, ProposalStatus } from '@/lib/types/proposals';
 import type { ProposalInput, UpdateProposalInput } from '@/lib/validations/proposals';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
 
 // ---------------------------------------------------------------------------
 // Row types (mirror DB columns)
@@ -108,19 +110,24 @@ function toInsert(
 // Query functions
 // ---------------------------------------------------------------------------
 
-/** Returns all proposals with their line items, ordered by created_at desc. */
-export async function listProposals(): Promise<{ data: Proposal[] | null; error: string | null }> {
+/** Returns a paginated, sorted list of proposals with their line items. */
+export async function listProposals(options?: ListOptions): Promise<PaginatedResult<Proposal>> {
   try {
-    const { data, error } = await serverClient()
-      .from('proposals')
-      .select('*, proposal_line_items(*)')
-      .order('created_at', { ascending: false });
+    const { page = 1, pageSize = DEFAULT_PAGE_SIZE, sort = 'created_at', order = 'desc' } = options ?? {};
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
-    if (error) return { data: null, error: error.message };
-    return { data: (data as ProposalRow[]).map(fromRow), error: null };
+    const { data, count, error } = await serverClient()
+      .from('proposals')
+      .select('*, proposal_line_items(*)', { count: 'exact' })
+      .order(sort, { ascending: order !== 'desc' })
+      .range(from, to);
+
+    if (error) return { data: null, total: null, error: error.message };
+    return { data: (data as ProposalRow[]).map(fromRow), total: count, error: null };
   } catch (err) {
     console.error('[listProposals]', err);
-    return { data: null, error: 'Failed to load proposals' };
+    return { data: null, total: null, error: 'Failed to load proposals' };
   }
 }
 

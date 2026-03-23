@@ -20,6 +20,8 @@ import type {
   ExpenseInput,
   UpdateExpenseInput,
 } from '@/lib/validations/finances';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
 
 // ---------------------------------------------------------------------------
 // Row types (mirror DB columns)
@@ -167,19 +169,24 @@ function expenseToInsert(data: ExpenseInput): Omit<ExpenseRow, 'id' | 'created_a
 // Invoice query functions
 // ---------------------------------------------------------------------------
 
-/** Returns all invoices with their line items, ordered by created_at desc. */
-export async function listInvoices(): Promise<{ data: Invoice[] | null; error: string | null }> {
+/** Returns a paginated, sorted list of invoices with their line items. */
+export async function listInvoices(options?: ListOptions): Promise<PaginatedResult<Invoice>> {
   try {
-    const { data, error } = await serverClient()
-      .from('invoices')
-      .select('*, invoice_line_items(*)')
-      .order('created_at', { ascending: false });
+    const { page = 1, pageSize = DEFAULT_PAGE_SIZE, sort = 'created_at', order = 'desc' } = options ?? {};
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
-    if (error) return { data: null, error: error.message };
-    return { data: (data as InvoiceRow[]).map(invoiceFromRow), error: null };
+    const { data, count, error } = await serverClient()
+      .from('invoices')
+      .select('*, invoice_line_items(*)', { count: 'exact' })
+      .order(sort, { ascending: order !== 'desc' })
+      .range(from, to);
+
+    if (error) return { data: null, total: null, error: error.message };
+    return { data: (data as InvoiceRow[]).map(invoiceFromRow), total: count, error: null };
   } catch (err) {
     console.error('[listInvoices]', err);
-    return { data: null, error: 'Failed to load invoices' };
+    return { data: null, total: null, error: 'Failed to load invoices' };
   }
 }
 
@@ -384,19 +391,24 @@ export async function getNextInvoiceNumber(): Promise<{ data: string | null; err
 // Expense query functions
 // ---------------------------------------------------------------------------
 
-/** Returns all expenses ordered by date desc. */
-export async function listExpenses(): Promise<{ data: Expense[] | null; error: string | null }> {
+/** Returns a paginated, sorted list of expenses. */
+export async function listExpenses(options?: ListOptions): Promise<PaginatedResult<Expense>> {
   try {
-    const { data, error } = await serverClient()
-      .from('expenses')
-      .select('*')
-      .order('date', { ascending: false });
+    const { page = 1, pageSize = DEFAULT_PAGE_SIZE, sort = 'date', order = 'desc' } = options ?? {};
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
-    if (error) return { data: null, error: error.message };
-    return { data: (data as ExpenseRow[]).map(expenseFromRow), error: null };
+    const { data, count, error } = await serverClient()
+      .from('expenses')
+      .select('*', { count: 'exact' })
+      .order(sort, { ascending: order !== 'desc' })
+      .range(from, to);
+
+    if (error) return { data: null, total: null, error: error.message };
+    return { data: (data as ExpenseRow[]).map(expenseFromRow), total: count, error: null };
   } catch (err) {
     console.error('[listExpenses]', err);
-    return { data: null, error: 'Failed to load expenses' };
+    return { data: null, total: null, error: 'Failed to load expenses' };
   }
 }
 

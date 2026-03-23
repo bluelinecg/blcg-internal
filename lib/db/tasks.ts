@@ -7,6 +7,8 @@
 import { serverClient } from '@/lib/db/supabase';
 import type { Task, TaskStatus, TaskPriority } from '@/lib/types/tasks';
 import type { TaskInput, UpdateTaskInput } from '@/lib/validations/tasks';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
+import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
 
 // ---------------------------------------------------------------------------
 // Row type (mirrors DB columns)
@@ -60,19 +62,24 @@ function toInsert(data: TaskInput): Omit<TaskRow, 'id' | 'created_at' | 'updated
 // Query functions
 // ---------------------------------------------------------------------------
 
-/** Returns all tasks ordered by created_at desc. */
-export async function listTasks(): Promise<{ data: Task[] | null; error: string | null }> {
+/** Returns a paginated, sorted list of tasks. */
+export async function listTasks(options?: ListOptions): Promise<PaginatedResult<Task>> {
   try {
-    const { data, error } = await serverClient()
-      .from('tasks')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { page = 1, pageSize = DEFAULT_PAGE_SIZE, sort = 'created_at', order = 'desc' } = options ?? {};
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
-    if (error) return { data: null, error: error.message };
-    return { data: (data as TaskRow[]).map(fromRow), error: null };
+    const { data, count, error } = await serverClient()
+      .from('tasks')
+      .select('*', { count: 'exact' })
+      .order(sort, { ascending: order !== 'desc' })
+      .range(from, to);
+
+    if (error) return { data: null, total: null, error: error.message };
+    return { data: (data as TaskRow[]).map(fromRow), total: count, error: null };
   } catch (err) {
     console.error('[listTasks]', err);
-    return { data: null, error: 'Failed to load tasks' };
+    return { data: null, total: null, error: 'Failed to load tasks' };
   }
 }
 
