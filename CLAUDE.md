@@ -573,10 +573,10 @@ primary context document.
 
 ## Current build status
 
-**Phase**: Supabase setup in progress — type alignment complete, one build fix remaining
+**Phase**: Supabase wiring complete for all modules except emails (Gmail API integration pending)
 **Live URL**: https://admin.bluelinecg.com
 **Repo**: github.com/bluelinecg/blcg-internal
-**Open branch**: feature/supabase-setup
+**Open branch**: feature/wire-clients (ready to PR → main)
 
 ### Completed
 - GitHub repo created and connected to Vercel
@@ -614,59 +614,109 @@ primary context document.
   - /projects/[id] — detail with MilestoneTracker visual + milestone table
   - /tasks — Kanban board with HTML5 drag-and-drop, full CRUD
   - /finances — tabbed view: overview, invoices, expenses; full CRUD
-  - /emails — unified multi-account inbox (3 accounts), compose, delete
+  - /emails — unified multi-account inbox (3 accounts), compose, delete (still mock)
   - /settings — tabbed: profile, notifications, preferences
 - lib/types established for all modules (clients, proposals, projects, tasks, finances, emails)
 - lib/mock data established for all modules
 - lib/utils/dependencies.ts — frontend dependency-delete enforcement for all entities
 - Dependency-delete rule enforced at frontend layer across all deletable entities
-- **Supabase setup (feature/supabase-setup branch)**
+- **Supabase setup** (merged)
   - @supabase/supabase-js installed
-  - supabase/migrations/20260322000000_initial_schema.sql created and run against local DB
-  - lib/db/supabase.ts created (serverClient + browserClient)
+  - supabase/migrations/20260322000000_initial_schema.sql — initial schema
+  - lib/db/supabase.ts — serverClient + browserClient
   - lib/config.ts updated with Supabase env var validation
-  - .env.example updated with Supabase variables
-  - Supabase env vars added to Vercel dashboard
-  - All TypeScript types redesigned to match DB schema:
-    - Client: `name` = org/company, `contactName` = person (removed `company`)
-    - Proposal: `totalValue` (was `total`), `expiresAt` (was `validUntil`), status `declined` (was `rejected`), added `proposalNumber`
-    - Finances: InvoiceLineItem has `invoiceId`, `isIncluded`, `sortOrder`; quantity/unitPrice optional; Invoice has required `paymentTerms`/`tax`, optional `proposalId`/`depositAmount`/`balanceDue`/`paymentMethod`; Expense has required `updatedAt`
-  - All mock data files rewritten to match new types
-  - All form modals updated: ProposalFormModal, InvoiceFormModal, ClientForm, ClientDetailView
-  - All pages updated: clients, proposals, projects, projects/[id], finances, dashboard
-  - Zod validation schemas updated for clients, proposals, finances
-  - lib/utils/dependencies.test.ts updated (declined vs rejected)
+  - All TypeScript types redesigned to match DB schema
+  - All mock data, form modals, pages, and Zod schemas updated
+- **Supabase wiring — all non-email modules** (branch: feature/wire-clients)
+  - lib/db/clients.ts + API routes + updated pages + 11 unit tests
+  - lib/db/proposals.ts + API routes + updated pages + 12 unit tests
+  - lib/db/projects.ts + API routes + updated pages + 13 unit tests
+  - lib/db/tasks.ts + API routes + updated pages + 11 unit tests
+  - lib/db/finances.ts + API routes (invoices + expenses) + updated pages + 18 unit tests
+  - All form modals updated with isSaving/saveError async feedback props
+  - All delete flows use two-step pattern: GET /blockers → ConfirmDialog → DELETE
+  - 253 tests passing across all test suites
 
 ### Immediate next task — PICK UP HERE
-**Fix ExpenseFormModal.tsx build error** (branch: feature/supabase-setup)
+**Merge feature/wire-clients PR, then wire the emails module via Gmail API**
 
-The Vercel build is failing with:
-```
-Type error: Property 'updatedAt' is missing in type
-'{ description: string; category: "software"; amount: number; ... }'
-but required in type 'ExpenseFormData'.
-```
+#### Step 1 — Merge the open branch
+Push `feature/wire-clients` and open a PR against `main`. Verify the Vercel preview
+build passes, then merge.
 
-Steps to complete:
-1. Read `components/modules/ExpenseFormModal.tsx`
-2. Add `updatedAt: new Date().toISOString()` to the `makeDefaults()` function (or wherever
-   the initial form state is defined) — this field is set by a DB trigger in production
-   but must exist in the TypeScript shape for the form to compile
-3. Run `npm run build` locally to confirm clean build
-4. Run `npm test` to verify all tests still pass
-5. Commit all changes to feature/supabase-setup with message:
-   `feat: supabase setup — schema, clients, type alignment`
-6. Push and verify Vercel preview build passes
-7. Merge feature/supabase-setup PR into main
+#### Step 2 — Gmail API setup (manual steps, done by Ryan)
+Before any code can be written, the following must be completed in Google Cloud:
 
-### Next steps after merge
-1. **Wiring phase** — replace lib/mock/* with lib/db/* query functions, one module at a time
-   - Start with clients: lib/db/clients.ts → app/api/clients/route.ts → update frontend
-   - Each module: db query functions → API routes → frontend wired to API
-   - Module order: clients → proposals → projects → tasks → finances → emails
-2. **API routes** — /app/api routes for each entity with server-side dependency checks
-3. **Testing** — add Jest + RTL unit/component tests and Playwright E2E tests
-4. **Agentic workflow** — implement two-agent Claude Code pipeline (dev + review agents)
+1. **Create a Google Cloud project** (or use an existing one)
+   - Go to https://console.cloud.google.com
+   - Create a new project named "BLCG Internal"
+
+2. **Enable the Gmail API**
+   - In the project: APIs & Services → Enable APIs
+   - Search for "Gmail API" and enable it
+
+3. **Create OAuth 2.0 credentials**
+   - APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
+   - Application type: **Web application**
+   - Authorized redirect URIs: add `http://localhost:3000/api/auth/gmail/callback`
+     and `https://admin.bluelinecg.com/api/auth/gmail/callback`
+   - Save the **Client ID** and **Client Secret**
+
+4. **Configure OAuth consent screen**
+   - User type: Internal (since all 3 accounts are in the same Google Workspace org)
+     OR External with the 3 addresses added as test users if not on Workspace
+   - Add scopes: `https://www.googleapis.com/auth/gmail.modify`
+     (covers read, send, and modify — marks as read, etc.)
+
+5. **Run the OAuth consent flow for each of the 3 accounts**
+   - This is a one-time step per account to generate a refresh token
+   - Claude can build a temporary `/api/auth/gmail/[account]` route to handle this
+   - After authorisation, the refresh token is printed to the console / returned
+     so you can copy it into your env vars
+
+6. **Add credentials to .env.local and Vercel**
+   ```
+   GMAIL_CLIENT_ID=...
+   GMAIL_CLIENT_SECRET=...
+   GMAIL_REFRESH_TOKEN_RYAN=...        # ryan@bluelinecg.com
+   GMAIL_REFRESH_TOKEN_NICK=...        # nick@bluelinecg.com
+   GMAIL_REFRESH_TOKEN_GMAIL=...       # bluelinecgllc@gmail.com
+   ```
+
+#### Step 3 — Gmail integration code (Claude builds this)
+Once the credentials are in place, the integration follows this pattern:
+
+**New files to create:**
+- `lib/integrations/gmail.ts` — Gmail API client factory; one authenticated client
+  per account using `googleapis` npm package; refresh tokens loaded from config
+- `lib/config.ts` — add Gmail credential validation
+- `.env.example` — document the 5 new Gmail env vars
+- `app/api/emails/route.ts` — GET: fetches threads from all 3 accounts in parallel,
+  merges and sorts by date, returns unified list
+- `app/api/emails/send/route.ts` — POST: sends a new email from the specified account
+- `app/api/emails/[id]/reply/route.ts` — POST: sends a reply in an existing thread
+- `app/api/emails/[id]/read/route.ts` — PATCH: marks a thread as read
+- `app/api/emails/[id]/route.ts` — DELETE: moves thread to trash on the correct account
+- `app/(dashboard)/emails/page.tsx` — rewrite to fetch from /api/emails, remove
+  MOCK_EMAIL_THREADS import
+
+**Architecture decisions:**
+- Emails are NOT stored in Supabase — fetched live from Gmail API each load
+- Each API route identifies which Gmail account a thread belongs to via the
+  `account` field on the thread and routes the API call to the correct client
+- The `googleapis` package handles OAuth token refresh automatically given a
+  valid refresh token — no manual token management needed
+- Threads from all 3 accounts are fetched in parallel (Promise.all) and merged
+- Reply threads are matched by Gmail thread ID stored on the EmailThread object
+
+**Package to install:** `googleapis` (official Google API client for Node.js)
+Run `npm audit` after install before committing.
+
+### Next steps after Gmail integration
+1. **Testing** — add Jest + RTL unit/component tests and Playwright E2E tests
+2. **Dashboard wiring** — /dashboard page still uses MOCK_* imports for stat cards;
+   wire to live API data
+3. **Agentic workflow** — implement two-agent Claude Code pipeline (dev + review agents)
 
 ---
 
