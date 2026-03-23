@@ -30,11 +30,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const clientId = process.env.GMAIL_CLIENT_ID;
   const clientSecret = process.env.GMAIL_CLIENT_SECRET;
-  const redirectUri = process.env.GMAIL_REDIRECT_URI;
+  const redirectUri = process.env.GMAIL_REDIRECT_URI ?? 'http://localhost:3000/api/auth/gmail/callback';
 
-  if (!clientId || !clientSecret || !redirectUri) {
+  if (!clientId || !clientSecret) {
     return new NextResponse(
-      `<html><body><h2>Missing env vars</h2></body></html>`,
+      `<html><body><h2>Missing env vars: GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET must be set</h2></body></html>`,
       { status: 500, headers: { 'Content-Type': 'text/html' } }
     );
   }

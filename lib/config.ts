@@ -31,7 +31,6 @@ export const config = {
   gmail: {
     clientId: requireEnv("GMAIL_CLIENT_ID"),
     clientSecret: requireEnv("GMAIL_CLIENT_SECRET"),
-    redirectUri: requireEnv("GMAIL_REDIRECT_URI"),
     refreshTokenRyan: requireEnv("GMAIL_REFRESH_TOKEN_RYAN"),
     refreshTokenNick: requireEnv("GMAIL_REFRESH_TOKEN_NICK"),
     refreshTokenGmail: requireEnv("GMAIL_REFRESH_TOKEN_GMAIL"),

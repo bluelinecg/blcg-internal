@@ -27,11 +27,11 @@ export async function GET(_req: Request, { params }: RouteParams): Promise<NextR
 
   const clientId = process.env.GMAIL_CLIENT_ID;
   const clientSecret = process.env.GMAIL_CLIENT_SECRET;
-  const redirectUri = process.env.GMAIL_REDIRECT_URI;
+  const redirectUri = process.env.GMAIL_REDIRECT_URI ?? 'http://localhost:3000/api/auth/gmail/callback';
 
-  if (!clientId || !clientSecret || !redirectUri) {
+  if (!clientId || !clientSecret) {
     return NextResponse.json(
-      { error: 'GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REDIRECT_URI must be set in .env.local' },
+      { error: 'GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET must be set in .env.local' },
       { status: 500 }
     );
   }
