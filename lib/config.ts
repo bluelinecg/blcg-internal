@@ -38,7 +38,6 @@ export const config = {
     clientId: optionalEnv("GMAIL_CLIENT_ID"),
     clientSecret: optionalEnv("GMAIL_CLIENT_SECRET"),
     refreshTokenRyan: optionalEnv("GMAIL_REFRESH_TOKEN_RYAN"),
-    refreshTokenNick: optionalEnv("GMAIL_REFRESH_TOKEN_NICK"),
     refreshTokenGmail: optionalEnv("GMAIL_REFRESH_TOKEN_GMAIL"),
   },
 } as const;

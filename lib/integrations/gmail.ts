@@ -12,21 +12,19 @@ import { google, gmail_v1 } from 'googleapis';
 import { config } from '@/lib/config';
 import type { EmailAccount, EmailFolder, EmailMessage, EmailThread } from '@/lib/types/emails';
 
-export type AccountKey = 'ryan' | 'nick' | 'gmail';
+export type AccountKey = 'ryan' | 'gmail';
 
 export const ACCOUNT_KEY_TO_EMAIL: Record<AccountKey, EmailAccount> = {
   ryan: 'ryan@bluelinecg.com',
-  nick: 'nick@bluelinecg.com',
   gmail: 'bluelinecgllc@gmail.com',
 };
 
-export const EMAIL_TO_ACCOUNT_KEY: Record<EmailAccount, AccountKey> = {
+export const EMAIL_TO_ACCOUNT_KEY: Partial<Record<EmailAccount, AccountKey>> = {
   'ryan@bluelinecg.com': 'ryan',
-  'nick@bluelinecg.com': 'nick',
   'bluelinecgllc@gmail.com': 'gmail',
 };
 
-export const ACCOUNT_KEYS: AccountKey[] = ['ryan', 'nick', 'gmail'];
+export const ACCOUNT_KEYS: AccountKey[] = ['ryan', 'gmail'];
 
 /** Returns an authenticated Gmail API client for the given account key.
  *  Throws a descriptive error if Gmail credentials have not been configured yet. */
@@ -34,7 +32,6 @@ export function getGmailClient(accountKey: AccountKey) {
   const { clientId, clientSecret } = config.gmail;
   const refreshTokens: Record<AccountKey, string | null> = {
     ryan: config.gmail.refreshTokenRyan,
-    nick: config.gmail.refreshTokenNick,
     gmail: config.gmail.refreshTokenGmail,
   };
 
