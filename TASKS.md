@@ -2,15 +2,14 @@
 
 **Live URL**: https://admin.bluelinecg.com
 **Repo**: github.com/bluelinecg/blcg-internal
-**Current branch**: main (feature/wire-clients merged)
+**Current branch**: feature/rbac (ready to merge)
 
 ---
 
 ## Current status
 
-**Phase**: Supabase wiring complete for all modules except emails.
-Gmail API integration is the active next task — requires manual Google Cloud
-setup steps before code can be written (see below).
+**Phase**: Core application complete. Gmail integration live. RBAC implemented.
+Remaining work is production hardening — RLS policies, tests, and pagination.
 
 ---
 
@@ -37,7 +36,7 @@ setup steps before code can be written (see below).
   Modal, ConfirmDialog, ExpandableTable, KanbanBoard, MilestoneTracker, StatCard, Tabs
 
 ### Pages (all with full CRUD)
-- [x] /dashboard — summary widgets
+- [x] /dashboard — live stat cards + recent proposals, active projects, tasks in progress
 - [x] /clients — searchable list, create, edit, delete with dependency checks
 - [x] /clients/[id] — detail view
 - [x] /clients/new and /clients/[id]/edit — forms with validation
@@ -46,106 +45,61 @@ setup steps before code can be written (see below).
 - [x] /projects/[id] — detail with MilestoneTracker visual + milestone table
 - [x] /tasks — Kanban board with drag-and-drop
 - [x] /finances — tabbed: overview, invoices, expenses
-- [x] /emails — unified multi-account inbox (still on mock data)
+- [x] /emails — unified multi-account inbox (live Gmail API, 3 accounts)
 - [x] /settings — tabbed: profile, notifications, preferences
 
-### Supabase wiring (all non-email modules)
+### Supabase wiring (all modules)
 - [x] lib/db/clients.ts + API routes + 11 unit tests
 - [x] lib/db/proposals.ts + API routes + 12 unit tests
 - [x] lib/db/projects.ts + API routes + 13 unit tests
 - [x] lib/db/tasks.ts + API routes + 11 unit tests
 - [x] lib/db/finances.ts (invoices + expenses) + API routes + 18 unit tests
 - [x] All delete flows: GET /blockers → ConfirmDialog → DELETE (409 if blocked)
-- [x] All form modals: isSaving/saveError async feedback props
+- [x] Dashboard wired to live Supabase data (all modules in parallel)
 - [x] 253 tests passing across all test suites
 
----
+### Gmail API integration
+- [x] lib/integrations/gmail.ts — client factory + thread mapping helpers
+- [x] lib/config.ts — Gmail credential validation
+- [x] GET /api/emails — merged inbox across all 3 accounts, deduped, sorted
+- [x] GET /api/emails/[id] — full thread with message bodies
+- [x] PATCH /api/emails/[id]/read — marks thread as read
+- [x] POST /api/emails/[id]/reply — reply in existing thread
+- [x] POST /api/emails/send — compose and send from any account
+- [x] DELETE /api/emails/[id] — moves to trash
+- [x] /emails page — live data, compose modal, reply box, delete, auto mark-as-read
+- [x] All 3 refresh tokens captured and stored in .env.local + Vercel
 
-## Immediate next task — PICK UP HERE
+### Data
+- [x] 52 prospects imported from lead list (St. Pete FL + Main Line PA)
 
-### Gmail API integration for /emails
-
-The emails page currently uses mock data. The goal is a unified inbox that
-aggregates all 3 Gmail accounts (ryan@bluelinecg.com, nick@bluelinecg.com,
-bluelinecgllc@gmail.com) into one view with read/reply capability.
-
-**Architecture decision**: Emails are fetched live from the Gmail API — NOT
-stored in Supabase. Always in sync, no storage costs, no sync complexity.
-
----
-
-#### Step 1 — Google Cloud setup (manual, done by Ryan — ~15 min)
-
-1. **Create a Google Cloud project**
-   - Go to https://console.cloud.google.com
-   - Create a new project named "BLCG Internal"
-
-2. **Enable the Gmail API**
-   - APIs & Services → Enable APIs → search "Gmail API" → enable
-
-3. **Create OAuth 2.0 credentials**
-   - APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
-   - Application type: **Web application**
-   - Authorized redirect URIs:
-     - `http://localhost:3000/api/auth/gmail/callback`
-     - `https://admin.bluelinecg.com/api/auth/gmail/callback`
-   - Save the **Client ID** and **Client Secret**
-
-4. **Configure OAuth consent screen**
-   - User type: External (add all 3 addresses as test users)
-   - Scopes: `https://www.googleapis.com/auth/gmail.modify`
-     (covers read, send, mark as read, trash)
-
-5. **Run OAuth consent flow once per account**
-   - Claude will build a temporary `/api/auth/gmail/[account]` route for this
-   - After each authorisation, copy the refresh token into your env vars
-
-6. **Add to .env.local and Vercel (all environments)**
-   ```
-   GMAIL_CLIENT_ID=...
-   GMAIL_CLIENT_SECRET=...
-   GMAIL_REFRESH_TOKEN_RYAN=...        # ryan@bluelinecg.com
-   GMAIL_REFRESH_TOKEN_NICK=...        # nick@bluelinecg.com
-   GMAIL_REFRESH_TOKEN_GMAIL=...       # bluelinecgllc@gmail.com
-   ```
+### RBAC (feature/rbac — ready to merge)
+- [x] lib/auth/roles.ts — getRole(), isAdmin(), guardAdmin() server utilities
+- [x] lib/auth/use-role.ts — useRole() client hook
+- [x] All DELETE API routes guarded (clients, proposals, projects, tasks)
+- [x] All finances API routes guarded (invoices + expenses, all methods)
+- [x] /finances layout — server-side redirect for members
+- [x] Sidebar hides Finances nav for members
+- [x] Delete buttons hidden in proposals, projects, tasks for members
+- [x] Roles set in Clerk: Ryan = admin, Nick = member
 
 ---
 
-#### Step 2 — Code (Claude builds once credentials are in place)
+## Backlog (in priority order)
 
-**Package to install**: `googleapis` — run `npm audit` after install.
-
-**New files:**
-- `lib/integrations/gmail.ts` — Gmail API client factory; one authenticated
-  client per account; refresh tokens loaded from config; token refresh handled
-  automatically by the googleapis SDK
-- `lib/config.ts` — add Gmail credential validation
-- `.env.example` — document the 5 new Gmail env vars
-- `app/api/auth/gmail/[account]/route.ts` — temporary OAuth callback route
-  for generating refresh tokens (can be removed after setup)
-- `app/api/emails/route.ts` — GET: fetches threads from all 3 accounts in
-  parallel, merges and sorts by date
-- `app/api/emails/send/route.ts` — POST: sends new email from specified account
-- `app/api/emails/[id]/reply/route.ts` — POST: sends reply in existing thread
-- `app/api/emails/[id]/read/route.ts` — PATCH: marks thread as read
-- `app/api/emails/[id]/route.ts` — DELETE: moves thread to trash
-- `app/(dashboard)/emails/page.tsx` — rewrite to fetch from /api/emails,
-  remove MOCK_EMAIL_THREADS import
-
----
-
-## Backlog (next after Gmail)
-
-- [ ] **Dashboard wiring** — /dashboard page still uses MOCK_* imports for
-      stat cards; wire to live API data from /api/clients, /api/projects, etc.
-- [ ] **Testing** — Jest + RTL component tests and Playwright E2E tests
+- [ ] **Merge feature/rbac PR** — branch is pushed and build is passing
+- [ ] **Supabase RLS policies** — Row Level Security rules need to be defined
+      and applied to all tables; currently relying on service role key + API auth only
+- [ ] **Component + E2E tests** — Jest + RTL component tests and Playwright E2E
       (unit tests for lib/db are done; UI and E2E coverage still needed)
-- [ ] **Agentic workflow** — implement two-agent Claude Code pipeline
-      (dev agent + review agent via Agent SDK)
+      Key flows to cover: sign in/out, create client, delete with blocker,
+      admin vs member access, finances redirect for members
 - [ ] **Pagination** — all list views currently load all records; add
       cursor-based pagination for production readiness
-- [ ] **Supabase RLS policies** — Row Level Security rules need to be defined
-      and applied to all tables
+- [ ] **Agentic workflow** — implement two-agent Claude Code pipeline
+      (dev agent + review agent via Agent SDK)
+- [ ] **Delete temp OAuth routes** — app/api/auth/gmail/ can be removed now
+      that all 3 refresh tokens are captured
 
 ---
 
