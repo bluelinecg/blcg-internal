@@ -573,10 +573,10 @@ primary context document.
 
 ## Current build status
 
-**Phase**: Full frontend UI complete (mock data) — ready for Supabase wiring
+**Phase**: Supabase wiring complete for all modules except emails (Gmail API integration pending)
 **Live URL**: https://admin.bluelinecg.com
 **Repo**: github.com/bluelinecg/blcg-internal
-**Open branch**: feature/full-frontend-ui (local only — push and open PR before merging)
+**Open branch**: feature/wire-clients (ready to PR → main)
 
 ### Completed
 - GitHub repo created and connected to Vercel
@@ -589,8 +589,8 @@ primary context document.
   - Sign-in and sign-up pages at /sign-in and /sign-up
   - Clerk middleware protecting all /dashboard routes
   - ClerkProvider in root layout with afterSignOutUrl configured
-- /lib/config.ts env variable validation pattern established
-- .env.example documenting all required variables
+- /lib/config.ts env variable validation pattern established (includes Supabase vars)
+- .env.example documenting all required variables (includes Supabase vars)
 - vercel.json declaring Next.js framework for correct Vercel detection
 - Dashboard shell built and live
   - Sidebar with alphabetical nav, Settings pinned to bottom
@@ -614,24 +614,109 @@ primary context document.
   - /projects/[id] — detail with MilestoneTracker visual + milestone table
   - /tasks — Kanban board with HTML5 drag-and-drop, full CRUD
   - /finances — tabbed view: overview, invoices, expenses; full CRUD
-  - /emails — unified multi-account inbox (3 accounts), compose, delete
+  - /emails — unified multi-account inbox (3 accounts), compose, delete (still mock)
   - /settings — tabbed: profile, notifications, preferences
 - lib/types established for all modules (clients, proposals, projects, tasks, finances, emails)
 - lib/mock data established for all modules
 - lib/utils/dependencies.ts — frontend dependency-delete enforcement for all entities
 - Dependency-delete rule enforced at frontend layer across all deletable entities
+- **Supabase setup** (merged)
+  - @supabase/supabase-js installed
+  - supabase/migrations/20260322000000_initial_schema.sql — initial schema
+  - lib/db/supabase.ts — serverClient + browserClient
+  - lib/config.ts updated with Supabase env var validation
+  - All TypeScript types redesigned to match DB schema
+  - All mock data, form modals, pages, and Zod schemas updated
+- **Supabase wiring — all non-email modules** (branch: feature/wire-clients)
+  - lib/db/clients.ts + API routes + updated pages + 11 unit tests
+  - lib/db/proposals.ts + API routes + updated pages + 12 unit tests
+  - lib/db/projects.ts + API routes + updated pages + 13 unit tests
+  - lib/db/tasks.ts + API routes + updated pages + 11 unit tests
+  - lib/db/finances.ts + API routes (invoices + expenses) + updated pages + 18 unit tests
+  - All form modals updated with isSaving/saveError async feedback props
+  - All delete flows use two-step pattern: GET /blockers → ConfirmDialog → DELETE
+  - 253 tests passing across all test suites
 
-### Next steps
-1. **Push and merge** feature/full-frontend-ui — open PR, verify preview deploy, merge to main
-2. **Supabase setup**
-   - Install @supabase/supabase-js (flag for approval before installing)
-   - Create /lib/db/supabase.ts client (server and browser variants)
-   - Define schema for all modules — confirm migrations before running
-   - Enable RLS and write policies on every table
-   - Replace lib/mock/* with lib/db/* query functions one module at a time
-3. **API routes** — add /app/api routes for each entity with server-side dependency checks
-4. **Testing** — add Jest + RTL unit/component tests and Playwright E2E tests
-5. **Agentic workflow** — implement two-agent Claude Code pipeline (dev + review agents)
+### Immediate next task — PICK UP HERE
+**Merge feature/wire-clients PR, then wire the emails module via Gmail API**
+
+#### Step 1 — Merge the open branch
+Push `feature/wire-clients` and open a PR against `main`. Verify the Vercel preview
+build passes, then merge.
+
+#### Step 2 — Gmail API setup (manual steps, done by Ryan)
+Before any code can be written, the following must be completed in Google Cloud:
+
+1. **Create a Google Cloud project** (or use an existing one)
+   - Go to https://console.cloud.google.com
+   - Create a new project named "BLCG Internal"
+
+2. **Enable the Gmail API**
+   - In the project: APIs & Services → Enable APIs
+   - Search for "Gmail API" and enable it
+
+3. **Create OAuth 2.0 credentials**
+   - APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
+   - Application type: **Web application**
+   - Authorized redirect URIs: add `http://localhost:3000/api/auth/gmail/callback`
+     and `https://admin.bluelinecg.com/api/auth/gmail/callback`
+   - Save the **Client ID** and **Client Secret**
+
+4. **Configure OAuth consent screen**
+   - User type: Internal (since all 3 accounts are in the same Google Workspace org)
+     OR External with the 3 addresses added as test users if not on Workspace
+   - Add scopes: `https://www.googleapis.com/auth/gmail.modify`
+     (covers read, send, and modify — marks as read, etc.)
+
+5. **Run the OAuth consent flow for each of the 3 accounts**
+   - This is a one-time step per account to generate a refresh token
+   - Claude can build a temporary `/api/auth/gmail/[account]` route to handle this
+   - After authorisation, the refresh token is printed to the console / returned
+     so you can copy it into your env vars
+
+6. **Add credentials to .env.local and Vercel**
+   ```
+   GMAIL_CLIENT_ID=...
+   GMAIL_CLIENT_SECRET=...
+   GMAIL_REFRESH_TOKEN_RYAN=...        # ryan@bluelinecg.com
+   GMAIL_REFRESH_TOKEN_NICK=...        # nick@bluelinecg.com
+   GMAIL_REFRESH_TOKEN_GMAIL=...       # bluelinecgllc@gmail.com
+   ```
+
+#### Step 3 — Gmail integration code (Claude builds this)
+Once the credentials are in place, the integration follows this pattern:
+
+**New files to create:**
+- `lib/integrations/gmail.ts` — Gmail API client factory; one authenticated client
+  per account using `googleapis` npm package; refresh tokens loaded from config
+- `lib/config.ts` — add Gmail credential validation
+- `.env.example` — document the 5 new Gmail env vars
+- `app/api/emails/route.ts` — GET: fetches threads from all 3 accounts in parallel,
+  merges and sorts by date, returns unified list
+- `app/api/emails/send/route.ts` — POST: sends a new email from the specified account
+- `app/api/emails/[id]/reply/route.ts` — POST: sends a reply in an existing thread
+- `app/api/emails/[id]/read/route.ts` — PATCH: marks a thread as read
+- `app/api/emails/[id]/route.ts` — DELETE: moves thread to trash on the correct account
+- `app/(dashboard)/emails/page.tsx` — rewrite to fetch from /api/emails, remove
+  MOCK_EMAIL_THREADS import
+
+**Architecture decisions:**
+- Emails are NOT stored in Supabase — fetched live from Gmail API each load
+- Each API route identifies which Gmail account a thread belongs to via the
+  `account` field on the thread and routes the API call to the correct client
+- The `googleapis` package handles OAuth token refresh automatically given a
+  valid refresh token — no manual token management needed
+- Threads from all 3 accounts are fetched in parallel (Promise.all) and merged
+- Reply threads are matched by Gmail thread ID stored on the EmailThread object
+
+**Package to install:** `googleapis` (official Google API client for Node.js)
+Run `npm audit` after install before committing.
+
+### Next steps after Gmail integration
+1. **Testing** — add Jest + RTL unit/component tests and Playwright E2E tests
+2. **Dashboard wiring** — /dashboard page still uses MOCK_* imports for stat cards;
+   wire to live API data
+3. **Agentic workflow** — implement two-agent Claude Code pipeline (dev + review agents)
 
 ---
 
@@ -639,7 +724,7 @@ primary context document.
 
 - [x] Next.js + Tailwind + TypeScript base configuration
 - [x] Clerk authentication setup and middleware
-- [ ] Supabase client configuration and type generation setup
+- [x] Supabase client configuration and type generation setup
 - [x] /components/ui primitive library
 - [x] /lib/config.ts environment variable validation pattern
 - [x] Brand token system (brand.ts + @theme pattern)
@@ -649,6 +734,6 @@ primary context document.
 - [ ] Jest and Playwright test configuration
 - [x] .env.example template
 - [x] Base Tailwind configuration with brand design tokens
-- [ ] Zod validation schemas pattern in /lib/validations
+- [x] Zod validation schemas pattern in /lib/validations
 - [ ] This CLAUDE.md adapted as a generic template
 - [ ] Writer Agent and Reviewer Agent instruction files

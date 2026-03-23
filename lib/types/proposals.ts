@@ -1,25 +1,34 @@
-export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired';
+// 'declined' maps to 'rejected' in legacy mock data — DB uses 'declined'
+export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired';
 
 export interface ProposalLineItem {
   id: string;
+  proposalId: string;
   description: string;
   quantity: number;
   unitPrice: number;
   total: number;
+  sortOrder: number;
 }
 
 export interface Proposal {
   id: string;
   clientId: string;
+  proposalNumber: string;        // BL-YYYY-NNN
   title: string;
   status: ProposalStatus;
+  situation?: string;            // free-text description of client situation
+  totalValue: number;
+  depositAmount?: number;
+  // Agreement fields — populated when proposal is accepted and agreement is signed
+  agreementSignedAt?: string;
+  agreementStartDate?: string;
+  agreementEstimatedEndDate?: string;
+  governingState?: string;
   lineItems: ProposalLineItem[];
-  subtotal: number;
-  tax?: number;
-  total: number;
   notes?: string;
-  validUntil?: string;
   sentAt?: string;
+  expiresAt?: string;
   createdAt: string;
   updatedAt: string;
 }

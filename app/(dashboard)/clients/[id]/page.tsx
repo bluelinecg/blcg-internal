@@ -1,23 +1,21 @@
 // Client detail page — server wrapper.
-// Awaits async params, fetches client data, and passes it to the
+// Fetches the client directly from the DB and passes it to the
 // ClientDetailView client component which handles all UI and delete state.
-// TODO: replace getClientById with a Supabase query when backend is connected.
 
 import { notFound } from 'next/navigation';
-import { getClientById } from '@/lib/mock/clients';
+import { getClientById } from '@/lib/db/clients';
 import { ClientDetailView } from '@/components/modules';
 
 interface ClientDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-export async function ClientDetailPage({ params }: ClientDetailPageProps) {
+export default async function ClientDetailPage({ params }: ClientDetailPageProps) {
   const { id } = await params;
-  const client = getClientById(id);
+  const { data: client, error } = await getClientById(id);
 
+  if (error) throw new Error(error);
   if (!client) notFound();
 
   return <ClientDetailView client={client} />;
 }
-
-export default ClientDetailPage;

@@ -86,7 +86,7 @@ export function DashboardPage() {
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <ProposalStatusBadge status={p.status} />
-                    <span className="text-sm font-semibold text-gray-900">{formatCurrency(p.total)}</span>
+                    <span className="text-sm font-semibold text-gray-900">{formatCurrency(p.totalValue)}</span>
                   </div>
                 </div>
               );
@@ -205,14 +205,14 @@ export default DashboardPage;
 
 // --- Inline badge for proposals (avoids circular import) ---
 
-type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired';
+type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired';
 
 const PROPOSAL_STATUS_BADGE: Record<ProposalStatus, { variant: 'green' | 'blue' | 'yellow' | 'red' | 'gray'; label: string }> = {
   draft:    { variant: 'gray',   label: 'Draft' },
   sent:     { variant: 'blue',   label: 'Sent' },
   viewed:   { variant: 'yellow', label: 'Viewed' },
   accepted: { variant: 'green',  label: 'Accepted' },
-  rejected: { variant: 'red',    label: 'Rejected' },
+  declined: { variant: 'red',    label: 'Declined' },
   expired:  { variant: 'gray',   label: 'Expired' },
 };
 

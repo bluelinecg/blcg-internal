@@ -22,6 +22,8 @@ interface ExpenseFormModalProps {
   onSave: (data: ExpenseFormData) => void;
   initial?: Partial<ExpenseFormData>;
   projects: Project[];
+  isSaving?: boolean;
+  saveError?: string | null;
 }
 
 const CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }[] = [
@@ -34,23 +36,27 @@ const CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }[] = [
   { value: 'other',       label: 'Other' },
 ];
 
-const DEFAULTS: ExpenseFormData = {
-  description: '',
-  category: 'software',
-  amount: 0,
-  projectId: undefined,
-  vendor: undefined,
-  date: new Date().toISOString().split('T')[0] + 'T00:00:00Z',
-  notes: undefined,
-};
+function makeDefaults(): ExpenseFormData {
+  const now = new Date().toISOString();
+  return {
+    description: '',
+    category: 'software',
+    amount: 0,
+    projectId: undefined,
+    vendor: undefined,
+    date: now.split('T')[0] + 'T00:00:00Z',
+    notes: undefined,
+    updatedAt: now,
+  };
+}
 
-export function ExpenseFormModal({ isOpen, onClose, onSave, initial, projects }: ExpenseFormModalProps) {
-  const [form, setForm] = useState<ExpenseFormData>({ ...DEFAULTS, ...initial });
+export function ExpenseFormModal({ isOpen, onClose, onSave, initial, projects, isSaving, saveError }: ExpenseFormModalProps) {
+  const [form, setForm] = useState<ExpenseFormData>({ ...makeDefaults(), ...initial });
   const [errors, setErrors] = useState<Partial<Record<keyof ExpenseFormData, string>>>({});
 
   useEffect(() => {
     if (isOpen) {
-      setForm({ ...DEFAULTS, ...initial });
+      setForm({ ...makeDefaults(), ...initial });
       setErrors({});
     }
   }, [isOpen, initial]);
@@ -76,7 +82,6 @@ export function ExpenseFormModal({ isOpen, onClose, onSave, initial, projects }:
       vendor: form.vendor || undefined,
       notes: form.notes || undefined,
     });
-    onClose();
   }
 
   const projectOptions = [
@@ -138,8 +143,11 @@ export function ExpenseFormModal({ isOpen, onClose, onSave, initial, projects }:
           rows={2}
         />
         <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>{isEdit ? 'Save Changes' : 'Add Expense'}</Button>
+          {saveError && <p className="text-sm text-red-500 mr-auto">{saveError}</p>}
+          <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Expense'}
+          </Button>
         </div>
       </div>
     </Modal>

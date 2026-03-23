@@ -25,6 +25,8 @@ interface ProjectFormModalProps {
   initial?: Partial<ProjectFormData>;
   clients: Client[];
   proposals: Proposal[];
+  isSaving?: boolean;
+  saveError?: string | null;
 }
 
 const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
@@ -46,7 +48,7 @@ const DEFAULTS: ProjectFormData = {
   notes: undefined,
 };
 
-export function ProjectFormModal({ isOpen, onClose, onSave, initial, clients, proposals }: ProjectFormModalProps) {
+export function ProjectFormModal({ isOpen, onClose, onSave, initial, clients, proposals, isSaving, saveError }: ProjectFormModalProps) {
   const [form, setForm] = useState<ProjectFormData>({ ...DEFAULTS, ...initial });
   const [errors, setErrors] = useState<Partial<Record<keyof ProjectFormData, string>>>({});
 
@@ -84,7 +86,7 @@ export function ProjectFormModal({ isOpen, onClose, onSave, initial, clients, pr
 
   const clientOptions = [
     { value: '', label: 'Select a client...' },
-    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.company ? ` — ${c.company}` : ''}` })),
+    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.contactName ? ` · ${c.contactName}` : ''}` })),
   ];
 
   const proposalOptions = [
@@ -155,8 +157,11 @@ export function ProjectFormModal({ isOpen, onClose, onSave, initial, clients, pr
           rows={3}
         />
         <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>{isEdit ? 'Save Changes' : 'Create Project'}</Button>
+          {saveError && <p className="text-sm text-red-500 mr-auto">{saveError}</p>}
+          <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Project'}
+          </Button>
         </div>
       </div>
     </Modal>

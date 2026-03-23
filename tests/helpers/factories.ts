@@ -30,6 +30,7 @@ export function createMockClient(overrides: Partial<Client> = {}): Client {
   return {
     id: 'client-1',
     name: 'Acme Corp',
+    contactName: 'Jane Smith',
     email: 'contact@acme.com',
     status: 'active',
     createdAt: BASE_DATE,
@@ -46,11 +47,11 @@ export function createMockProposal(overrides: Partial<Proposal> = {}): Proposal 
   return {
     id: 'proposal-1',
     clientId: 'client-1',
+    proposalNumber: 'BL-2026-001',
     title: 'Website Redesign',
     status: 'draft',
     lineItems: [],
-    subtotal: 0,
-    total: 0,
+    totalValue: 0,
     createdAt: BASE_DATE,
     updatedAt: BASE_DATE,
     ...overrides,
@@ -94,11 +95,13 @@ export function createMockInvoice(overrides: Partial<Invoice> = {}): Invoice {
   return {
     id: 'invoice-1',
     clientId: 'client-1',
-    invoiceNumber: 'INV-001',
+    invoiceNumber: 'BL-2026-001',
     status: 'draft',
     lineItems: [],
     subtotal: 0,
+    tax: 0,
     total: 0,
+    paymentTerms: 'Net 15',
     dueDate: '2026-02-01T00:00:00Z',
     createdAt: BASE_DATE,
     updatedAt: BASE_DATE,
@@ -118,6 +121,7 @@ export function createMockExpense(overrides: Partial<Expense> = {}): Expense {
     amount: 99,
     date: BASE_DATE,
     createdAt: BASE_DATE,
+    updatedAt: BASE_DATE,
     ...overrides,
   };
 }

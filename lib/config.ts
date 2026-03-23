@@ -23,4 +23,9 @@ export const config = {
     publishableKey: requireEnv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
     secretKey: requireEnv("CLERK_SECRET_KEY"),
   },
+  supabase: {
+    url: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    anonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    serviceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  },
 } as const;

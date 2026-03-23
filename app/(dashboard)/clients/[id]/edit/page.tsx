@@ -1,21 +1,21 @@
-// Edit client page — looks up the client and renders ClientForm in edit mode.
-// TODO: replace getClientById with a Supabase query when backend is connected.
+// Edit client page — fetches the client from DB and renders ClientForm in edit mode.
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { ClientForm } from '@/components/modules';
-import { getClientById } from '@/lib/mock/clients';
+import { getClientById } from '@/lib/db/clients';
 
 interface EditClientPageProps {
   params: Promise<{ id: string }>;
 }
 
-export async function EditClientPage({ params }: EditClientPageProps) {
+export default async function EditClientPage({ params }: EditClientPageProps) {
   const { id } = await params;
-  const client = getClientById(id);
+  const { data: client, error } = await getClientById(id);
 
+  if (error) throw new Error(error);
   if (!client) notFound();
 
   return (
@@ -34,5 +34,3 @@ export async function EditClientPage({ params }: EditClientPageProps) {
     </PageShell>
   );
 }
-
-export default EditClientPage;

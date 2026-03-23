@@ -12,7 +12,7 @@ const STATUS_CONFIG: Record<ProposalStatus, { variant: 'green' | 'blue' | 'yello
   sent:     { variant: 'blue',   label: 'Sent' },
   viewed:   { variant: 'yellow', label: 'Viewed' },
   accepted: { variant: 'green',  label: 'Accepted' },
-  rejected: { variant: 'red',    label: 'Rejected' },
+  declined: { variant: 'red',    label: 'Declined' },
   expired:  { variant: 'gray',   label: 'Expired' },
 };
 

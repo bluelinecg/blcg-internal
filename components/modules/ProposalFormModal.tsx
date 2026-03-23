@@ -23,6 +23,8 @@ interface ProposalFormModalProps {
   onSave: (data: ProposalFormData) => void;
   initial?: Partial<ProposalFormData>;
   clients: Client[];
+  isSaving?: boolean;
+  saveError?: string | null;
 }
 
 const STATUS_OPTIONS: { value: ProposalStatus; label: string }[] = [
@@ -30,27 +32,27 @@ const STATUS_OPTIONS: { value: ProposalStatus; label: string }[] = [
   { value: 'sent',     label: 'Sent' },
   { value: 'viewed',   label: 'Viewed' },
   { value: 'accepted', label: 'Accepted' },
-  { value: 'rejected', label: 'Rejected' },
+  { value: 'declined', label: 'Declined' },
   { value: 'expired',  label: 'Expired' },
 ];
 
 function newLineItem(): ProposalLineItem {
-  return { id: `li_${Date.now()}`, description: '', quantity: 1, unitPrice: 0, total: 0 };
+  return { id: `li_${Date.now()}`, proposalId: '', description: '', quantity: 1, unitPrice: 0, total: 0, sortOrder: 0 };
 }
 
 const DEFAULTS: ProposalFormData = {
   clientId: '',
+  proposalNumber: '',
   title: '',
   status: 'draft',
   lineItems: [newLineItem()],
-  subtotal: 0,
-  total: 0,
+  totalValue: 0,
   notes: undefined,
-  validUntil: undefined,
+  expiresAt: undefined,
   sentAt: undefined,
 };
 
-export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients }: ProposalFormModalProps) {
+export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, isSaving, saveError }: ProposalFormModalProps) {
   const [form, setForm] = useState<ProposalFormData>({ ...DEFAULTS, ...initial });
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
@@ -80,8 +82,8 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients }:
         updated.total = updated.quantity * updated.unitPrice;
         return updated;
       });
-      const subtotal = items.reduce((s, it) => s + it.total, 0);
-      return { ...prev, lineItems: items, subtotal, total: subtotal };
+      const totalValue = items.reduce((s, it) => s + it.total, 0);
+      return { ...prev, lineItems: items, totalValue };
     });
   }
 
@@ -92,8 +94,8 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients }:
   function removeLineItem(index: number) {
     setForm((prev) => {
       const items = prev.lineItems.filter((_, i) => i !== index);
-      const subtotal = items.reduce((s, it) => s + it.total, 0);
-      return { ...prev, lineItems: items, subtotal, total: subtotal };
+      const totalValue = items.reduce((s, it) => s + it.total, 0);
+      return { ...prev, lineItems: items, totalValue };
     });
   }
 
@@ -116,7 +118,7 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients }:
     onSave({
       ...form,
       notes: form.notes || undefined,
-      validUntil: form.validUntil || undefined,
+      expiresAt: form.expiresAt || undefined,
       sentAt: form.sentAt || undefined,
     });
     onClose();
@@ -124,7 +126,7 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients }:
 
   const clientOptions = [
     { value: '', label: 'Select a client...' },
-    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.company ? ` — ${c.company}` : ''}` })),
+    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.contactName ? ` · ${c.contactName}` : ''}` })),
   ];
 
   const isEdit = !!initial?.title;
@@ -157,10 +159,10 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients }:
         />
         <div className="grid grid-cols-2 gap-4">
           <Input
-            label="Valid Until (optional)"
+            label="Expires (optional)"
             type="date"
-            value={form.validUntil ? form.validUntil.split('T')[0] : ''}
-            onChange={(e) => setField('validUntil', e.target.value ? `${e.target.value}T00:00:00Z` : undefined)}
+            value={form.expiresAt ? form.expiresAt.split('T')[0] : ''}
+            onChange={(e) => setField('expiresAt', e.target.value ? `${e.target.value}T00:00:00Z` : undefined)}
           />
           <Input
             label="Sent Date (optional)"
@@ -243,7 +245,7 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients }:
               </button>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</span>
-                <span className="text-sm font-bold text-gray-900 w-24 text-right">{formatCurrency(form.total)}</span>
+                <span className="text-sm font-bold text-gray-900 w-24 text-right">{formatCurrency(form.totalValue)}</span>
               </div>
             </div>
           </div>
@@ -257,9 +259,15 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients }:
           placeholder="Payment terms, special conditions..."
         />
 
+        {saveError && (
+          <p className="text-sm text-red-500">{saveError}</p>
+        )}
+
         <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>{isEdit ? 'Save Changes' : 'Create Proposal'}</Button>
+          <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Proposal'}
+          </Button>
         </div>
       </div>
     </Modal>

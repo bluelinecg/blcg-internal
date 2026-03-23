@@ -7,9 +7,9 @@ import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { Badge, Card, MilestoneTracker } from '@/components/ui';
-import { getProjectById } from '@/lib/mock/projects';
-import { getClientById } from '@/lib/mock/clients';
-import { getProposalById } from '@/lib/mock/proposals';
+import { getProjectById } from '@/lib/db/projects';
+import { getClientById } from '@/lib/db/clients';
+import { getProposalById } from '@/lib/db/proposals';
 import type { ProjectStatus, MilestoneStatus } from '@/lib/types/projects';
 
 const STATUS_BADGE: Record<ProjectStatus, { variant: 'green' | 'blue' | 'yellow' | 'red' | 'gray'; label: string }> = {
@@ -25,12 +25,19 @@ interface PageProps {
 
 export default async function ProjectDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const project = getProjectById(id);
+  const { data: project, error } = await getProjectById(id);
 
+  if (error) throw new Error(error);
   if (!project) notFound();
 
-  const client = project.clientId ? getClientById(project.clientId) : undefined;
-  const proposal = project.proposalId ? getProposalById(project.proposalId) : undefined;
+  const [clientResult, proposalResult] = await Promise.all([
+    getClientById(project.clientId),
+    project.proposalId
+      ? getProposalById(project.proposalId)
+      : Promise.resolve({ data: undefined, error: null }),
+  ]);
+  const client = clientResult.data;
+  const proposal = proposalResult.data;
   const statusCfg = STATUS_BADGE[project.status];
   const completedCount = project.milestones.filter((m) => m.status === 'completed').length;
   const totalCount = project.milestones.length;
@@ -40,7 +47,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     <PageShell>
       <PageHeader
         title={project.name}
-        subtitle={client ? `${client.name} · ${client.company ?? ''}` : undefined}
+        subtitle={client ? `${client.name}${client.contactName ? ` · ${client.contactName}` : ''}` : undefined}
         actions={
           <div className="flex items-center gap-3">
             <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
@@ -126,7 +133,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           <Card className="p-5">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Client</h3>
             <p className="font-medium text-gray-900">{client.name}</p>
-            <p className="text-sm text-gray-500">{client.company}</p>
+            <p className="text-sm text-gray-500">{client.contactName}</p>
             <p className="text-sm text-gray-500">{client.email}</p>
             <Link href={`/clients/${client.id}`} className="mt-2 inline-block text-xs text-brand-blue hover:underline">
               View client →
@@ -137,7 +144,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           <Card className="p-5">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Linked Proposal</h3>
             <p className="font-medium text-gray-900">{proposal.title}</p>
-            <p className="text-sm text-gray-500">{formatCurrency(proposal.total)}</p>
+            <p className="text-sm text-gray-500">{formatCurrency(proposal.totalValue)}</p>
             <Link href="/proposals" className="mt-2 inline-block text-xs text-brand-blue hover:underline">
               View proposals →
             </Link>

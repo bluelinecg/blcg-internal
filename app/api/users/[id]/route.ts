@@ -7,9 +7,9 @@
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { UserRole } from '@/lib/types/users';
+import { UpdateRoleSchema } from '@/lib/validations/users';
 
 const ALLOWED_ROLES: UserRole[] = ['owner', 'admin'];
-const VALID_ROLES: UserRole[] = ['owner', 'admin', 'member', 'viewer'];
 
 // PATCH /api/users/[id] — change a user's role
 export async function PATCH(
@@ -29,16 +29,19 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const body = (await request.json()) as { role?: UserRole };
 
-    if (!body.role || !VALID_ROLES.includes(body.role)) {
-      return NextResponse.json({ data: null, error: 'Invalid role' }, { status: 400 });
+    const parsed = UpdateRoleSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
+      return NextResponse.json({ data: null, error }, { status: 400 });
     }
 
-    const client = await clerkClient();
-    await client.users.updateUser(id, { publicMetadata: { role: body.role } });
+    const { role } = parsed.data;
 
-    return NextResponse.json({ data: { id, role: body.role }, error: null });
+    const client = await clerkClient();
+    await client.users.updateUser(id, { publicMetadata: { role } });
+
+    return NextResponse.json({ data: { id, role }, error: null });
   } catch (error) {
     console.error('[PATCH /api/users/[id]]', error);
     return NextResponse.json({ data: null, error: 'Failed to update role' }, { status: 500 });
