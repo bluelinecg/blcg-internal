@@ -91,3 +91,29 @@ ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 CREATE INDEX idx_audit_log_entity ON audit_log (entity_type, entity_id, created_at DESC);
 CREATE INDEX idx_audit_log_created_at ON audit_log (created_at DESC);
 ```
+
+### RLS Policies — Explicit Deny (all 14 tables)
+
+All tables already had RLS enabled. These policies make the deny intent explicit for
+`anon` and `authenticated` roles. The `service_role` key (used in all API routes)
+bypasses RLS by design and requires no policy.
+
+When Clerk JWT integration is added in the future, replace `deny_authenticated_all`
+on relevant tables with selective allow policies.
+
+```sql
+-- Pattern applied to all 14 tables:
+-- clients, contacts, organizations, proposals, proposal_line_items,
+-- projects, milestones, invoices, invoice_line_items, tasks, expenses,
+-- audit_log, webhook_endpoints, webhook_deliveries
+
+CREATE POLICY "deny_anon_all" ON <table>
+  FOR ALL TO anon
+  USING (false) WITH CHECK (false);
+
+CREATE POLICY "deny_authenticated_all" ON <table>
+  FOR ALL TO authenticated
+  USING (false) WITH CHECK (false);
+```
+
+Full migration: `supabase/migrations/20260324000000_rls_policies.sql`
