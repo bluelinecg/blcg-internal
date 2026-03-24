@@ -73,7 +73,7 @@ export function TasksPage() {
     setFetchError(null);
     try {
       const [tasksRes, projectsRes] = await Promise.all([
-        fetch('/api/tasks'),
+        fetch('/api/tasks?pageSize=500'),
         fetch('/api/projects'),
       ]);
       const [tasksJson, projectsJson] = await Promise.all([
