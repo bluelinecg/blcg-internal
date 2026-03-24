@@ -11,7 +11,7 @@ import { Button, Select, KanbanBoard, Badge, ConfirmDialog, Spinner } from '@/co
 import { useRole } from '@/lib/auth/use-role';
 import type { KanbanColumn } from '@/components/ui/KanbanBoard';
 import { TaskFormModal } from '@/components/modules';
-import type { Task, TaskStatus, TaskPriority } from '@/lib/types/tasks';
+import type { Task, TaskStatus, TaskPriority, ChecklistItem } from '@/lib/types/tasks';
 import type { Project } from '@/lib/types/projects';
 
 const COLUMNS: KanbanColumn[] = [
@@ -46,7 +46,9 @@ const ASSIGNEE_OPTIONS = [
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;
 
 export function TasksPage() {
-  const isAdmin = useRole() === 'admin';
+  const role    = useRole();
+  const isAdmin = role === 'admin';
+  const canEdit = role !== 'viewer';
   const [tasks, setTasks]       = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading]   = useState(true);
@@ -96,6 +98,11 @@ export function TasksPage() {
     [projects],
   );
 
+  const tasksById = useMemo(
+    () => Object.fromEntries(tasks.map((t) => [t.id, t])),
+    [tasks],
+  );
+
   const projectFilterOptions = useMemo(() => [
     { value: 'all',  label: 'All Projects' },
     { value: 'none', label: 'No Project (Internal)' },
@@ -129,8 +136,12 @@ export function TasksPage() {
       });
       const json = await res.json() as { data: Task | null; error: string | null };
       if (!res.ok || json.error) {
-        // Revert optimistic update on failure
         void loadData();
+      } else if (json.data) {
+        // If a recurring task just moved to done, the server created a new occurrence — reload to show it
+        if (json.data.status === 'done' && json.data.recurrence !== 'none') {
+          void loadData();
+        }
       }
     } catch {
       void loadData();
@@ -178,6 +189,25 @@ export function TasksPage() {
     }
   }
 
+  async function handleChecklistToggle(taskId: string, itemId: string) {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const updatedChecklist = task.checklist.map((item) =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item,
+    );
+    // Optimistic update
+    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, checklist: updatedChecklist } : t));
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checklist: updatedChecklist }),
+      });
+    } catch {
+      void loadData();
+    }
+  }
+
   async function confirmDelete() {
     if (!deleteTarget) return;
     setIsDeleting(true);
@@ -202,15 +232,15 @@ export function TasksPage() {
   }
 
   return (
-    <PageShell>
+    <PageShell scrollable={false}>
       <PageHeader
         title="Tasks"
         subtitle="Internal task tracking across all projects"
-        actions={
+        actions={canEdit && (
           <Button onClick={() => { setEditing(null); setSaveError(null); setFormOpen(true); }}>
             + New Task
           </Button>
-        }
+        )}
       />
 
       {deleteError && (
@@ -226,30 +256,34 @@ export function TasksPage() {
           <p className="text-sm text-red-500">{fetchError}</p>
         </div>
       ) : (
-        <>
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <div className="flex items-center gap-3 mb-5">
             <Select options={projectFilterOptions} value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="w-56" />
             <Select options={ASSIGNEE_OPTIONS} value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="w-40" />
             <span className="text-xs text-gray-400 ml-1">{filtered.length} tasks shown</span>
           </div>
 
-          <KanbanBoard
-            columns={COLUMNS}
-            items={filtered}
-            getItemId={(t) => t.id}
-            getItemColumn={(t) => t.status}
-            onMoveItem={handleMoveItem}
-            columnAccent={COLUMN_ACCENT}
-            renderCard={(task) => (
-              <TaskCard
-                task={task}
-                projectMap={projectMap}
-                onEdit={(t) => { setEditing(t); setSaveError(null); setFormOpen(true); }}
-                onDelete={isAdmin ? (t) => setDeleteTarget(t) : undefined}
-              />
-            )}
-          />
-        </>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <KanbanBoard
+              columns={COLUMNS}
+              items={filtered}
+              getItemId={(t) => t.id}
+              getItemColumn={(t) => t.status}
+              onMoveItem={handleMoveItem}
+              columnAccent={COLUMN_ACCENT}
+              renderCard={(task) => (
+                <TaskCard
+                  task={task}
+                  projectMap={projectMap}
+                  tasksById={tasksById}
+                  onEdit={canEdit ? (t) => { setEditing(t); setSaveError(null); setFormOpen(true); } : undefined}
+                  onDelete={isAdmin ? (t) => setDeleteTarget(t) : undefined}
+                  onChecklistToggle={canEdit ? handleChecklistToggle : undefined}
+                />
+              )}
+            />
+          </div>
+        </div>
       )}
 
       <TaskFormModal
@@ -258,6 +292,7 @@ export function TasksPage() {
         onSave={editing ? handleEdit : handleCreate}
         initial={editing ?? undefined}
         projects={projects}
+        allTasks={tasks}
         isSaving={isSaving}
         saveError={saveError}
       />
@@ -278,15 +313,25 @@ export default TasksPage;
 // --- Task card ---
 
 interface TaskCardProps {
-  task: Task;
-  projectMap: Record<string, Project>;
-  onEdit: (task: Task) => void;
-  onDelete?: (task: Task) => void;
+  task:              Task;
+  projectMap:        Record<string, Project>;
+  tasksById:         Record<string, Task>;
+  onEdit?:           (task: Task) => void;
+  onDelete?:         (task: Task) => void;
+  onChecklistToggle?: (taskId: string, itemId: string) => void;
 }
 
-function TaskCard({ task, projectMap, onEdit, onDelete }: TaskCardProps) {
+function TaskCard({ task, projectMap, tasksById, onEdit, onDelete, onChecklistToggle }: TaskCardProps) {
   const priorityCfg = PRIORITY_CONFIG[task.priority];
-  const project = task.projectId ? projectMap[task.projectId] : undefined;
+  const project     = task.projectId ? projectMap[task.projectId] : undefined;
+
+  const blockers = task.blockedBy
+    .map((id) => tasksById[id])
+    .filter((t): t is Task => !!t && t.status !== 'done');
+  const isBlocked = blockers.length > 0;
+
+  const completedCount = task.checklist.filter((i) => i.completed).length;
+  const totalCount     = task.checklist.length;
 
   return (
     <div className="p-3 space-y-2">
@@ -297,11 +342,58 @@ function TaskCard({ task, projectMap, onEdit, onDelete }: TaskCardProps) {
             {project.name.split('—')[0].trim()}
           </span>
         )}
+        {task.recurrence !== 'none' && (
+          <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 font-medium" title={`Repeats ${task.recurrence}`}>
+            ↻
+          </span>
+        )}
       </div>
+
       <p className="text-sm font-medium text-gray-900 leading-snug">{task.title}</p>
+
       {task.description && (
         <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{task.description}</p>
       )}
+
+      {isBlocked && (
+        <div className="flex items-center gap-1 rounded px-2 py-1 bg-yellow-50 border border-yellow-200">
+          <span className="text-xs text-yellow-700 font-medium">
+            ⚠ Blocked by: {blockers.map((t) => t.title).join(', ')}
+          </span>
+        </div>
+      )}
+
+      {totalCount > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1 rounded-full bg-gray-200">
+              <div
+                className="h-1 rounded-full bg-brand-blue transition-all"
+                style={{ width: totalCount > 0 ? `${(completedCount / totalCount) * 100}%` : '0%' }}
+              />
+            </div>
+            <span className="text-xs text-gray-400 tabular-nums">{completedCount}/{totalCount}</span>
+          </div>
+          <ul className="space-y-0.5">
+            {task.checklist.map((item: ChecklistItem) => (
+              <li key={item.id} className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={item.completed}
+                  onChange={() => onChecklistToggle?.(task.id, item.id)}
+                  disabled={!onChecklistToggle}
+                  className="h-3 w-3 rounded border-gray-300 text-brand-blue cursor-pointer"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span className={`text-xs leading-tight ${item.completed ? 'line-through text-gray-300' : 'text-gray-600'}`}>
+                  {item.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-2">
           {task.assignee && (
@@ -319,13 +411,15 @@ function TaskCard({ task, projectMap, onEdit, onDelete }: TaskCardProps) {
               {formatDate(task.dueDate)}
             </span>
           )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(task); }}
-            className="ml-1 text-xs text-gray-400 hover:text-brand-blue transition-colors px-1"
-            title="Edit task"
-          >
-            ✎
-          </button>
+          {onEdit && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(task); }}
+              className="ml-1 text-xs text-gray-400 hover:text-brand-blue transition-colors px-1"
+              title="Edit task"
+            >
+              ✎
+            </button>
+          )}
           {onDelete && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(task); }}

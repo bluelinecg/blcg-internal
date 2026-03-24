@@ -2,29 +2,31 @@
 
 // Modal form for creating and editing Tasks.
 // Props:
-//   isOpen     — controls visibility
-//   onClose    — dismiss callback
-//   onSave     — called with the new/updated task data
-//   initial    — pre-filled values for edit mode (omit for create)
-//   projects   — list of projects for the project selector
-//   isSaving   — disables buttons while the async save is in flight
-//   saveError  — inline error message shown above the action buttons
+//   isOpen       — controls visibility
+//   onClose      — dismiss callback
+//   onSave       — called with the new/updated task data
+//   initial      — pre-filled values for edit mode (omit for create)
+//   projects     — list of projects for the project selector
+//   allTasks     — full task list for the blocked-by selector (excludes the task being edited)
+//   isSaving     — disables buttons while the async save is in flight
+//   saveError    — inline error message shown above the action buttons
 
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
-import type { Task, TaskStatus, TaskPriority } from '@/lib/types/tasks';
+import type { Task, TaskStatus, TaskPriority, TaskRecurrence, ChecklistItem } from '@/lib/types/tasks';
 import type { Project } from '@/lib/types/projects';
 
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;
 
 interface TaskFormModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (data: TaskFormData) => void;
-  initial?: Partial<TaskFormData>;
-  projects: Project[];
-  isSaving?: boolean;
+  isOpen:     boolean;
+  onClose:    () => void;
+  onSave:     (data: TaskFormData) => void;
+  initial?:   Partial<TaskFormData>;
+  projects:   Project[];
+  allTasks?:  Task[];
+  isSaving?:  boolean;
   saveError?: string | null;
 }
 
@@ -49,25 +51,40 @@ const ASSIGNEE_OPTIONS = [
   { value: 'Nick', label: 'Nick' },
 ];
 
+const RECURRENCE_OPTIONS: { value: TaskRecurrence; label: string }[] = [
+  { value: 'none',      label: 'Does not repeat' },
+  { value: 'daily',     label: 'Daily' },
+  { value: 'weekly',    label: 'Weekly' },
+  { value: 'biweekly',  label: 'Every 2 weeks' },
+  { value: 'monthly',   label: 'Monthly' },
+];
+
 const DEFAULTS: TaskFormData = {
-  title: '',
+  title:       '',
   description: '',
-  status: 'todo',
-  priority: 'medium',
-  projectId: undefined,
-  assignee: undefined,
-  dueDate: undefined,
+  status:      'todo',
+  priority:    'medium',
+  projectId:   undefined,
+  assignee:    undefined,
+  dueDate:     undefined,
+  recurrence:  'none',
+  checklist:   [],
+  blockedBy:   [],
 };
 
-export function TaskFormModal({ isOpen, onClose, onSave, initial, projects, isSaving, saveError }: TaskFormModalProps) {
-  const [form, setForm] = useState<TaskFormData>({ ...DEFAULTS, ...initial });
-  const [errors, setErrors] = useState<Partial<Record<keyof TaskFormData, string>>>({});
+export function TaskFormModal({
+  isOpen, onClose, onSave, initial, projects, allTasks = [], isSaving, saveError,
+}: TaskFormModalProps) {
+  const [form, setForm]           = useState<TaskFormData>({ ...DEFAULTS, ...initial });
+  const [errors, setErrors]       = useState<Partial<Record<keyof TaskFormData, string>>>({});
+  const [checklistInput, setChecklistInput] = useState('');
 
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
       setForm({ ...DEFAULTS, ...initial });
       setErrors({});
+      setChecklistInput('');
     }
   }, [isOpen, initial]);
 
@@ -85,13 +102,36 @@ export function TaskFormModal({ isOpen, onClose, onSave, initial, projects, isSa
 
   function handleSubmit() {
     if (!validate()) return;
-    onSave({
-      ...form,
-      projectId: form.projectId || undefined,
-      assignee: form.assignee || undefined,
-      dueDate: form.dueDate || undefined,
-    });
+    onSave({ ...form, dueDate: form.dueDate || undefined });
   }
+
+  // --- Checklist helpers ---
+
+  function addChecklistItem() {
+    const text = checklistInput.trim();
+    if (!text) return;
+    const item: ChecklistItem = { id: crypto.randomUUID(), text, completed: false };
+    set('checklist', [...form.checklist, item]);
+    setChecklistInput('');
+  }
+
+  function removeChecklistItem(id: string) {
+    set('checklist', form.checklist.filter((i) => i.id !== id));
+  }
+
+  // --- Blocked-by helpers ---
+
+  function toggleBlockedBy(taskId: string) {
+    const current = form.blockedBy;
+    set('blockedBy', current.includes(taskId)
+      ? current.filter((id) => id !== taskId)
+      : [...current, taskId],
+    );
+  }
+
+  // Tasks available as blockers (exclude self when editing)
+  const editingId = (initial as Task | undefined)?.id;
+  const blockerOptions = allTasks.filter((t) => t.id !== editingId);
 
   const projectOptions = [
     { value: '', label: 'No project (internal)' },
@@ -136,21 +176,82 @@ export function TaskFormModal({ isOpen, onClose, onSave, initial, projects, isSa
             label="Project"
             options={projectOptions}
             value={form.projectId ?? ''}
-            onChange={(e) => set('projectId', e.target.value || undefined)}
+            onChange={(e) => set('projectId', e.target.value)}
           />
           <Select
             label="Assignee"
             options={ASSIGNEE_OPTIONS}
             value={form.assignee ?? ''}
-            onChange={(e) => set('assignee', e.target.value || undefined)}
+            onChange={(e) => set('assignee', e.target.value)}
           />
         </div>
-        <Input
-          label="Due Date (optional)"
-          type="date"
-          value={form.dueDate ? form.dueDate.split('T')[0] : ''}
-          onChange={(e) => set('dueDate', e.target.value ? `${e.target.value}T00:00:00Z` : undefined)}
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Due Date (optional)"
+            type="date"
+            value={form.dueDate ? form.dueDate.split('T')[0] : ''}
+            onChange={(e) => set('dueDate', e.target.value ? `${e.target.value}T00:00:00Z` : undefined)}
+          />
+          <Select
+            label="Recurrence"
+            options={RECURRENCE_OPTIONS}
+            value={form.recurrence}
+            onChange={(e) => set('recurrence', e.target.value as TaskRecurrence)}
+          />
+        </div>
+
+        {/* Checklist */}
+        <div>
+          <p className="text-xs font-medium text-gray-700 mb-2">Checklist</p>
+          {form.checklist.length > 0 && (
+            <ul className="mb-2 space-y-1">
+              {form.checklist.map((item) => (
+                <li key={item.id} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="flex-1 truncate">{item.text}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeChecklistItem(item.id)}
+                    className="text-gray-300 hover:text-red-400 transition-colors text-xs px-1"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={checklistInput}
+              onChange={(e) => setChecklistInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addChecklistItem(); } }}
+              placeholder="Add a checklist item..."
+              className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/40 focus:border-brand-blue"
+            />
+            <Button variant="secondary" size="sm" onClick={addChecklistItem} type="button">Add</Button>
+          </div>
+        </div>
+
+        {/* Blocked by */}
+        {blockerOptions.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-gray-700 mb-2">Blocked by (optional)</p>
+            <div className="max-h-32 overflow-y-auto space-y-1 rounded-md border border-gray-200 p-2">
+              {blockerOptions.map((t) => (
+                <label key={t.id} className="flex items-center gap-2 cursor-pointer py-0.5">
+                  <input
+                    type="checkbox"
+                    checked={form.blockedBy.includes(t.id)}
+                    onChange={() => toggleBlockedBy(t.id)}
+                    className="rounded border-gray-300 text-brand-blue"
+                  />
+                  <span className="text-xs text-gray-700 truncate">{t.title}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-end gap-3 pt-2">
           {saveError && <p className="text-sm text-red-500 mr-auto">{saveError}</p>}
           <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>

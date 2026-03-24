@@ -64,7 +64,7 @@ export function KanbanBoard<T>({
   }
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
+    <div className="flex gap-4 overflow-x-auto pb-4 h-full">
       {columns.map((col) => {
         const colItems = items.filter((item) => getItemColumn(item) === col.id);
         const isOver = overColumnId === col.id;
@@ -75,20 +75,20 @@ export function KanbanBoard<T>({
             key={col.id}
             onDragOver={(e) => handleDragOver(e, col.id)}
             onDrop={() => handleDrop(col.id)}
-            className={`flex flex-col min-w-64 w-64 flex-shrink-0 rounded-lg border border-gray-200 border-t-4 transition-colors ${accentClass} ${
+            className={`flex flex-col flex-1 min-w-52 h-full rounded-lg border border-gray-200 border-t-4 transition-colors ${accentClass} ${
               isOver ? 'bg-brand-blue/5 border-brand-blue/30' : 'bg-gray-50'
             }`}
           >
             {/* Column header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
               <span className="text-sm font-semibold text-gray-700">{col.label}</span>
               <span className="text-xs font-medium text-gray-400 bg-gray-200 rounded-full px-2 py-0.5">
                 {colItems.length}
               </span>
             </div>
 
-            {/* Cards */}
-            <div className="flex flex-col gap-2 p-3 flex-1 min-h-16">
+            {/* Cards — scrolls independently when the list is long */}
+            <div className="flex flex-col gap-2 p-3 flex-1 min-h-0 overflow-y-auto">
               {colItems.map((item) => {
                 const id = getItemId(item);
                 const isDragging = draggingId === id;
