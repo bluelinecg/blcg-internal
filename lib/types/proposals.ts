@@ -1,3 +1,5 @@
+import type { Contact } from './crm';
+
 // 'declined' maps to 'rejected' in legacy mock data — DB uses 'declined'
 export type ProposalStatus = 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired';
 
@@ -29,6 +31,9 @@ export interface Proposal {
   notes?: string;
   sentAt?: string;
   expiresAt?: string;
+  // CRM link — contact from the client's linked organization
+  contactId?: string;
+  contact?: Contact;
   createdAt: string;
   updatedAt: string;
 }

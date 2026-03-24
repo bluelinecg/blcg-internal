@@ -9,7 +9,7 @@
 // Props:
 //   client — the client record to display
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout';
@@ -17,6 +17,7 @@ import { Button, Card, ConfirmDialog } from '@/components/ui';
 import { StatusBadge, ActivityFeed } from '@/components/modules';
 import { formatDate } from '@/lib/utils/format';
 import type { Client } from '@/lib/types/clients';
+import type { Contact } from '@/lib/types/crm';
 
 interface ClientDetailViewProps {
   client: Client;
@@ -29,6 +30,23 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
   const [isCheckingDeps, setIsCheckingDeps] = useState(false);
   const [isDeleting, setIsDeleting]         = useState(false);
   const [actionError, setActionError]       = useState<string | null>(null);
+  const [orgContacts, setOrgContacts]       = useState<Contact[]>([]);
+
+  useEffect(() => {
+    if (!client.organizationId) return;
+
+    async function fetchContacts() {
+      try {
+        const res = await fetch(`/api/contacts?organizationId=${client.organizationId}&pageSize=100`);
+        const json = await res.json() as { data: Contact[] | null; error: string | null };
+        setOrgContacts(json.data ?? []);
+      } catch {
+        setOrgContacts([]);
+      }
+    }
+
+    void fetchContacts();
+  }, [client.organizationId]);
 
   async function openDelete() {
     setIsCheckingDeps(true);
@@ -121,27 +139,85 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
       <div className="grid grid-cols-3 gap-6">
         {/* Left column */}
         <div className="col-span-2 flex flex-col gap-6">
-          {/* Contact info */}
+          {/* Contact / Organization info */}
           <Card className="p-6">
-            <h3 className="mb-4 text-sm font-semibold text-gray-700">Contact Information</h3>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-              <div>
-                <dt className="mb-0.5 text-xs text-gray-500">Email</dt>
-                <dd className="text-sm text-gray-900">
-                  <a href={`mailto:${client.email}`} className="text-blue-600 hover:underline">
-                    {client.email}
-                  </a>
-                </dd>
-              </div>
-              <div>
-                <dt className="mb-0.5 text-xs text-gray-500">Phone</dt>
-                <dd className="text-sm text-gray-900">{client.phone ?? '—'}</dd>
-              </div>
-              <div>
-                <dt className="mb-0.5 text-xs text-gray-500">Contact</dt>
-                <dd className="text-sm text-gray-900">{client.contactName}</dd>
-              </div>
-            </dl>
+            {client.organization ? (
+              <>
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-700">Organization</h3>
+                  <Link
+                    href={`/organizations/${client.organization.id}`}
+                    className="text-xs text-brand-blue hover:underline"
+                  >
+                    View org →
+                  </Link>
+                </div>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="col-span-2">
+                    <dt className="mb-0.5 text-xs text-gray-500">Organization</dt>
+                    <dd className="text-sm font-medium text-gray-900">{client.organization.name}</dd>
+                  </div>
+                  {client.organization.phone && (
+                    <div>
+                      <dt className="mb-0.5 text-xs text-gray-500">Phone</dt>
+                      <dd className="text-sm text-gray-900">{client.organization.phone}</dd>
+                    </div>
+                  )}
+                  {client.organization.website && (
+                    <div>
+                      <dt className="mb-0.5 text-xs text-gray-500">Website</dt>
+                      <dd className="text-sm text-gray-900">
+                        <a href={client.organization.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                          {client.organization.website}
+                        </a>
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                {orgContacts.length > 0 && (
+                  <div className="mt-5 border-t border-gray-100 pt-4">
+                    <h4 className="mb-3 text-xs font-semibold text-gray-500">Contacts at this org</h4>
+                    <ul className="flex flex-col gap-2">
+                      {orgContacts.map((contact) => (
+                        <li key={contact.id} className="flex items-start justify-between text-sm">
+                          <div>
+                            <span className="font-medium text-gray-900">{contact.firstName} {contact.lastName}</span>
+                            {contact.title && <span className="ml-1 text-gray-400">— {contact.title}</span>}
+                            {contact.email && (
+                              <div className="text-xs text-gray-500">
+                                <a href={`mailto:${contact.email}`} className="hover:underline">{contact.email}</a>
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <h3 className="mb-4 text-sm font-semibold text-gray-700">Contact Information</h3>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  <div>
+                    <dt className="mb-0.5 text-xs text-gray-500">Email</dt>
+                    <dd className="text-sm text-gray-900">
+                      <a href={`mailto:${client.email}`} className="text-blue-600 hover:underline">
+                        {client.email}
+                      </a>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="mb-0.5 text-xs text-gray-500">Phone</dt>
+                    <dd className="text-sm text-gray-900">{client.phone ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="mb-0.5 text-xs text-gray-500">Contact</dt>
+                    <dd className="text-sm text-gray-900">{client.contactName}</dd>
+                  </div>
+                </dl>
+              </>
+            )}
           </Card>
 
           {/* Notes */}

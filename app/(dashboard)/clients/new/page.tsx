@@ -4,8 +4,11 @@ import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { ClientForm } from '@/components/modules';
+import { listOrganizations } from '@/lib/db/organizations';
 
-export function NewClientPage() {
+export default async function NewClientPage() {
+  const { data: organizations } = await listOrganizations({ pageSize: 100 });
+
   return (
     <PageShell>
       <Link
@@ -18,9 +21,7 @@ export function NewClientPage() {
         title="New Client"
         subtitle="Add a new client to your roster."
       />
-      <ClientForm />
+      <ClientForm organizations={organizations ?? []} />
     </PageShell>
   );
 }
-
-export default NewClientPage;

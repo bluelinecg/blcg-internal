@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
 import type { Proposal, ProposalLineItem, ProposalStatus } from '@/lib/types/proposals';
 import type { Client } from '@/lib/types/clients';
+import type { Contact } from '@/lib/types/crm';
 
 type ProposalFormData = Omit<Proposal, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -50,11 +51,13 @@ const DEFAULTS: ProposalFormData = {
   notes: undefined,
   expiresAt: undefined,
   sentAt: undefined,
+  contactId: undefined,
 };
 
 export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, isSaving, saveError }: ProposalFormModalProps) {
   const [form, setForm] = useState<ProposalFormData>({ ...DEFAULTS, ...initial });
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  const [orgContacts, setOrgContacts] = useState<Contact[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -64,8 +67,36 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, i
         lineItems: initial?.lineItems?.length ? initial.lineItems : [newLineItem()],
       });
       setErrors({});
+      setOrgContacts([]);
     }
   }, [isOpen, initial]);
+
+  // Fetch contacts for the selected client's linked org
+  useEffect(() => {
+    if (!form.clientId) {
+      setOrgContacts([]);
+      return;
+    }
+    const client = clients.find((c) => c.id === form.clientId);
+    if (!client?.organizationId) {
+      setOrgContacts([]);
+      return;
+    }
+
+    async function fetchContacts() {
+      const client = clients.find((c) => c.id === form.clientId);
+      if (!client?.organizationId) return;
+      try {
+        const res = await fetch(`/api/contacts?organizationId=${client.organizationId}&pageSize=100`);
+        const json = await res.json() as { data: Contact[] | null; error: string | null };
+        setOrgContacts(json.data ?? []);
+      } catch {
+        setOrgContacts([]);
+      }
+    }
+
+    void fetchContacts();
+  }, [form.clientId, clients]);
 
   function setField<K extends keyof ProposalFormData>(key: K, value: ProposalFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -129,6 +160,11 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, i
     ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.contactName ? ` · ${c.contactName}` : ''}` })),
   ];
 
+  const contactOptions = [
+    { value: '', label: 'None' },
+    ...orgContacts.map((c) => ({ value: c.id, label: `${c.firstName} ${c.lastName}${c.title ? ` — ${c.title}` : ''}` })),
+  ];
+
   const isEdit = !!initial?.title;
 
   return (
@@ -140,7 +176,10 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, i
             label="Client"
             options={clientOptions}
             value={form.clientId}
-            onChange={(e) => setField('clientId', e.target.value)}
+            onChange={(e) => {
+              setField('clientId', e.target.value);
+              setField('contactId', undefined);
+            }}
             error={errors.clientId}
           />
           <Select
@@ -150,6 +189,14 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, i
             onChange={(e) => setField('status', e.target.value as ProposalStatus)}
           />
         </div>
+        {orgContacts.length > 0 && (
+          <Select
+            label="Contact (optional)"
+            options={contactOptions}
+            value={form.contactId ?? ''}
+            onChange={(e) => setField('contactId', e.target.value || undefined)}
+          />
+        )}
         <Input
           label="Proposal Title"
           value={form.title}

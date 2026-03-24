@@ -7,6 +7,7 @@
 
 import { serverClient } from '@/lib/db/supabase';
 import type { Proposal, ProposalLineItem, ProposalStatus } from '@/lib/types/proposals';
+import type { Contact } from '@/lib/types/crm';
 import type { ProposalInput, UpdateProposalInput } from '@/lib/validations/proposals';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
@@ -14,6 +15,20 @@ import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
 // ---------------------------------------------------------------------------
 // Row types (mirror DB columns)
 // ---------------------------------------------------------------------------
+
+interface ContactJoinRow {
+  id: string;
+  organization_id: string | null;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 interface ProposalRow {
   id: string;
@@ -31,6 +46,8 @@ interface ProposalRow {
   notes: string | null;
   sent_at: string | null;
   expires_at: string | null;
+  contact_id: string | null;
+  contacts?: ContactJoinRow | null;
   created_at: string;
   updated_at: string;
   proposal_line_items?: LineItemRow[];
@@ -62,6 +79,22 @@ function lineItemFromRow(row: LineItemRow): ProposalLineItem {
   };
 }
 
+function contactFromJoinRow(row: ContactJoinRow): Contact {
+  return {
+    id: row.id,
+    organizationId: row.organization_id ?? undefined,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    email: row.email ?? undefined,
+    phone: row.phone ?? undefined,
+    title: row.title ?? undefined,
+    status: row.status as Contact['status'],
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function fromRow(row: ProposalRow): Proposal {
   return {
     id: row.id,
@@ -80,6 +113,8 @@ function fromRow(row: ProposalRow): Proposal {
     notes: row.notes ?? undefined,
     sentAt: row.sent_at ?? undefined,
     expiresAt: row.expires_at ?? undefined,
+    contactId: row.contact_id ?? undefined,
+    contact: row.contacts ? contactFromJoinRow(row.contacts) : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -87,7 +122,7 @@ function fromRow(row: ProposalRow): Proposal {
 
 function toInsert(
   data: ProposalInput,
-): Omit<ProposalRow, 'id' | 'created_at' | 'updated_at' | 'proposal_line_items'> {
+): Omit<ProposalRow, 'id' | 'created_at' | 'updated_at' | 'proposal_line_items' | 'contacts'> {
   return {
     client_id: data.clientId,
     proposal_number: data.proposalNumber,
@@ -103,6 +138,7 @@ function toInsert(
     notes: data.notes ?? null,
     sent_at: data.sentAt ?? null,
     expires_at: data.expiresAt ?? null,
+    contact_id: data.contactId ?? null,
   };
 }
 
@@ -119,7 +155,7 @@ export async function listProposals(options?: ListOptions): Promise<PaginatedRes
 
     const { data, count, error } = await serverClient()
       .from('proposals')
-      .select('*, proposal_line_items(*)', { count: 'exact' })
+      .select('*, proposal_line_items(*), contacts(*)', { count: 'exact' })
       .order(sort, { ascending: order !== 'desc' })
       .range(from, to);
 
@@ -138,7 +174,7 @@ export async function getProposalById(
   try {
     const { data, error } = await serverClient()
       .from('proposals')
-      .select('*, proposal_line_items(*)')
+      .select('*, proposal_line_items(*), contacts(*)')
       .eq('id', id)
       .single();
 
@@ -167,7 +203,7 @@ export async function createProposal(
     const { data: proposalRow, error: proposalErr } = await db
       .from('proposals')
       .insert(toInsert(input))
-      .select('*')
+      .select('*, contacts(*)')
       .single();
 
     if (proposalErr) return { data: null, error: proposalErr.message };
@@ -214,7 +250,7 @@ export async function updateProposal(
     const db = serverClient();
 
     // Build the proposal patch (only include defined fields)
-    const patch: Partial<Omit<ProposalRow, 'id' | 'created_at' | 'updated_at' | 'proposal_line_items'>> = {};
+    const patch: Partial<Omit<ProposalRow, 'id' | 'created_at' | 'updated_at' | 'proposal_line_items' | 'contacts'>> = {};
     if (input.clientId !== undefined) patch.client_id = input.clientId;
     if (input.proposalNumber !== undefined) patch.proposal_number = input.proposalNumber;
     if (input.title !== undefined) patch.title = input.title;
@@ -229,12 +265,13 @@ export async function updateProposal(
     if (input.notes !== undefined) patch.notes = input.notes ?? null;
     if (input.sentAt !== undefined) patch.sent_at = input.sentAt ?? null;
     if (input.expiresAt !== undefined) patch.expires_at = input.expiresAt ?? null;
+    if (input.contactId !== undefined) patch.contact_id = input.contactId ?? null;
 
     const { data: proposalRow, error: proposalErr } = await db
       .from('proposals')
       .update(patch)
       .eq('id', id)
-      .select('*')
+      .select('*, contacts(*)')
       .single();
 
     if (proposalErr) return { data: null, error: proposalErr.message };
