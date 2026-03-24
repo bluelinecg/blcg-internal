@@ -425,6 +425,7 @@ Rules:
 - Never commit directly to main
 - Commit often — small focused commits over one large end-of-session commit
 - Always open a PR so CI checks run and there is a record of the change
+- **One feature per PR** — each backlog item gets its own branch and PR; never bundle multiple features into a single PR. Bundled PRs make build failures hard to diagnose and bisect. Complete, merge, and pull the latest main before starting the next feature.
 
 ### Definition of done
 A feature is not done until all of these are true:
