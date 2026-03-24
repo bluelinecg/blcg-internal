@@ -29,3 +29,21 @@ export function serverClient() {
 export function browserClient() {
   return createClient(config.supabase.url, config.supabase.anonKey);
 }
+
+/**
+ * Authenticated browser client that passes a Clerk session JWT.
+ * Use this for client-side queries where RLS must resolve the caller's
+ * identity and role. Obtain the token with:
+ *   const token = await getToken({ template: 'supabase' })
+ * The 'supabase' Clerk JWT template must be configured to sign with the
+ * Supabase JWT secret and include a "role" claim from publicMetadata.
+ */
+export function authenticatedBrowserClient(token: string) {
+  return createClient(config.supabase.url, config.supabase.anonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
+}
