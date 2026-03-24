@@ -18,6 +18,8 @@ import type { Client } from '@/lib/types/clients';
 import type { Proposal } from '@/lib/types/proposals';
 import type { Project, Milestone } from '@/lib/types/projects';
 import type { Invoice, Expense } from '@/lib/types/finances';
+import type { Task } from '@/lib/types/tasks';
+import type { Contact, Organization } from '@/lib/types/crm';
 
 /** Fixed base date used for all timestamp fields. */
 const BASE_DATE = '2026-01-01T00:00:00Z';
@@ -120,6 +122,53 @@ export function createMockExpense(overrides: Partial<Expense> = {}): Expense {
     category: 'software',
     amount: 99,
     date: BASE_DATE,
+    createdAt: BASE_DATE,
+    updatedAt: BASE_DATE,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Task
+// ---------------------------------------------------------------------------
+
+export function createMockTask(overrides: Partial<Task> = {}): Task {
+  return {
+    id: 'task-1',
+    title: 'Build login page',
+    status: 'todo',
+    priority: 'medium',
+    createdAt: BASE_DATE,
+    updatedAt: BASE_DATE,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// CRM — Contact
+// ---------------------------------------------------------------------------
+
+export function createMockContact(overrides: Partial<Contact> = {}): Contact {
+  return {
+    id:        'contact-1',
+    firstName: 'Jane',
+    lastName:  'Smith',
+    email:     'jane.smith@example.com',
+    status:    'active',
+    createdAt: BASE_DATE,
+    updatedAt: BASE_DATE,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// CRM — Organization
+// ---------------------------------------------------------------------------
+
+export function createMockOrganization(overrides: Partial<Organization> = {}): Organization {
+  return {
+    id:        'org-1',
+    name:      'Acme Inc.',
     createdAt: BASE_DATE,
     updatedAt: BASE_DATE,
     ...overrides,

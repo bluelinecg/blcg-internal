@@ -24,6 +24,7 @@ function makeChain(result: { data: unknown; count?: number | null; error: unknow
     update: jest.fn().mockReturnThis(),
     delete: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
+    range: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
     like: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
