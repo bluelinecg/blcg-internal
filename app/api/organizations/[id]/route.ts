@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { getOrganizationById, updateOrganization, deleteOrganization, getOrganizationContactCount } from '@/lib/db/organizations';
 import { UpdateOrganizationSchema } from '@/lib/validations/organizations';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
+import { logAction } from '@/lib/utils/audit';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -57,6 +58,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
     if (!data) return NextResponse.json({ data: null, error: 'Organization not found' }, { status: 404 });
 
+    void logAction({ entityType: 'organization', entityId: id, entityLabel: data.name, action: 'updated' });
+
     return NextResponse.json({ data, error: null });
   } catch (err) {
     console.error('[PATCH /api/organizations/[id]]', err);
@@ -76,6 +79,9 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { id } = await params;
 
+    // Fetch entity label before deletion for audit log
+    const { data: org } = await getOrganizationById(id);
+
     // Server-side dependency check — never trust the frontend alone (CLAUDE.md)
     const { count, error: countError } = await getOrganizationContactCount(id);
     if (countError) return NextResponse.json({ data: null, error: countError }, { status: 500 });
@@ -88,6 +94,8 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { error } = await deleteOrganization(id);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+
+    void logAction({ entityType: 'organization', entityId: id, entityLabel: org?.name ?? id, action: 'deleted' });
 
     return NextResponse.json({ data: { id }, error: null });
   } catch (err) {

@@ -412,6 +412,28 @@ export async function listExpenses(options?: ListOptions): Promise<PaginatedResu
   }
 }
 
+/** Returns a single expense, or null if not found. */
+export async function getExpenseById(
+  id: string,
+): Promise<{ data: Expense | null; error: string | null }> {
+  try {
+    const { data, error } = await serverClient()
+      .from('expenses')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return { data: null, error: null };
+      return { data: null, error: error.message };
+    }
+    return { data: expenseFromRow(data as ExpenseRow), error: null };
+  } catch (err) {
+    console.error('[getExpenseById]', err);
+    return { data: null, error: 'Failed to load expense' };
+  }
+}
+
 /** Creates an expense and returns it. */
 export async function createExpense(
   input: ExpenseInput,

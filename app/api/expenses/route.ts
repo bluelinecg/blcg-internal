@@ -10,6 +10,7 @@ import { listExpenses, createExpense } from '@/lib/db/finances';
 import { ExpenseSchema } from '@/lib/validations/finances';
 import { guardAdmin } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
+import { logAction } from '@/lib/utils/audit';
 
 export async function GET(request: Request) {
   try {
@@ -50,6 +51,8 @@ export async function POST(request: Request) {
 
     const { data, error } = await createExpense(parsed.data);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+
+    if (data) void logAction({ entityType: 'expense', entityId: data.id, entityLabel: data.description, action: 'created' });
 
     return NextResponse.json({ data, error: null }, { status: 201 });
   } catch (err) {

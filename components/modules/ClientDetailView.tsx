@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { Button, Card, ConfirmDialog } from '@/components/ui';
-import { StatusBadge } from '@/components/modules';
+import { StatusBadge, ActivityFeed } from '@/components/modules';
 import { formatDate } from '@/lib/utils/format';
 import type { Client } from '@/lib/types/clients';
 
@@ -183,6 +183,11 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
                 <dd className="text-sm text-gray-900">{formatDate(client.updatedAt)}</dd>
               </div>
             </dl>
+          </Card>
+
+          <Card className="p-5">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500">Activity</h3>
+            <ActivityFeed entityType="client" entityId={client.id} pageSize={5} />
           </Card>
         </div>
       </div>

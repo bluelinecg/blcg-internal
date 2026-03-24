@@ -10,6 +10,7 @@ import { listProposals, createProposal } from '@/lib/db/proposals';
 import { ProposalSchema } from '@/lib/validations/proposals';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
+import { logAction } from '@/lib/utils/audit';
 
 // GET /api/proposals
 export async function GET(request: Request) {
@@ -49,6 +50,8 @@ export async function POST(request: Request) {
 
     const { data, error } = await createProposal(parsed.data);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+
+    if (data) void logAction({ entityType: 'proposal', entityId: data.id, entityLabel: data.title, action: 'created' });
 
     return NextResponse.json({ data, error: null }, { status: 201 });
   } catch (err) {

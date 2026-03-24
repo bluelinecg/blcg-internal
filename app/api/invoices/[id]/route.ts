@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { getInvoiceById, updateInvoice, deleteInvoice } from '@/lib/db/finances';
 import { UpdateInvoiceSchema } from '@/lib/validations/finances';
 import { guardAdmin } from '@/lib/auth/roles';
+import { logAction } from '@/lib/utils/audit';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -62,6 +63,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
     if (!data) return NextResponse.json({ data: null, error: 'Invoice not found' }, { status: 404 });
 
+    if (parsed.data.status !== undefined) {
+      void logAction({ entityType: 'invoice', entityId: id, entityLabel: data.invoiceNumber, action: 'status_changed', metadata: { to: data.status } });
+    } else {
+      void logAction({ entityType: 'invoice', entityId: id, entityLabel: data.invoiceNumber, action: 'updated' });
+    }
+
     return NextResponse.json({ data, error: null });
   } catch (err) {
     console.error('[PATCH /api/invoices/[id]]', err);
@@ -81,7 +88,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { id } = await params;
 
-    // Re-fetch to get current status for dependency check
+    // Re-fetch to get current status for dependency check and audit label
     const { data: invoice, error: fetchErr } = await getInvoiceById(id);
     if (fetchErr) return NextResponse.json({ data: null, error: fetchErr }, { status: 500 });
     if (!invoice) return NextResponse.json({ data: null, error: 'Invoice not found' }, { status: 404 });
@@ -98,6 +105,8 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { error } = await deleteInvoice(id);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+
+    void logAction({ entityType: 'invoice', entityId: id, entityLabel: invoice.invoiceNumber, action: 'deleted' });
 
     return NextResponse.json({ data: { id }, error: null });
   } catch (err) {

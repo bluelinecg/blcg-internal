@@ -11,6 +11,7 @@ import { getTaskById, updateTask, deleteTask, createNextRecurrence } from '@/lib
 import { UpdateTaskSchema } from '@/lib/validations/tasks';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
 import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
+import { logAction } from '@/lib/utils/audit';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -60,6 +61,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     if (data && parsed.data.status !== undefined) {
       void dispatchWebhookEvent('task.status_changed', data as unknown as Record<string, unknown>);
+      void logAction({ entityType: 'task', entityId: id, entityLabel: data.title, action: 'status_changed', metadata: { to: data.status } });
+    } else if (data) {
+      void logAction({ entityType: 'task', entityId: id, entityLabel: data.title, action: 'updated' });
     }
 
     // When a recurring task is marked done, auto-create the next occurrence.
@@ -87,8 +91,13 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { id } = await params;
 
+    // Fetch entity label before deletion for audit log
+    const { data: task } = await getTaskById(id);
+
     const { error } = await deleteTask(id);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+
+    void logAction({ entityType: 'task', entityId: id, entityLabel: task?.title ?? id, action: 'deleted' });
 
     return NextResponse.json({ data: { id }, error: null });
   } catch (err) {

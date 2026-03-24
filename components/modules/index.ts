@@ -11,3 +11,4 @@ export { ComposeEmailModal } from './ComposeEmailModal';
 export { InviteUserModal } from './InviteUserModal';
 export { OrganizationFormModal } from './OrganizationFormModal';
 export { ContactFormModal } from './ContactFormModal';
+export { ActivityFeed } from './ActivityFeed';
