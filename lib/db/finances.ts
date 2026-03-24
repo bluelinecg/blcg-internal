@@ -14,6 +14,7 @@ import type {
   ExpenseCategory,
   PaymentMethod,
 } from '@/lib/types/finances';
+import type { Organization } from '@/lib/types/crm';
 import type {
   InvoiceInput,
   UpdateInvoiceInput,
@@ -27,9 +28,23 @@ import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
 // Row types (mirror DB columns)
 // ---------------------------------------------------------------------------
 
+interface OrganizationJoinRow {
+  id: string;
+  name: string;
+  website: string | null;
+  phone: string | null;
+  industry: string | null;
+  address: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface InvoiceRow {
   id: string;
-  client_id: string;
+  client_id: string | null;
+  organization_id: string | null;
+  organizations?: OrganizationJoinRow | null;
   project_id: string | null;
   proposal_id: string | null;
   invoice_number: string;
@@ -78,6 +93,20 @@ interface ExpenseRow {
 // Mapping helpers
 // ---------------------------------------------------------------------------
 
+function orgFromJoinRow(row: OrganizationJoinRow): Organization {
+  return {
+    id: row.id,
+    name: row.name,
+    website: row.website ?? undefined,
+    phone: row.phone ?? undefined,
+    industry: row.industry ?? undefined,
+    address: row.address ?? undefined,
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function lineItemFromRow(row: InvoiceLineItemRow): InvoiceLineItem {
   return {
     id: row.id,
@@ -95,7 +124,9 @@ function lineItemFromRow(row: InvoiceLineItemRow): InvoiceLineItem {
 function invoiceFromRow(row: InvoiceRow): Invoice {
   return {
     id: row.id,
-    clientId: row.client_id,
+    clientId: row.client_id ?? undefined,
+    organizationId: row.organization_id ?? '',
+    organization: row.organizations ? orgFromJoinRow(row.organizations) : undefined,
     projectId: row.project_id ?? undefined,
     proposalId: row.proposal_id ?? undefined,
     invoiceNumber: row.invoice_number,
@@ -118,9 +149,10 @@ function invoiceFromRow(row: InvoiceRow): Invoice {
 
 function invoiceToInsert(
   data: InvoiceInput,
-): Omit<InvoiceRow, 'id' | 'created_at' | 'updated_at' | 'invoice_line_items'> {
+): Omit<InvoiceRow, 'id' | 'created_at' | 'updated_at' | 'invoice_line_items' | 'organizations'> {
   return {
-    client_id: data.clientId,
+    client_id: data.clientId ?? null,
+    organization_id: data.organizationId,
     project_id: data.projectId ?? null,
     proposal_id: data.proposalId ?? null,
     invoice_number: data.invoiceNumber,
@@ -178,7 +210,7 @@ export async function listInvoices(options?: ListOptions): Promise<PaginatedResu
 
     const { data, count, error } = await serverClient()
       .from('invoices')
-      .select('*, invoice_line_items(*)', { count: 'exact' })
+      .select('*, invoice_line_items(*), organizations(*)', { count: 'exact' })
       .order(sort, { ascending: order !== 'desc' })
       .range(from, to);
 
@@ -197,7 +229,7 @@ export async function getInvoiceById(
   try {
     const { data, error } = await serverClient()
       .from('invoices')
-      .select('*, invoice_line_items(*)')
+      .select('*, invoice_line_items(*), organizations(*)')
       .eq('id', id)
       .single();
 
@@ -271,8 +303,9 @@ export async function updateInvoice(
   try {
     const db = serverClient();
 
-    const patch: Partial<Omit<InvoiceRow, 'id' | 'created_at' | 'updated_at' | 'invoice_line_items'>> = {};
-    if (input.clientId !== undefined) patch.client_id = input.clientId;
+    const patch: Partial<Omit<InvoiceRow, 'id' | 'created_at' | 'updated_at' | 'invoice_line_items' | 'organizations'>> = {};
+    if (input.clientId !== undefined) patch.client_id = input.clientId ?? null;
+    if (input.organizationId !== undefined) patch.organization_id = input.organizationId;
     if (input.projectId !== undefined) patch.project_id = input.projectId ?? null;
     if (input.proposalId !== undefined) patch.proposal_id = input.proposalId ?? null;
     if (input.invoiceNumber !== undefined) patch.invoice_number = input.invoiceNumber;
@@ -292,7 +325,7 @@ export async function updateInvoice(
       .from('invoices')
       .update(patch)
       .eq('id', id)
-      .select('*')
+      .select('*, organizations(*)')
       .single();
 
     if (invoiceErr) return { data: null, error: invoiceErr.message };

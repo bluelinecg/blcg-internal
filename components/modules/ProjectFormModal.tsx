@@ -2,18 +2,18 @@
 
 // Modal form for creating and editing Projects.
 // Props:
-//   isOpen     — controls visibility
-//   onClose    — dismiss callback
-//   onSave     — called with the new/updated project data
-//   initial    — pre-filled values for edit mode (omit for create)
-//   clients    — list of clients for the client selector
-//   proposals  — list of accepted proposals for the linked proposal selector
+//   isOpen        — controls visibility
+//   onClose       — dismiss callback
+//   onSave        — called with the new/updated project data
+//   initial       — pre-filled values for edit mode (omit for create)
+//   organizations — list of organizations for the organization selector
+//   proposals     — list of accepted proposals for the linked proposal selector
 
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
 import type { Project, ProjectStatus } from '@/lib/types/projects';
-import type { Client } from '@/lib/types/clients';
+import type { Organization } from '@/lib/types/crm';
 import type { Proposal } from '@/lib/types/proposals';
 
 type ProjectFormData = Omit<Project, 'id' | 'milestones' | 'createdAt' | 'updatedAt'>;
@@ -23,7 +23,7 @@ interface ProjectFormModalProps {
   onClose: () => void;
   onSave: (data: ProjectFormData) => void;
   initial?: Partial<ProjectFormData>;
-  clients: Client[];
+  organizations: Organization[];
   proposals: Proposal[];
   isSaving?: boolean;
   saveError?: string | null;
@@ -37,7 +37,7 @@ const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
 ];
 
 const DEFAULTS: ProjectFormData = {
-  clientId: '',
+  organizationId: '',
   proposalId: undefined,
   name: '',
   status: 'active',
@@ -48,7 +48,7 @@ const DEFAULTS: ProjectFormData = {
   notes: undefined,
 };
 
-export function ProjectFormModal({ isOpen, onClose, onSave, initial, clients, proposals, isSaving, saveError }: ProjectFormModalProps) {
+export function ProjectFormModal({ isOpen, onClose, onSave, initial, organizations, proposals, isSaving, saveError }: ProjectFormModalProps) {
   const [form, setForm] = useState<ProjectFormData>({ ...DEFAULTS, ...initial });
   const [errors, setErrors] = useState<Partial<Record<keyof ProjectFormData, string>>>({});
 
@@ -67,7 +67,7 @@ export function ProjectFormModal({ isOpen, onClose, onSave, initial, clients, pr
   function validate(): boolean {
     const next: typeof errors = {};
     if (!form.name.trim()) next.name = 'Project name is required.';
-    if (!form.clientId) next.clientId = 'Client is required.';
+    if (!form.organizationId) next.organizationId = 'Organization is required.';
     if (form.budget < 0) next.budget = 'Budget cannot be negative.';
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -84,9 +84,9 @@ export function ProjectFormModal({ isOpen, onClose, onSave, initial, clients, pr
     onClose();
   }
 
-  const clientOptions = [
-    { value: '', label: 'Select a client...' },
-    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.contactName ? ` · ${c.contactName}` : ''}` })),
+  const orgOptions = [
+    { value: '', label: 'Select an organization...' },
+    ...organizations.map((o) => ({ value: o.id, label: o.name })),
   ];
 
   const proposalOptions = [
@@ -110,11 +110,11 @@ export function ProjectFormModal({ isOpen, onClose, onSave, initial, clients, pr
         />
         <div className="grid grid-cols-2 gap-4">
           <Select
-            label="Client"
-            options={clientOptions}
-            value={form.clientId}
-            onChange={(e) => set('clientId', e.target.value)}
-            error={errors.clientId}
+            label="Organization"
+            options={orgOptions}
+            value={form.organizationId}
+            onChange={(e) => set('organizationId', e.target.value)}
+            error={errors.organizationId}
           />
           <Select
             label="Status"

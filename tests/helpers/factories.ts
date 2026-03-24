@@ -49,6 +49,7 @@ export function createMockProposal(overrides: Partial<Proposal> = {}): Proposal 
   return {
     id: 'proposal-1',
     clientId: 'client-1',
+    organizationId: 'org-1',
     proposalNumber: 'BL-2026-001',
     title: 'Website Redesign',
     status: 'draft',
@@ -78,6 +79,7 @@ export function createMockProject(overrides: Partial<Project> = {}): Project {
   return {
     id: 'project-1',
     clientId: 'client-1',
+    organizationId: 'org-1',
     name: 'Website Redesign Project',
     status: 'active',
     startDate: BASE_DATE,
@@ -97,6 +99,7 @@ export function createMockInvoice(overrides: Partial<Invoice> = {}): Invoice {
   return {
     id: 'invoice-1',
     clientId: 'client-1',
+    organizationId: 'org-1',
     invoiceNumber: 'BL-2026-001',
     status: 'draft',
     lineItems: [],

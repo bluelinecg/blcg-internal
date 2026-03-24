@@ -32,8 +32,9 @@ export const InvoiceLineItemSchema = z.object({
 });
 
 export const InvoiceSchema = z.object({
-  clientId:      z.string().min(1, 'Client is required'),
-  projectId:     z.string().optional(),
+  clientId:       z.string().uuid().optional(),
+  organizationId: z.string().uuid('Organization is required'),
+  projectId:      z.string().optional(),
   proposalId:    z.string().optional(),
   invoiceNumber: z.string().min(1, 'Invoice number is required'),
   status:        InvoiceStatusSchema,

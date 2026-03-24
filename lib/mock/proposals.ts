@@ -4,6 +4,7 @@ export const MOCK_PROPOSALS: Proposal[] = [
   {
     id: 'prop_1',
     clientId: 'cl_1',
+    organizationId: 'org_1',
     proposalNumber: 'BL-2026-001',
     title: 'E-Commerce Redesign — Full Stack Build',
     status: 'accepted',
@@ -29,6 +30,7 @@ export const MOCK_PROPOSALS: Proposal[] = [
   {
     id: 'prop_2',
     clientId: 'cl_2',
+    organizationId: 'org_2',
     proposalNumber: 'BL-2026-002',
     title: 'CRM Implementation & Staff Training',
     status: 'sent',
@@ -50,6 +52,7 @@ export const MOCK_PROPOSALS: Proposal[] = [
   {
     id: 'prop_3',
     clientId: 'cl_3',
+    organizationId: 'org_3',
     proposalNumber: 'BL-2026-003',
     title: 'SEO Retainer — Q2 2026',
     status: 'accepted',
@@ -69,6 +72,7 @@ export const MOCK_PROPOSALS: Proposal[] = [
   {
     id: 'prop_4',
     clientId: 'cl_5',
+    organizationId: 'org_5',
     proposalNumber: 'BL-2026-004',
     title: 'Client Portal with Document Storage',
     status: 'draft',
@@ -89,6 +93,7 @@ export const MOCK_PROPOSALS: Proposal[] = [
   {
     id: 'prop_5',
     clientId: 'cl_6',
+    organizationId: 'org_6',
     proposalNumber: 'BL-2026-005',
     title: 'Brand Identity & Website Package',
     status: 'draft',
@@ -106,6 +111,7 @@ export const MOCK_PROPOSALS: Proposal[] = [
   {
     id: 'prop_6',
     clientId: 'cl_4',
+    organizationId: 'org_4',
     proposalNumber: 'BL-2025-001',
     title: 'Website Refresh — Owens Roofing',
     status: 'expired',

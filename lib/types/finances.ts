@@ -1,3 +1,5 @@
+import type { Organization } from './crm';
+
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'cancelled';
 
 export type ExpenseCategory =
@@ -25,7 +27,9 @@ export interface InvoiceLineItem {
 
 export interface Invoice {
   id: string;
-  clientId: string;
+  clientId?: string;
+  organizationId: string;
+  organization?: Organization;
   projectId?: string;
   proposalId?: string;       // Agreement # reference (BL-YYYY-NNN)
   invoiceNumber: string;     // BL-YYYY-NNN

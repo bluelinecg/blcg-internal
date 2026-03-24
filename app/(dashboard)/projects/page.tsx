@@ -13,7 +13,7 @@ import { useRole } from '@/lib/auth/use-role';
 import { useListState } from '@/lib/hooks/use-list-state';
 import { ProjectFormModal } from '@/components/modules';
 import type { Project, ProjectStatus } from '@/lib/types/projects';
-import type { Client } from '@/lib/types/clients';
+import type { Organization } from '@/lib/types/crm';
 import type { Proposal } from '@/lib/types/proposals';
 
 type StatusFilter = ProjectStatus | 'all';
@@ -44,23 +44,18 @@ export function ProjectsPage() {
   const { data: projects, isLoading, error: fetchError, page, totalPages, totalRecords, sort, order, setPage, setSort, reload } =
     useListState<Project>({ endpoint: '/api/projects', defaultSort: 'created_at', defaultOrder: 'desc' });
 
-  // Full clients + proposals for form dropdowns (unpaginated)
-  const [clients, setClients]     = useState<Client[]>([]);
-  const [proposals, setProposals] = useState<Proposal[]>([]);
+  // Full organizations + proposals for form dropdowns (unpaginated)
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [proposals, setProposals]         = useState<Proposal[]>([]);
   useEffect(() => {
     Promise.all([
-      fetch('/api/clients?pageSize=100&sort=name').then((r) => r.json()),
+      fetch('/api/organizations?pageSize=200&sort=name').then((r) => r.json()),
       fetch('/api/proposals?pageSize=100&sort=title').then((r) => r.json()),
-    ]).then(([cj, pj]: [{ data: Client[] | null }, { data: Proposal[] | null }]) => {
-      setClients(cj.data ?? []);
+    ]).then(([oj, pj]: [{ data: Organization[] | null }, { data: Proposal[] | null }]) => {
+      setOrganizations(oj.data ?? []);
       setProposals(pj.data ?? []);
     }).catch(() => { /* non-critical */ });
   }, []);
-
-  const clientMap = useMemo(
-    () => Object.fromEntries(clients.map((c) => [c.id, c])),
-    [clients],
-  );
 
   const [search, setSearch]               = useState('');
   const [statusFilter, setStatusFilter]   = useState<StatusFilter>('all');
@@ -76,17 +71,15 @@ export function ProjectsPage() {
 
   const filtered = useMemo(() => {
     return projects.filter((p) => {
-      const client = clientMap[p.clientId];
       const q = search.toLowerCase();
       const matchesSearch =
         q === '' ||
         p.name.toLowerCase().includes(q) ||
-        (client?.name.toLowerCase().includes(q) ?? false) ||
-        (client?.contactName?.toLowerCase().includes(q) ?? false);
+        (p.organization?.name.toLowerCase().includes(q) ?? false);
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [projects, search, statusFilter, clientMap]);
+  }, [projects, search, statusFilter]);
 
   // --- CRUD handlers ---
 
@@ -231,7 +224,7 @@ export function ProjectsPage() {
             <thead>
               <tr className="border-b border-gray-100">
                 <SortableHeader column="name" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Project</SortableHeader>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Client</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Organization</th>
                 <SortableHeader column="status" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</SortableHeader>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Milestones</th>
                 <SortableHeader column="budget" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Budget</SortableHeader>
@@ -241,7 +234,6 @@ export function ProjectsPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((project) => {
-                const client    = clientMap[project.clientId];
                 const cfg       = STATUS_BADGE[project.status];
                 const completed = project.milestones.filter((m) => m.status === 'completed').length;
                 const total     = project.milestones.length;
@@ -253,8 +245,7 @@ export function ProjectsPage() {
                       <p className="text-xs text-gray-400 mt-0.5">Started {formatDate(project.startDate)}</p>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-gray-700">{client?.name ?? '—'}</p>
-                      <p className="text-xs text-gray-400">{client?.contactName ?? ''}</p>
+                      <p className="text-sm text-gray-700">{project.organization?.name ?? '—'}</p>
                     </td>
                     <td className="px-6 py-4"><Badge variant={cfg.variant}>{cfg.label}</Badge></td>
                     <td className="px-6 py-4">
@@ -291,7 +282,7 @@ export function ProjectsPage() {
         onClose={closeForm}
         onSave={editing ? handleEdit : handleCreate}
         initial={editing ?? undefined}
-        clients={clients}
+        organizations={organizations}
         proposals={proposals}
         isSaving={isSaving}
         saveError={saveError}

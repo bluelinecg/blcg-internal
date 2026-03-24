@@ -24,8 +24,9 @@ export const MilestoneSchema = z.object({
 });
 
 export const ProjectSchema = z.object({
-  clientId:      z.string().min(1, 'Client is required'),
-  proposalId:    z.string().optional(),
+  clientId:       z.string().uuid().optional(),
+  organizationId: z.string().uuid('Organization is required'),
+  proposalId:     z.string().optional(),
   name:          z.string().min(1, 'Name is required'),
   status:        ProjectStatusSchema,
   startDate:     z.string().datetime({ offset: true }),

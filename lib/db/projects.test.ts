@@ -52,6 +52,7 @@ const MILESTONE_ROW = {
 const PROJECT_ROW = {
   id: 'proj-1',
   client_id: 'client-1',
+  organization_id: null,
   proposal_id: 'prop-1',
   name: 'ACME Website',
   description: 'Full redesign',
@@ -161,6 +162,7 @@ describe('createProject', () => {
 
     const { data, error } = await createProject({
       clientId: 'client-1',
+      organizationId: 'org-1',
       proposalId: 'prop-1',
       name: 'ACME Website',
       status: 'active',
@@ -185,6 +187,7 @@ describe('createProject', () => {
 
     const { data, error } = await createProject({
       clientId: 'client-1',
+      organizationId: 'org-1',
       name: 'ACME Website',
       status: 'active',
       startDate: '2026-01-01T00:00:00Z',
@@ -204,6 +207,7 @@ describe('createProject', () => {
 
     const { data, error } = await createProject({
       clientId: 'client-1',
+      organizationId: 'org-1',
       name: 'ACME Website',
       status: 'active',
       startDate: '2026-01-01T00:00:00Z',

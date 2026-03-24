@@ -5,7 +5,6 @@
 // Text search and status filter run client-side against the current page.
 
 import { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { Button, Card, Input, Select, Spinner, ExpandableTable, ConfirmDialog, Pagination, SortableHeader } from '@/components/ui';
@@ -14,7 +13,7 @@ import { useListState } from '@/lib/hooks/use-list-state';
 import type { TableColumn } from '@/components/ui/ExpandableTable';
 import { ProposalStatusBadge, ProposalFormModal } from '@/components/modules';
 import type { Proposal, ProposalStatus } from '@/lib/types/proposals';
-import type { Client } from '@/lib/types/clients';
+import type { Organization } from '@/lib/types/crm';
 
 type StatusFilter = ProposalStatus | 'all';
 
@@ -39,19 +38,14 @@ export function ProposalsPage() {
   const { data: proposals, isLoading, error: fetchError, page, totalPages, totalRecords, sort, order, setPage, setSort, reload } =
     useListState<Proposal>({ endpoint: '/api/proposals', defaultSort: 'created_at', defaultOrder: 'desc' });
 
-  // Full clients list for form dropdown and clientMap (unpaginated)
-  const [clients, setClients] = useState<Client[]>([]);
+  // Full organizations list for form dropdown (unpaginated)
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   useEffect(() => {
-    fetch('/api/clients?pageSize=100&sort=name')
+    fetch('/api/organizations?pageSize=200&sort=name')
       .then((r) => r.json())
-      .then((j: { data: Client[] | null }) => setClients(j.data ?? []))
-      .catch(() => setClients([]));
+      .then((j: { data: Organization[] | null }) => setOrganizations(j.data ?? []))
+      .catch(() => setOrganizations([]));
   }, []);
-
-  const clientMap = useMemo(
-    () => Object.fromEntries(clients.map((c) => [c.id, c])),
-    [clients],
-  );
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -71,17 +65,15 @@ export function ProposalsPage() {
 
   const filtered = useMemo(() => {
     return proposals.filter((p) => {
-      const client = clientMap[p.clientId];
       const q = search.toLowerCase();
       const matchesSearch =
         q === '' ||
         p.title.toLowerCase().includes(q) ||
-        (client?.name.toLowerCase().includes(q) ?? false) ||
-        (client?.contactName.toLowerCase().includes(q) ?? false);
+        (p.organization?.name.toLowerCase().includes(q) ?? false);
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [proposals, search, statusFilter, clientMap]);
+  }, [proposals, search, statusFilter]);
 
   // --- CRUD handlers ---
 
@@ -185,17 +177,11 @@ export function ProposalsPage() {
       render: (p) => <span className="font-medium text-gray-900">{p.title}</span>,
     },
     {
-      key: 'client',
-      header: 'Client',
-      render: (p) => {
-        const client = clientMap[p.clientId];
-        return (
-          <div>
-            <p className="text-sm text-gray-800">{client?.name ?? '—'}</p>
-            <p className="text-xs text-gray-400">{client?.contactName ?? ''}</p>
-          </div>
-        );
-      },
+      key: 'organization',
+      header: 'Organization',
+      render: (p) => (
+        <p className="text-sm text-gray-800">{p.organization?.name ?? '—'}</p>
+      ),
     },
     {
       key: 'status',
@@ -302,7 +288,7 @@ export function ProposalsPage() {
             columns={COLUMNS}
             rows={filtered}
             getRowId={(p) => p.id}
-            renderExpanded={(p) => <ProposalLineItemsPanel proposal={p} client={clientMap[p.clientId]} />}
+            renderExpanded={(p) => <ProposalLineItemsPanel proposal={p} />}
             emptyMessage="No proposals match your search."
           />
         )}
@@ -316,7 +302,7 @@ export function ProposalsPage() {
         onClose={closeForm}
         onSave={editing ? handleEdit : handleCreate}
         initial={editing ?? undefined}
-        clients={clients}
+        organizations={organizations}
         isSaving={isSaving}
         saveError={saveError}
       />
@@ -338,7 +324,7 @@ export default ProposalsPage;
 
 // --- Line items expanded panel ---
 
-function ProposalLineItemsPanel({ proposal, client }: { proposal: Proposal; client: Client | undefined }) {
+function ProposalLineItemsPanel({ proposal }: { proposal: Proposal }) {
   return (
     <div className="flex gap-8">
       <div className="flex-1">
@@ -371,12 +357,10 @@ function ProposalLineItemsPanel({ proposal, client }: { proposal: Proposal; clie
         </table>
       </div>
       <div className="w-56 flex-shrink-0 space-y-4">
-        {client && (
+        {proposal.organization && (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Client</p>
-            <p className="text-sm font-medium text-gray-800">{client.name}</p>
-            <p className="text-xs text-gray-500">{client.contactName}</p>
-            <Link href={`/clients/${client.id}`} className="mt-1 text-xs text-brand-blue hover:underline">View client →</Link>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Organization</p>
+            <p className="text-sm font-medium text-gray-800">{proposal.organization.name}</p>
           </div>
         )}
         {proposal.notes && (

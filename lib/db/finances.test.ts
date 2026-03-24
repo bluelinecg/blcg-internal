@@ -57,6 +57,7 @@ const LINE_ITEM_ROW = {
 const INVOICE_ROW = {
   id: 'inv-1',
   client_id: 'client-1',
+  organization_id: null,
   project_id: 'proj-1',
   proposal_id: null,
   invoice_number: 'BL-2026-001',
@@ -172,6 +173,7 @@ describe('createInvoice', () => {
 
     const { data, error } = await createInvoice({
       clientId: 'client-1',
+      organizationId: 'org-1',
       projectId: 'proj-1',
       invoiceNumber: 'BL-2026-001',
       status: 'draft',
@@ -193,6 +195,7 @@ describe('createInvoice', () => {
 
     const { data, error } = await createInvoice({
       clientId: 'client-1',
+      organizationId: 'org-1',
       invoiceNumber: 'BL-2026-001',
       status: 'draft',
       lineItems: [],
@@ -213,6 +216,7 @@ describe('createInvoice', () => {
 
     const { data, error } = await createInvoice({
       clientId: 'client-1',
+      organizationId: 'org-1',
       invoiceNumber: 'BL-2026-001',
       status: 'draft',
       lineItems: [],

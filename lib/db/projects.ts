@@ -11,6 +11,7 @@
 
 import { serverClient } from '@/lib/db/supabase';
 import type { Project, Milestone, ProjectStatus, MilestoneStatus } from '@/lib/types/projects';
+import type { Organization } from '@/lib/types/crm';
 import type { ProjectInput, UpdateProjectInput } from '@/lib/validations/projects';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
@@ -19,9 +20,23 @@ import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
 // Row types (mirror DB columns)
 // ---------------------------------------------------------------------------
 
+interface OrganizationJoinRow {
+  id: string;
+  name: string;
+  website: string | null;
+  phone: string | null;
+  industry: string | null;
+  address: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ProjectRow {
   id: string;
-  client_id: string;
+  client_id: string | null;
+  organization_id: string | null;
+  organizations?: OrganizationJoinRow | null;
   proposal_id: string | null;
   name: string;
   description: string | null;
@@ -50,6 +65,20 @@ interface MilestoneRow {
 // Mapping helpers
 // ---------------------------------------------------------------------------
 
+function orgFromJoinRow(row: OrganizationJoinRow): Organization {
+  return {
+    id: row.id,
+    name: row.name,
+    website: row.website ?? undefined,
+    phone: row.phone ?? undefined,
+    industry: row.industry ?? undefined,
+    address: row.address ?? undefined,
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function milestoneFromRow(row: MilestoneRow): Milestone {
   return {
     id: row.id,
@@ -64,7 +93,9 @@ function milestoneFromRow(row: MilestoneRow): Milestone {
 function fromRow(row: ProjectRow): Project {
   return {
     id: row.id,
-    clientId: row.client_id,
+    clientId: row.client_id ?? undefined,
+    organizationId: row.organization_id ?? '',
+    organization: row.organizations ? orgFromJoinRow(row.organizations) : undefined,
     proposalId: row.proposal_id ?? undefined,
     name: row.name,
     status: row.status,
@@ -80,9 +111,10 @@ function fromRow(row: ProjectRow): Project {
 
 function toInsert(
   data: ProjectInput,
-): Omit<ProjectRow, 'id' | 'created_at' | 'updated_at' | 'milestones'> {
+): Omit<ProjectRow, 'id' | 'created_at' | 'updated_at' | 'milestones' | 'organizations'> {
   return {
-    client_id: data.clientId,
+    client_id: data.clientId ?? null,
+    organization_id: data.organizationId,
     proposal_id: data.proposalId ?? null,
     name: data.name,
     description: data.notes ?? null,
@@ -106,7 +138,7 @@ export async function listProjects(options?: ListOptions): Promise<PaginatedResu
 
     const { data, count, error } = await serverClient()
       .from('projects')
-      .select('*, milestones(*)', { count: 'exact' })
+      .select('*, milestones(*), organizations(*)', { count: 'exact' })
       .order(sort, { ascending: order !== 'desc' })
       .range(from, to);
 
@@ -125,7 +157,7 @@ export async function getProjectById(
   try {
     const { data, error } = await serverClient()
       .from('projects')
-      .select('*, milestones(*)')
+      .select('*, milestones(*), organizations(*)')
       .eq('id', id)
       .single();
 
@@ -197,8 +229,9 @@ export async function updateProject(
   try {
     const db = serverClient();
 
-    const patch: Partial<Omit<ProjectRow, 'id' | 'created_at' | 'updated_at' | 'milestones'>> = {};
-    if (input.clientId !== undefined) patch.client_id = input.clientId;
+    const patch: Partial<Omit<ProjectRow, 'id' | 'created_at' | 'updated_at' | 'milestones' | 'organizations'>> = {};
+    if (input.clientId !== undefined) patch.client_id = input.clientId ?? null;
+    if (input.organizationId !== undefined) patch.organization_id = input.organizationId;
     if (input.proposalId !== undefined) patch.proposal_id = input.proposalId ?? null;
     if (input.name !== undefined) patch.name = input.name;
     if (input.notes !== undefined) patch.description = input.notes ?? null;
