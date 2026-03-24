@@ -53,6 +53,16 @@ function IconProposals() {
   );
 }
 
+function IconPipelines() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="3" width="4" height="18" rx="1" />
+      <rect x="10" y="3" width="4" height="18" rx="1" />
+      <rect x="18" y="3" width="4" height="18" rx="1" />
+    </svg>
+  );
+}
+
 function IconProjects() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -139,6 +149,7 @@ const MAIN_NAV_ITEMS: NavItem[] = [
   { label: 'Emails',        href: '/emails',        icon: <IconEmails /> },
   { label: 'Finances',      href: '/finances',      icon: <IconFinances /> },
   { label: 'Organizations', href: '/organizations', icon: <IconOrganizations /> },
+  { label: 'Pipelines',     href: '/pipelines',     icon: <IconPipelines /> },
   { label: 'Projects',      href: '/projects',      icon: <IconProjects /> },
   { label: 'Proposals',     href: '/proposals',     icon: <IconProposals /> },
   { label: 'Tasks',         href: '/tasks',         icon: <IconTasks /> },
