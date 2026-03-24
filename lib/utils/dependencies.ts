@@ -108,3 +108,27 @@ export function getOrganizationDeleteBlockers(contacts: Contact[]): string[] {
   }
   return [];
 }
+
+// --- Pipeline dependencies ---
+// Blocked if: has any items (regardless of stage).
+
+export function getPipelineDeleteBlockers(itemCount: number): string[] {
+  if (itemCount > 0) {
+    return [
+      `${itemCount} item${itemCount > 1 ? 's' : ''} in this pipeline (move or delete them first)`,
+    ];
+  }
+  return [];
+}
+
+// --- Pipeline stage dependencies ---
+// Blocked if: any items are currently in this stage.
+
+export function getPipelineStageDeleteBlockers(itemCount: number): string[] {
+  if (itemCount > 0) {
+    return [
+      `${itemCount} item${itemCount > 1 ? 's' : ''} in this stage (move them to another stage first)`,
+    ];
+  }
+  return [];
+}
