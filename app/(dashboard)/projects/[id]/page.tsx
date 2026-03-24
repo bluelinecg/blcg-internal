@@ -8,7 +8,6 @@ import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { Badge, Card, MilestoneTracker } from '@/components/ui';
 import { getProjectById } from '@/lib/db/projects';
-import { getClientById } from '@/lib/db/clients';
 import { getProposalById } from '@/lib/db/proposals';
 import type { ProjectStatus, MilestoneStatus } from '@/lib/types/projects';
 
@@ -30,13 +29,10 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   if (error) throw new Error(error);
   if (!project) notFound();
 
-  const [clientResult, proposalResult] = await Promise.all([
-    getClientById(project.clientId),
-    project.proposalId
-      ? getProposalById(project.proposalId)
-      : Promise.resolve({ data: undefined, error: null }),
-  ]);
-  const client = clientResult.data;
+  const proposalResult = project.proposalId
+    ? await getProposalById(project.proposalId)
+    : { data: undefined, error: null };
+  const organization = project.organization;
   const proposal = proposalResult.data;
   const statusCfg = STATUS_BADGE[project.status];
   const completedCount = project.milestones.filter((m) => m.status === 'completed').length;
@@ -47,7 +43,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     <PageShell>
       <PageHeader
         title={project.name}
-        subtitle={client ? `${client.name}${client.contactName ? ` · ${client.contactName}` : ''}` : undefined}
+        subtitle={organization?.name}
         actions={
           <div className="flex items-center gap-3">
             <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
@@ -129,15 +125,10 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
       {/* Linked records */}
       <div className="grid grid-cols-2 gap-4">
-        {client && (
+        {organization && (
           <Card className="p-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Client</h3>
-            <p className="font-medium text-gray-900">{client.name}</p>
-            <p className="text-sm text-gray-500">{client.contactName}</p>
-            <p className="text-sm text-gray-500">{client.email}</p>
-            <Link href={`/clients/${client.id}`} className="mt-2 inline-block text-xs text-brand-blue hover:underline">
-              View client →
-            </Link>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Organization</h3>
+            <p className="font-medium text-gray-900">{organization.name}</p>
           </Card>
         )}
         {proposal && (

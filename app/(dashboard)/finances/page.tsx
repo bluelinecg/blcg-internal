@@ -12,7 +12,7 @@ import type { TabItem } from '@/components/ui/Tabs';
 import { useListState } from '@/lib/hooks/use-list-state';
 import { InvoiceFormModal, ExpenseFormModal } from '@/components/modules';
 import type { Invoice, Expense, InvoiceStatus, ExpenseCategory } from '@/lib/types/finances';
-import type { Client } from '@/lib/types/clients';
+import type { Organization } from '@/lib/types/crm';
 import type { Project } from '@/lib/types/projects';
 
 const TABS: TabItem[] = [
@@ -62,23 +62,18 @@ export function FinancesPage() {
   const invoices = useListState<Invoice>({ endpoint: '/api/invoices', defaultSort: 'created_at', defaultOrder: 'desc' });
   const expenses = useListState<Expense>({ endpoint: '/api/expenses', defaultSort: 'date', defaultOrder: 'desc' });
 
-  // Full clients + projects for form dropdowns (unpaginated)
-  const [clients, setClients]   = useState<Client[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  // Full organizations + projects for form dropdowns (unpaginated)
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [projects, setProjects]           = useState<Project[]>([]);
   useEffect(() => {
     Promise.all([
-      fetch('/api/clients?pageSize=100&sort=name').then((r) => r.json()),
+      fetch('/api/organizations?pageSize=200&sort=name').then((r) => r.json()),
       fetch('/api/projects?pageSize=100&sort=name').then((r) => r.json()),
-    ]).then(([cj, pj]: [{ data: Client[] | null }, { data: Project[] | null }]) => {
-      setClients(cj.data ?? []);
+    ]).then(([oj, pj]: [{ data: Organization[] | null }, { data: Project[] | null }]) => {
+      setOrganizations(oj.data ?? []);
       setProjects(pj.data ?? []);
     }).catch(() => { /* non-critical */ });
   }, []);
-
-  const clientMap = useMemo(
-    () => Object.fromEntries(clients.map((c) => [c.id, c])),
-    [clients],
-  );
 
   const [activeTab, setActiveTab]                           = useState('overview');
   const [invoiceStatusFilter, setInvoiceStatusFilter]       = useState('all');
@@ -109,13 +104,12 @@ export function FinancesPage() {
 
   const filteredInvoices = useMemo(() => {
     return invoices.data.filter((inv) => {
-      const client = clientMap[inv.clientId];
       const q = invoiceSearch.toLowerCase();
-      const matchesSearch = q === '' || inv.invoiceNumber.toLowerCase().includes(q) || (client?.name.toLowerCase().includes(q) ?? false);
+      const matchesSearch = q === '' || inv.invoiceNumber.toLowerCase().includes(q) || (inv.organization?.name.toLowerCase().includes(q) ?? false);
       const matchesStatus = invoiceStatusFilter === 'all' || inv.status === invoiceStatusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [invoices.data, invoiceSearch, invoiceStatusFilter, clientMap]);
+  }, [invoices.data, invoiceSearch, invoiceStatusFilter]);
 
   const filteredExpenses = useMemo(() => {
     return expenses.data.filter((exp) => expenseCategoryFilter === 'all' || exp.category === expenseCategoryFilter);
@@ -311,13 +305,12 @@ export function FinancesPage() {
               </div>
               <div className="divide-y divide-gray-50">
                 {invoices.data.slice(0, 5).map((inv) => {
-                  const client = clientMap[inv.clientId];
                   const cfg = INVOICE_STATUS_BADGE[inv.status];
                   return (
                     <div key={inv.id} className="flex items-center justify-between px-5 py-3">
                       <div>
                         <p className="text-sm font-medium text-gray-900">{inv.invoiceNumber}</p>
-                        <p className="text-xs text-gray-400">{client?.name ?? '—'}</p>
+                        <p className="text-xs text-gray-400">{inv.organization?.name ?? '—'}</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge variant={cfg.variant}>{cfg.label}</Badge>
@@ -360,7 +353,7 @@ export function FinancesPage() {
               <thead>
                 <tr className="border-b border-gray-100">
                   <SortableHeader column="invoice_number" currentSort={invoices.sort} order={invoices.order} onSort={invoices.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Invoice #</SortableHeader>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Client</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Organization</th>
                   <SortableHeader column="status" currentSort={invoices.sort} order={invoices.order} onSort={invoices.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</SortableHeader>
                   <SortableHeader column="due_date" currentSort={invoices.sort} order={invoices.order} onSort={invoices.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Due</SortableHeader>
                   <SortableHeader column="paid_date" currentSort={invoices.sort} order={invoices.order} onSort={invoices.setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Paid</SortableHeader>
@@ -373,14 +366,12 @@ export function FinancesPage() {
                   <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">No invoices match your search.</td></tr>
                 ) : (
                   filteredInvoices.map((inv) => {
-                    const client = clientMap[inv.clientId];
                     const cfg = INVOICE_STATUS_BADGE[inv.status];
                     return (
                       <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{inv.invoiceNumber}</td>
                         <td className="px-6 py-4">
-                          <p className="text-sm text-gray-800">{client?.name ?? '—'}</p>
-                          <p className="text-xs text-gray-400">{client?.contactName ?? ''}</p>
+                          <p className="text-sm text-gray-800">{inv.organization?.name ?? '—'}</p>
                         </td>
                         <td className="px-6 py-4"><Badge variant={cfg.variant}>{cfg.label}</Badge></td>
                         <td className="px-6 py-4 text-sm text-gray-500">{formatDate(inv.dueDate)}</td>
@@ -451,7 +442,7 @@ export function FinancesPage() {
         isOpen={invoiceFormOpen}
         onClose={() => setInvoiceFormOpen(false)}
         onSave={handleCreateInvoice}
-        clients={clients}
+        organizations={organizations}
         projects={projects}
         nextInvoiceNumber={nextInvoiceNum()}
         isSaving={isInvoiceSaving}

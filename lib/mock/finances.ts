@@ -4,6 +4,7 @@ export const MOCK_INVOICES: Invoice[] = [
   {
     id: 'inv_1',
     clientId: 'cl_1',
+    organizationId: 'org_1',
     projectId: 'proj_1',
     proposalId: 'prop_1',
     invoiceNumber: 'BL-2026-001',
@@ -26,6 +27,7 @@ export const MOCK_INVOICES: Invoice[] = [
   {
     id: 'inv_2',
     clientId: 'cl_3',
+    organizationId: 'org_3',
     projectId: 'proj_2',
     proposalId: 'prop_3',
     invoiceNumber: 'BL-2026-002',
@@ -45,6 +47,7 @@ export const MOCK_INVOICES: Invoice[] = [
   {
     id: 'inv_3',
     clientId: 'cl_4',
+    organizationId: 'org_4',
     projectId: 'proj_4',
     invoiceNumber: 'BL-2025-001',
     status: 'paid',
@@ -64,6 +67,7 @@ export const MOCK_INVOICES: Invoice[] = [
   {
     id: 'inv_4',
     clientId: 'cl_5',
+    organizationId: 'org_5',
     projectId: 'proj_3',
     proposalId: 'prop_4',
     invoiceNumber: 'BL-2026-003',
@@ -85,6 +89,7 @@ export const MOCK_INVOICES: Invoice[] = [
   {
     id: 'inv_5',
     clientId: 'cl_2',
+    organizationId: 'org_2',
     invoiceNumber: 'BL-2026-004',
     status: 'overdue',
     lineItems: [

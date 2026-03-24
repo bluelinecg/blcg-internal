@@ -1,3 +1,5 @@
+import type { Organization } from './crm';
+
 export type ProjectStatus = 'active' | 'on_hold' | 'completed' | 'cancelled';
 
 export type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'blocked';
@@ -14,7 +16,9 @@ export interface Milestone {
 
 export interface Project {
   id: string;
-  clientId: string;
+  clientId?: string;
+  organizationId: string;
+  organization?: Organization;
   proposalId?: string;
   name: string;
   status: ProjectStatus;

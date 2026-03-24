@@ -3,18 +3,17 @@
 // Modal form for creating and editing Proposals.
 // Includes a dynamic line items editor that auto-calculates totals.
 // Props:
-//   isOpen    — controls visibility
-//   onClose   — dismiss callback
-//   onSave    — called with the new/updated proposal data
-//   initial   — pre-filled values for edit mode (omit for create)
-//   clients   — list of clients for the client selector
+//   isOpen        — controls visibility
+//   onClose       — dismiss callback
+//   onSave        — called with the new/updated proposal data
+//   initial       — pre-filled values for edit mode (omit for create)
+//   organizations — list of organizations for the organization selector
 
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
 import type { Proposal, ProposalLineItem, ProposalStatus } from '@/lib/types/proposals';
-import type { Client } from '@/lib/types/clients';
-import type { Contact } from '@/lib/types/crm';
+import type { Contact, Organization } from '@/lib/types/crm';
 
 type ProposalFormData = Omit<Proposal, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -23,7 +22,7 @@ interface ProposalFormModalProps {
   onClose: () => void;
   onSave: (data: ProposalFormData) => void;
   initial?: Partial<ProposalFormData>;
-  clients: Client[];
+  organizations: Organization[];
   isSaving?: boolean;
   saveError?: string | null;
 }
@@ -42,7 +41,7 @@ function newLineItem(): ProposalLineItem {
 }
 
 const DEFAULTS: ProposalFormData = {
-  clientId: '',
+  organizationId: '',
   proposalNumber: '',
   title: '',
   status: 'draft',
@@ -54,7 +53,7 @@ const DEFAULTS: ProposalFormData = {
   contactId: undefined,
 };
 
-export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, isSaving, saveError }: ProposalFormModalProps) {
+export function ProposalFormModal({ isOpen, onClose, onSave, initial, organizations, isSaving, saveError }: ProposalFormModalProps) {
   const [form, setForm] = useState<ProposalFormData>({ ...DEFAULTS, ...initial });
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [orgContacts, setOrgContacts] = useState<Contact[]>([]);
@@ -71,23 +70,16 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, i
     }
   }, [isOpen, initial]);
 
-  // Fetch contacts for the selected client's linked org
+  // Fetch contacts for the selected organization
   useEffect(() => {
-    if (!form.clientId) {
-      setOrgContacts([]);
-      return;
-    }
-    const client = clients.find((c) => c.id === form.clientId);
-    if (!client?.organizationId) {
+    if (!form.organizationId) {
       setOrgContacts([]);
       return;
     }
 
     async function fetchContacts() {
-      const client = clients.find((c) => c.id === form.clientId);
-      if (!client?.organizationId) return;
       try {
-        const res = await fetch(`/api/contacts?organizationId=${client.organizationId}&pageSize=100`);
+        const res = await fetch(`/api/contacts?organizationId=${form.organizationId}&pageSize=100`);
         const json = await res.json() as { data: Contact[] | null; error: string | null };
         setOrgContacts(json.data ?? []);
       } catch {
@@ -96,7 +88,7 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, i
     }
 
     void fetchContacts();
-  }, [form.clientId, clients]);
+  }, [form.organizationId]);
 
   function setField<K extends keyof ProposalFormData>(key: K, value: ProposalFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -134,7 +126,7 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, i
 
   function validate(): boolean {
     const next: typeof errors = {};
-    if (!form.clientId) next.clientId = 'Client is required.';
+    if (!form.organizationId) next.organizationId = 'Organization is required.';
     if (!form.title.trim()) next.title = 'Title is required.';
     if (form.lineItems.length === 0) next.lineItems = 'Add at least one line item.';
     form.lineItems.forEach((item, i) => {
@@ -155,9 +147,9 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, i
     onClose();
   }
 
-  const clientOptions = [
-    { value: '', label: 'Select a client...' },
-    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.contactName ? ` · ${c.contactName}` : ''}` })),
+  const orgOptions = [
+    { value: '', label: 'Select an organization...' },
+    ...organizations.map((o) => ({ value: o.id, label: o.name })),
   ];
 
   const contactOptions = [
@@ -173,14 +165,14 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, clients, i
         {/* Basic fields */}
         <div className="grid grid-cols-2 gap-4">
           <Select
-            label="Client"
-            options={clientOptions}
-            value={form.clientId}
+            label="Organization"
+            options={orgOptions}
+            value={form.organizationId}
             onChange={(e) => {
-              setField('clientId', e.target.value);
+              setField('organizationId', e.target.value);
               setField('contactId', undefined);
             }}
-            error={errors.clientId}
+            error={errors.organizationId}
           />
           <Select
             label="Status"

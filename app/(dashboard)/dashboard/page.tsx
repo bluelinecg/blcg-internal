@@ -40,7 +40,6 @@ export async function DashboardPage() {
     .filter((i) => i.status === 'sent' || i.status === 'viewed' || i.status === 'overdue')
     .reduce((s, i) => s + i.total, 0);
 
-  const clientMap = Object.fromEntries((clients ?? []).map((c) => [c.id, c]));
   const recentProposals = (proposals ?? [])
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
@@ -104,12 +103,11 @@ export async function DashboardPage() {
               </div>
             ) : (
               recentProposals.map((p) => {
-                const client = clientMap[p.clientId];
                 return (
                   <div key={p.id} className="flex items-center justify-between px-5 py-3">
                     <div className="min-w-0 flex-1 pr-4">
                       <p className="text-sm font-medium text-gray-900 truncate">{p.title}</p>
-                      <p className="text-xs text-gray-400">{client?.name ?? '—'}</p>
+                      <p className="text-xs text-gray-400">{p.organization?.name ?? '—'}</p>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       <ProposalStatusBadge status={p.status} />
@@ -135,7 +133,6 @@ export async function DashboardPage() {
               </div>
             ) : (
               activeProjectList.map((project) => {
-                const client = clientMap[project.clientId];
                 const done  = project.milestones.filter((m) => m.status === 'completed').length;
                 const total = project.milestones.length;
                 const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -144,7 +141,7 @@ export async function DashboardPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-900">{project.name}</p>
-                        <p className="text-xs text-gray-400">{client?.name ?? '—'}</p>
+                        <p className="text-xs text-gray-400">{project.organization?.name ?? '—'}</p>
                       </div>
                       <Link href={`/projects/${project.id}`} className="text-xs text-brand-blue hover:underline flex-shrink-0">
                         View →

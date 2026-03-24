@@ -54,6 +54,7 @@ const LINE_ITEM_ROW = {
 const PROPOSAL_ROW = {
   id: 'prop-1',
   client_id: 'client-1',
+  organization_id: null,
   proposal_number: 'BL-2026-001',
   title: 'Website Redesign',
   status: 'draft',
@@ -144,6 +145,7 @@ describe('getProposalById', () => {
 describe('createProposal', () => {
   const INPUT = {
     clientId: 'client-1',
+    organizationId: 'org-1',
     proposalNumber: 'BL-2026-001',
     title: 'Website Redesign',
     status: 'draft' as const,

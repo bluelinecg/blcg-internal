@@ -6,7 +6,7 @@
 //   isOpen            — controls visibility
 //   onClose           — dismiss callback
 //   onSave            — called with the new invoice data
-//   clients           — list of clients
+//   organizations     — list of organizations
 //   projects          — list of projects for optional linking
 //   nextInvoiceNumber — pre-filled invoice number
 //   isSaving          — disables buttons while the async save is in flight
@@ -16,7 +16,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
 import type { Invoice, InvoiceLineItem, InvoiceStatus } from '@/lib/types/finances';
-import type { Client } from '@/lib/types/clients';
+import type { Organization } from '@/lib/types/crm';
 import type { Project } from '@/lib/types/projects';
 
 type InvoiceFormData = Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>;
@@ -25,7 +25,7 @@ interface InvoiceFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: InvoiceFormData) => void;
-  clients: Client[];
+  organizations: Organization[];
   projects: Project[];
   nextInvoiceNumber: string;
   isSaving?: boolean;
@@ -49,7 +49,7 @@ function makeDefaults(invoiceNumber: string): InvoiceFormData {
   const dueDate = new Date(today);
   dueDate.setDate(dueDate.getDate() + 30);
   return {
-    clientId: '',
+    organizationId: '',
     projectId: undefined,
     proposalId: undefined,
     invoiceNumber,
@@ -68,7 +68,7 @@ function makeDefaults(invoiceNumber: string): InvoiceFormData {
   };
 }
 
-export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, nextInvoiceNumber, isSaving, saveError }: InvoiceFormModalProps) {
+export function InvoiceFormModal({ isOpen, onClose, onSave, organizations, projects, nextInvoiceNumber, isSaving, saveError }: InvoiceFormModalProps) {
   const [form, setForm] = useState<InvoiceFormData>(makeDefaults(nextInvoiceNumber));
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
@@ -111,7 +111,7 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, n
 
   function validate(): boolean {
     const next: typeof errors = {};
-    if (!form.clientId) next.clientId = 'Client is required.';
+    if (!form.organizationId) next.organizationId = 'Organization is required.';
     if (!form.dueDate) next.dueDate = 'Due date is required.';
     if (form.lineItems.length === 0) next.lineItems = 'Add at least one line item.';
     form.lineItems.forEach((item, i) => {
@@ -130,9 +130,9 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, n
     });
   }
 
-  const clientOptions = [
-    { value: '', label: 'Select a client...' },
-    ...clients.map((c) => ({ value: c.id, label: `${c.name}${c.contactName ? ` · ${c.contactName}` : ''}` })),
+  const orgOptions = [
+    { value: '', label: 'Select an organization...' },
+    ...organizations.map((o) => ({ value: o.id, label: o.name })),
   ];
 
   const projectOptions = [
@@ -145,11 +145,11 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, clients, projects, n
       <div className="px-6 py-5 space-y-5">
         <div className="grid grid-cols-2 gap-4">
           <Select
-            label="Client"
-            options={clientOptions}
-            value={form.clientId}
-            onChange={(e) => setField('clientId', e.target.value)}
-            error={errors.clientId}
+            label="Organization"
+            options={orgOptions}
+            value={form.organizationId}
+            onChange={(e) => setField('organizationId', e.target.value)}
+            error={errors.organizationId}
           />
           <Input
             label="Invoice Number"

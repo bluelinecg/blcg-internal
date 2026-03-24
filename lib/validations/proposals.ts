@@ -18,7 +18,8 @@ export const ProposalLineItemSchema = z.object({
 });
 
 export const ProposalSchema = z.object({
-  clientId:                    z.string().min(1, 'Client is required'),
+  clientId:                    z.string().uuid().optional(),
+  organizationId:              z.string().uuid('Organization is required'),
   proposalNumber:              z.string().min(1, 'Proposal number is required'),
   title:                       z.string().min(1, 'Title is required'),
   status:                      ProposalStatusSchema,

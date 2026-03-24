@@ -4,6 +4,7 @@ export const MOCK_PROJECTS: Project[] = [
   {
     id: 'proj_1',
     clientId: 'cl_1',
+    organizationId: 'org_1',
     proposalId: 'prop_1',
     name: 'Acme Corp — E-Commerce Redesign',
     status: 'active',
@@ -61,6 +62,7 @@ export const MOCK_PROJECTS: Project[] = [
   {
     id: 'proj_2',
     clientId: 'cl_3',
+    organizationId: 'org_3',
     proposalId: 'prop_3',
     name: 'Nova Bloom — SEO Retainer Q2',
     status: 'active',
@@ -100,6 +102,7 @@ export const MOCK_PROJECTS: Project[] = [
   {
     id: 'proj_3',
     clientId: 'cl_5',
+    organizationId: 'org_5',
     name: 'Rivera Law — Client Portal',
     status: 'active',
     startDate: '2026-03-15T00:00:00Z',
@@ -154,6 +157,7 @@ export const MOCK_PROJECTS: Project[] = [
   {
     id: 'proj_4',
     clientId: 'cl_4',
+    organizationId: 'org_4',
     name: 'Owens Roofing — Company Website',
     status: 'completed',
     startDate: '2025-08-15T00:00:00Z',
