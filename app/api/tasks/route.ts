@@ -8,7 +8,9 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { listTasks, createTask } from '@/lib/db/tasks';
 import { TaskSchema } from '@/lib/validations/tasks';
+import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
+import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
 
 export async function GET(request: Request) {
   try {
@@ -35,6 +37,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
     }
 
+    const guard = await guardMember();
+    if (guard) return guard;
+
     const parsed = TaskSchema.safeParse(await request.json());
     if (!parsed.success) {
       const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
@@ -43,6 +48,8 @@ export async function POST(request: Request) {
 
     const { data, error } = await createTask(parsed.data);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+
+    if (data) void dispatchWebhookEvent('task.created', data as unknown as Record<string, unknown>);
 
     return NextResponse.json({ data, error: null }, { status: 201 });
   } catch (err) {

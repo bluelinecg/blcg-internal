@@ -8,6 +8,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { listProposals, createProposal } from '@/lib/db/proposals';
 import { ProposalSchema } from '@/lib/validations/proposals';
+import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 
 // GET /api/proposals
@@ -36,6 +37,9 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
     }
+
+    const guard = await guardMember();
+    if (guard) return guard;
 
     const parsed = ProposalSchema.safeParse(await request.json());
     if (!parsed.success) {

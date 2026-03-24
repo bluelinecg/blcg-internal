@@ -14,7 +14,7 @@ import {
   getProjectDependencyCounts,
 } from '@/lib/db/projects';
 import { UpdateProjectSchema } from '@/lib/validations/projects';
-import { guardAdmin } from '@/lib/auth/roles';
+import { guardAdmin, guardMember } from '@/lib/auth/roles';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -46,6 +46,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (!userId) {
       return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
     }
+
+    const guard = await guardMember();
+    if (guard) return guard;
 
     const { id } = await params;
 

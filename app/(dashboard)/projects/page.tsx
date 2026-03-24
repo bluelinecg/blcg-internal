@@ -36,7 +36,9 @@ const STATUS_BADGE: Record<ProjectStatus, { variant: 'green' | 'blue' | 'yellow'
 type ProjectFormData = Omit<Project, 'id' | 'milestones' | 'createdAt' | 'updatedAt'>;
 
 export function ProjectsPage() {
-  const isAdmin = useRole() === 'admin';
+  const role    = useRole();
+  const isAdmin = role === 'admin';
+  const canEdit = role !== 'viewer';
 
   // Paginated projects via hook
   const { data: projects, isLoading, error: fetchError, page, totalPages, totalRecords, sort, order, setPage, setSort, reload } =
@@ -179,11 +181,11 @@ export function ProjectsPage() {
       <PageHeader
         title="Projects"
         subtitle={isLoading ? 'Loading…' : `${totalRecords} total projects`}
-        actions={
+        actions={canEdit && (
           <Button onClick={() => { setEditing(null); setSaveError(null); setFormOpen(true); }}>
             + New Project
           </Button>
-        }
+        )}
       />
 
       {deleteError && (
@@ -268,7 +270,7 @@ export function ProjectsPage() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Link href={`/projects/${project.id}`}><Button variant="ghost" size="sm">View →</Button></Link>
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(project)}>Edit</Button>
+                        {canEdit && <Button variant="ghost" size="sm" onClick={() => openEdit(project)}>Edit</Button>}
                         {isAdmin && (
                           <Button variant="ghost" size="sm" onClick={() => openDelete(project)} disabled={isCheckingDeps} className="text-red-500 hover:text-red-600 hover:bg-red-50">Delete</Button>
                         )}

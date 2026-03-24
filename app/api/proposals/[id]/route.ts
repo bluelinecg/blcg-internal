@@ -14,7 +14,8 @@ import {
   getProposalDependencyCounts,
 } from '@/lib/db/proposals';
 import { UpdateProposalSchema } from '@/lib/validations/proposals';
-import { guardAdmin } from '@/lib/auth/roles';
+import { guardAdmin, guardMember } from '@/lib/auth/roles';
+import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -49,6 +50,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
     }
 
+    const guard = await guardMember();
+    if (guard) return guard;
+
     const { id } = await params;
 
     const parsed = UpdateProposalSchema.safeParse(await request.json());
@@ -60,6 +64,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const { data, error } = await updateProposal(id, parsed.data);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
     if (!data) return NextResponse.json({ data: null, error: 'Proposal not found' }, { status: 404 });
+
+    if (data && parsed.data.status !== undefined) {
+      void dispatchWebhookEvent('proposal.status_changed', data as unknown as Record<string, unknown>);
+    }
 
     return NextResponse.json({ data, error: null });
   } catch (err) {

@@ -8,6 +8,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { listProjects, createProject } from '@/lib/db/projects';
 import { ProjectSchema } from '@/lib/validations/projects';
+import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 
 export async function GET(request: Request) {
@@ -34,6 +35,9 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
     }
+
+    const guard = await guardMember();
+    if (guard) return guard;
 
     const parsed = ProjectSchema.safeParse(await request.json());
     if (!parsed.success) {

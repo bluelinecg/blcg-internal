@@ -7,9 +7,10 @@
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import { getTaskById, updateTask, deleteTask } from '@/lib/db/tasks';
+import { getTaskById, updateTask, deleteTask, createNextRecurrence } from '@/lib/db/tasks';
 import { UpdateTaskSchema } from '@/lib/validations/tasks';
-import { guardAdmin } from '@/lib/auth/roles';
+import { guardAdmin, guardMember } from '@/lib/auth/roles';
+import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -42,6 +43,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
     }
 
+    const guard = await guardMember();
+    if (guard) return guard;
+
     const { id } = await params;
 
     const parsed = UpdateTaskSchema.safeParse(await request.json());
@@ -53,6 +57,16 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const { data, error } = await updateTask(id, parsed.data);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
     if (!data) return NextResponse.json({ data: null, error: 'Task not found' }, { status: 404 });
+
+    if (data && parsed.data.status !== undefined) {
+      void dispatchWebhookEvent('task.status_changed', data as unknown as Record<string, unknown>);
+    }
+
+    // When a recurring task is marked done, auto-create the next occurrence.
+    // TODO: dispatch automation engine event here once the Automation Engine is built.
+    if (data && parsed.data.status === 'done' && data.recurrence !== 'none') {
+      void createNextRecurrence(data);
+    }
 
     return NextResponse.json({ data, error: null });
   } catch (err) {

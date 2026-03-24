@@ -7,6 +7,7 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  createNextRecurrence,
 } from './tasks';
 
 // ---------------------------------------------------------------------------
@@ -20,6 +21,7 @@ function makeChain(result: { data: unknown; count?: number | null; error: unknow
     update: jest.fn().mockReturnThis(),
     delete: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
+    range: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
     single: jest.fn().mockResolvedValue(result),
     then: jest.fn().mockImplementation((resolve: (v: unknown) => unknown) => Promise.resolve(resolve(result))),
@@ -36,16 +38,27 @@ const mockServerClient = serverClient as jest.Mock;
 // ---------------------------------------------------------------------------
 
 const TASK_ROW = {
-  id: 'task-1',
-  title: 'Build login page',
+  id:          'task-1',
+  title:       'Build login page',
   description: 'Implement Clerk sign-in',
-  status: 'in_progress',
-  priority: 'high',
-  project_id: 'proj-1',
-  assignee: 'Ryan',
-  due_date: '2026-04-01',
-  created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-01-01T00:00:00Z',
+  status:      'in_progress',
+  priority:    'high',
+  project_id:  'proj-1',
+  assignee_id: 'Ryan',
+  due_date:    '2026-04-01',
+  recurrence:  'none',
+  checklist:   [],
+  blocked_by:  [],
+  created_at:  '2026-01-01T00:00:00Z',
+  updated_at:  '2026-01-01T00:00:00Z',
+};
+
+const RECURRING_TASK_ROW = {
+  ...TASK_ROW,
+  id:         'task-2',
+  status:     'done',
+  recurrence: 'weekly',
+  due_date:   '2026-04-07',
 };
 
 // ---------------------------------------------------------------------------
@@ -67,6 +80,9 @@ describe('listTasks', () => {
     expect(data![0].title).toBe('Build login page');
     expect(data![0].projectId).toBe('proj-1');
     expect(data![0].assignee).toBe('Ryan');
+    expect(data![0].recurrence).toBe('none');
+    expect(data![0].checklist).toEqual([]);
+    expect(data![0].blockedBy).toEqual([]);
   });
 
   it('returns error string on DB failure', async () => {
@@ -98,7 +114,7 @@ describe('getTaskById', () => {
     expect(error).toBeNull();
     expect(data).not.toBeNull();
     expect(data!.id).toBe('task-1');
-    expect(data!.dueDate).toBe('2026-04-01');
+    expect(data!.dueDate).toBe('2026-04-01T00:00:00Z');
   });
 
   it('returns null data (not error) when row not found (PGRST116)', async () => {
@@ -138,13 +154,16 @@ describe('createTask', () => {
     mockServerClient.mockReturnValue(db);
 
     const { data, error } = await createTask({
-      title: 'Build login page',
+      title:       'Build login page',
       description: 'Implement Clerk sign-in',
-      status: 'in_progress',
-      priority: 'high',
-      projectId: 'proj-1',
-      assignee: 'Ryan',
-      dueDate: '2026-04-01T00:00:00Z',
+      status:      'in_progress',
+      priority:    'high',
+      projectId:   'proj-1',
+      assignee:    'Ryan',
+      dueDate:     '2026-04-01T00:00:00Z',
+      recurrence:  'none',
+      checklist:   [],
+      blockedBy:   [],
     });
 
     expect(error).toBeNull();
@@ -159,9 +178,12 @@ describe('createTask', () => {
     mockServerClient.mockReturnValue(db);
 
     const { data, error } = await createTask({
-      title: 'Build login page',
-      status: 'todo',
-      priority: 'medium',
+      title:      'Build login page',
+      status:     'todo',
+      priority:   'medium',
+      recurrence: 'none',
+      checklist:  [],
+      blockedBy:  [],
     });
 
     expect(data).toBeNull();
@@ -223,5 +245,60 @@ describe('deleteTask', () => {
 
     const { error } = await deleteTask('task-1');
     expect(error).toBe('Delete failed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createNextRecurrence
+// ---------------------------------------------------------------------------
+
+describe('createNextRecurrence', () => {
+  const RECURRING_TASK = {
+    id:          'task-2',
+    title:       'Weekly standup',
+    description: 'Team sync',
+    status:      'done'  as const,
+    priority:    'medium' as const,
+    projectId:   'proj-1',
+    assignee:    'Ryan',
+    dueDate:     '2026-04-07T00:00:00Z',
+    recurrence:  'weekly' as const,
+    checklist:   [],
+    blockedBy:   [],
+    createdAt:   '2026-01-01T00:00:00Z',
+    updatedAt:   '2026-01-01T00:00:00Z',
+  };
+
+  it('creates the next occurrence with correct due date (+7 days for weekly)', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: { ...RECURRING_TASK_ROW, status: 'todo', due_date: '2026-04-14' }, error: null });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const { data, error } = await createNextRecurrence(RECURRING_TASK);
+
+    expect(error).toBeNull();
+    expect(data).not.toBeNull();
+    expect(data!.status).toBe('todo');
+    // Verify insert was called (chain.insert was invoked)
+    expect(chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status:     'todo',
+        recurrence: 'weekly',
+        checklist:  [],
+      }),
+    );
+  });
+
+  it('returns error if DB insert fails', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: null, error: { message: 'insert failed' } });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const { data, error } = await createNextRecurrence(RECURRING_TASK);
+
+    expect(data).toBeNull();
+    expect(error).toBe('insert failed');
   });
 });

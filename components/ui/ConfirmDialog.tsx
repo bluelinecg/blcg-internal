@@ -27,6 +27,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   confirmVariant?: 'danger' | 'primary';
   blockedBy?: string[];
+  isLoading?: boolean;
 }
 
 export function ConfirmDialog({
@@ -38,6 +39,7 @@ export function ConfirmDialog({
   confirmLabel = 'Delete',
   confirmVariant = 'danger',
   blockedBy = [],
+  isLoading = false,
 }: ConfirmDialogProps) {
   const isBlocked = blockedBy.length > 0;
 
@@ -65,9 +67,9 @@ export function ConfirmDialog({
           <Button
             variant={confirmVariant}
             onClick={onConfirm}
-            disabled={isBlocked}
+            disabled={isBlocked || isLoading}
           >
-            {confirmLabel}
+            {isLoading ? 'Deleting…' : confirmLabel}
           </Button>
         </div>
       </div>

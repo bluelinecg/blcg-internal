@@ -9,7 +9,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getClientById, updateClient, deleteClient, getClientDependencyCounts } from '@/lib/db/clients';
 import { UpdateClientSchema } from '@/lib/validations/clients';
-import { guardAdmin } from '@/lib/auth/roles';
+import { guardAdmin, guardMember } from '@/lib/auth/roles';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -43,6 +43,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (!userId) {
       return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
     }
+
+    const guard = await guardMember();
+    if (guard) return guard;
 
     const { id } = await params;
 
