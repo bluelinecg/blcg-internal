@@ -5,12 +5,12 @@
  * Body: { from: EmailAccount; to: string; cc?: string; subject: string; body: string }
  */
 
-import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { guardMember } from '@/lib/auth/roles';
 import { getGmailClient, EMAIL_TO_ACCOUNT_KEY } from '@/lib/integrations/gmail';
 import type { EmailAccount } from '@/lib/types/emails';
 import { z } from 'zod';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 const SendSchema = z.object({
   from: z.enum([
@@ -25,8 +25,8 @@ const SendSchema = z.object({
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -34,13 +34,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const json = await req.json() as unknown;
     const parsed = SendSchema.safeParse(json);
     if (!parsed.success) {
-      return NextResponse.json({ data: null, error: parsed.error.issues[0].message }, { status: 400 });
+      return apiError(parsed.error.issues[0].message, 400);
     }
 
     const { from, to, cc, subject, body } = parsed.data;
     const accountKey = EMAIL_TO_ACCOUNT_KEY[from as EmailAccount];
     if (!accountKey) {
-      return NextResponse.json({ data: null, error: 'Unknown sender account' }, { status: 400 });
+      return apiError('Unknown sender account', 400);
     }
     const gmail = getGmailClient(accountKey);
 
@@ -65,10 +65,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       requestBody: { raw },
     });
 
-    return NextResponse.json({ data: { messageId: res.data.id }, error: null }, { status: 201 });
+    return apiOk({ messageId: res.data.id }, 201);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to send email';
     console.error('[POST /api/emails/send]', err);
-    return NextResponse.json({ data: null, error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }

@@ -9,7 +9,8 @@
 //   isSaving   — shows loading state on submit button
 //   saveError  — displays an API error below the form
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useFormState } from '@/lib/hooks/use-form-state';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Textarea } from '@/components/ui';
 import type { PipelineInput } from '@/lib/validations/pipelines';
@@ -30,20 +31,11 @@ const DEFAULTS: PipelineInput = {
 };
 
 export function PipelineFormModal({ isOpen, onClose, onSave, initial, isSaving, saveError }: PipelineFormModalProps) {
-  const [form, setForm] = useState<PipelineInput>({ ...DEFAULTS, ...initial });
-  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  const { form, errors, setField, reset, setErrors } = useFormState(DEFAULTS, initial);
 
   useEffect(() => {
-    if (isOpen) {
-      setForm({ ...DEFAULTS, ...initial });
-      setErrors({});
-    }
+    if (isOpen) reset(DEFAULTS, initial);
   }, [isOpen, initial]);
-
-  function setField<K extends keyof PipelineInput>(key: K, value: PipelineInput[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: undefined }));
-  }
 
   function handleSubmit() {
     const next: typeof errors = {};

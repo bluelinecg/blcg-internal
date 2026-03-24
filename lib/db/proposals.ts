@@ -7,40 +7,19 @@
 
 import { serverClient } from '@/lib/db/supabase';
 import type { Proposal, ProposalLineItem, ProposalStatus } from '@/lib/types/proposals';
-import type { Contact, Organization } from '@/lib/types/crm';
 import type { ProposalInput, UpdateProposalInput } from '@/lib/validations/proposals';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
+import {
+  type OrganizationJoinRow,
+  type ContactJoinRow,
+  orgFromJoinRow,
+  contactFromJoinRow,
+} from '@/lib/db/crm-joins';
 
 // ---------------------------------------------------------------------------
 // Row types (mirror DB columns)
 // ---------------------------------------------------------------------------
-
-interface OrganizationJoinRow {
-  id: string;
-  name: string;
-  website: string | null;
-  phone: string | null;
-  industry: string | null;
-  address: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ContactJoinRow {
-  id: string;
-  organization_id: string | null;
-  first_name: string;
-  last_name: string;
-  email: string | null;
-  phone: string | null;
-  title: string | null;
-  status: string;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 interface ProposalRow {
   id: string;
@@ -78,7 +57,7 @@ interface LineItemRow {
 }
 
 // ---------------------------------------------------------------------------
-// Mapping helpers
+// Mapping helpers — lineItemFromRow only; org/contact helpers live in crm-joins.ts
 // ---------------------------------------------------------------------------
 
 function lineItemFromRow(row: LineItemRow): ProposalLineItem {
@@ -90,36 +69,6 @@ function lineItemFromRow(row: LineItemRow): ProposalLineItem {
     unitPrice: row.unit_price,
     total: row.total,
     sortOrder: row.sort_order,
-  };
-}
-
-function orgFromJoinRow(row: OrganizationJoinRow): Organization {
-  return {
-    id: row.id,
-    name: row.name,
-    website: row.website ?? undefined,
-    phone: row.phone ?? undefined,
-    industry: row.industry ?? undefined,
-    address: row.address ?? undefined,
-    notes: row.notes ?? undefined,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function contactFromJoinRow(row: ContactJoinRow): Contact {
-  return {
-    id: row.id,
-    organizationId: row.organization_id ?? undefined,
-    firstName: row.first_name,
-    lastName: row.last_name,
-    email: row.email ?? undefined,
-    phone: row.phone ?? undefined,
-    title: row.title ?? undefined,
-    status: row.status as Contact['status'],
-    notes: row.notes ?? undefined,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
   };
 }
 

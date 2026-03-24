@@ -8,25 +8,24 @@
 // Dashboard JWT template to include publicMetadata in session claims,
 // then switch to `(await auth()).sessionClaims?.metadata?.role`.
 
-import { auth, clerkClient, currentUser } from '@clerk/nextjs/server';
+import { clerkClient, currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { AppUser, UserRole } from '@/lib/types/users';
 import { InviteUserSchema } from '@/lib/validations/users';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 const ALLOWED_ROLES: UserRole[] = ['owner', 'admin'];
 
 // GET /api/users
 export async function GET() {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const caller = await currentUser();
     const callerRole = caller?.publicMetadata?.role as UserRole | undefined;
     if (!callerRole || !ALLOWED_ROLES.includes(callerRole)) {
-      return NextResponse.json({ data: null, error: 'Forbidden' }, { status: 403 });
+      return apiError('Forbidden', 403);
     }
 
     const client = await clerkClient();
@@ -43,31 +42,29 @@ export async function GET() {
       lastSignInAt: u.lastSignInAt ? new Date(u.lastSignInAt).toISOString() : null,
     }));
 
-    return NextResponse.json({ data: users, error: null });
+    return apiOk(users);
   } catch (error) {
     console.error('[GET /api/users]', error);
-    return NextResponse.json({ data: null, error: 'Failed to load users' }, { status: 500 });
+    return apiError('Failed to load users', 500);
   }
 }
 
 // POST /api/users — invite a new user by email with a pre-assigned role
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const caller = await currentUser();
     const callerRole = caller?.publicMetadata?.role as UserRole | undefined;
     if (!callerRole || !ALLOWED_ROLES.includes(callerRole)) {
-      return NextResponse.json({ data: null, error: 'Forbidden' }, { status: 403 });
+      return apiError('Forbidden', 403);
     }
 
     const parsed = InviteUserSchema.safeParse(await request.json());
     if (!parsed.success) {
       const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
-      return NextResponse.json({ data: null, error }, { status: 400 });
+      return apiError(error, 400);
     }
 
     const { email, role } = parsed.data;
@@ -79,9 +76,9 @@ export async function POST(request: Request) {
       redirectUrl: 'https://admin.bluelinecg.com/sign-up',
     });
 
-    return NextResponse.json({ data: { id: invitation.id }, error: null }, { status: 201 });
+    return apiOk({ id: invitation.id }, 201);
   } catch (error) {
     console.error('[POST /api/users]', error);
-    return NextResponse.json({ data: null, error: 'Failed to send invitation' }, { status: 500 });
+    return apiError('Failed to send invitation', 500);
   }
 }

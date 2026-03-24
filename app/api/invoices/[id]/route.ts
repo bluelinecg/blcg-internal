@@ -5,12 +5,12 @@
 // Auth: requires a valid Clerk session.
 // Response shape: { data: T | null, error: string | null }
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getInvoiceById, updateInvoice, deleteInvoice } from '@/lib/db/finances';
 import { UpdateInvoiceSchema } from '@/lib/validations/finances';
 import { guardAdmin } from '@/lib/auth/roles';
 import { logAction } from '@/lib/utils/audit';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -20,10 +20,8 @@ const BLOCKED_STATUSES = ['sent', 'viewed', 'overdue'];
 
 export async function GET(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -31,22 +29,20 @@ export async function GET(_request: Request, { params }: RouteContext) {
     const { id } = await params;
     const { data, error } = await getInvoiceById(id);
 
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Invoice not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Invoice not found', 404);
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[GET /api/invoices/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to load invoice' }, { status: 500 });
+    return apiError('Failed to load invoice', 500);
   }
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -56,12 +52,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const parsed = UpdateInvoiceSchema.safeParse(await request.json());
     if (!parsed.success) {
       const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
-      return NextResponse.json({ data: null, error }, { status: 400 });
+      return apiError(error, 400);
     }
 
     const { data, error } = await updateInvoice(id, parsed.data);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Invoice not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Invoice not found', 404);
 
     if (parsed.data.status !== undefined) {
       void logAction({ entityType: 'invoice', entityId: id, entityLabel: data.invoiceNumber, action: 'status_changed', metadata: { to: data.status } });
@@ -69,19 +65,17 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       void logAction({ entityType: 'invoice', entityId: id, entityLabel: data.invoiceNumber, action: 'updated' });
     }
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[PATCH /api/invoices/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to update invoice' }, { status: 500 });
+    return apiError('Failed to update invoice', 500);
   }
 }
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -90,27 +84,21 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     // Re-fetch to get current status for dependency check and audit label
     const { data: invoice, error: fetchErr } = await getInvoiceById(id);
-    if (fetchErr) return NextResponse.json({ data: null, error: fetchErr }, { status: 500 });
-    if (!invoice) return NextResponse.json({ data: null, error: 'Invoice not found' }, { status: 404 });
+    if (fetchErr) return apiError(fetchErr, 500);
+    if (!invoice) return apiError('Invoice not found', 404);
 
     if (BLOCKED_STATUSES.includes(invoice.status)) {
-      return NextResponse.json(
-        {
-          data: null,
-          error: `Cannot delete invoice: status is "${invoice.status}" — mark it as cancelled first`,
-        },
-        { status: 409 },
-      );
+      return apiError(`Cannot delete invoice: status is "${invoice.status}" — mark it as cancelled first`, 409);
     }
 
     const { error } = await deleteInvoice(id);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+    if (error) return apiError(error, 500);
 
     void logAction({ entityType: 'invoice', entityId: id, entityLabel: invoice.invoiceNumber, action: 'deleted' });
 
-    return NextResponse.json({ data: { id }, error: null });
+    return apiOk({ id });
   } catch (err) {
     console.error('[DELETE /api/invoices/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to delete invoice' }, { status: 500 });
+    return apiError('Failed to delete invoice', 500);
   }
 }

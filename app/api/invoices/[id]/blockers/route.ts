@@ -4,9 +4,9 @@
 //
 // Auth: requires a valid Clerk session.
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getInvoiceById } from '@/lib/db/finances';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -16,25 +16,23 @@ const BLOCKED_STATUSES = ['sent', 'viewed', 'overdue'];
 
 export async function GET(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { id } = await params;
     const { data: invoice, error } = await getInvoiceById(id);
 
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!invoice) return NextResponse.json({ data: null, error: 'Invoice not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!invoice) return apiError('Invoice not found', 404);
 
     const blockers: string[] = [];
     if (BLOCKED_STATUSES.includes(invoice.status)) {
       blockers.push(`Invoice is "${invoice.status}" — mark it as cancelled before deleting`);
     }
 
-    return NextResponse.json({ data: blockers, error: null });
+    return apiOk(blockers);
   } catch (err) {
     console.error('[GET /api/invoices/[id]/blockers]', err);
-    return NextResponse.json({ data: null, error: 'Failed to check dependencies' }, { status: 500 });
+    return apiError('Failed to check dependencies', 500);
   }
 }

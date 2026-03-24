@@ -5,13 +5,13 @@
 // Auth: requires a valid Clerk session.
 // Response shape: { data: T | null, error: string | null }
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getTaskById, updateTask, deleteTask, createNextRecurrence } from '@/lib/db/tasks';
 import { UpdateTaskSchema } from '@/lib/validations/tasks';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
 import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
 import { logAction } from '@/lib/utils/audit';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -19,30 +19,26 @@ interface RouteContext {
 
 export async function GET(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { id } = await params;
     const { data, error } = await getTaskById(id);
 
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Task not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Task not found', 404);
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[GET /api/tasks/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to load task' }, { status: 500 });
+    return apiError('Failed to load task', 500);
   }
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -52,12 +48,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const parsed = UpdateTaskSchema.safeParse(await request.json());
     if (!parsed.success) {
       const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
-      return NextResponse.json({ data: null, error }, { status: 400 });
+      return apiError(error, 400);
     }
 
     const { data, error } = await updateTask(id, parsed.data);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Task not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Task not found', 404);
 
     if (data && parsed.data.status !== undefined) {
       void dispatchWebhookEvent('task.status_changed', data as unknown as Record<string, unknown>);
@@ -72,19 +68,17 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       void createNextRecurrence(data);
     }
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[PATCH /api/tasks/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to update task' }, { status: 500 });
+    return apiError('Failed to update task', 500);
   }
 }
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -95,13 +89,13 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { data: task } = await getTaskById(id);
 
     const { error } = await deleteTask(id);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+    if (error) return apiError(error, 500);
 
     void logAction({ entityType: 'task', entityId: id, entityLabel: task?.title ?? id, action: 'deleted' });
 
-    return NextResponse.json({ data: { id }, error: null });
+    return apiOk({ id });
   } catch (err) {
     console.error('[DELETE /api/tasks/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to delete task' }, { status: 500 });
+    return apiError('Failed to delete task', 500);
   }
 }

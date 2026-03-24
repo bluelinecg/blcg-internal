@@ -4,11 +4,11 @@
 // Auth: requires a valid Clerk session.
 // Response shape: { data: T | null, error: string | null }
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { updateStage, deleteStage, getStageItemCount } from '@/lib/db/pipelines';
 import { UpdatePipelineStageSchema } from '@/lib/validations/pipelines';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
   params: Promise<{ id: string; stageId: string }>;
@@ -16,8 +16,8 @@ interface RouteContext {
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -27,24 +27,24 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const parsed = UpdatePipelineStageSchema.safeParse(await request.json());
     if (!parsed.success) {
       const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
-      return NextResponse.json({ data: null, error }, { status: 400 });
+      return apiError(error, 400);
     }
 
     const { data, error } = await updateStage(stageId, parsed.data);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Stage not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Stage not found', 404);
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[PATCH /api/pipelines/[id]/stages/[stageId]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to update stage' }, { status: 500 });
+    return apiError('Failed to update stage', 500);
   }
 }
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -52,21 +52,18 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { stageId } = await params;
 
     const { count, error: countErr } = await getStageItemCount(stageId);
-    if (countErr) return NextResponse.json({ data: null, error: countErr }, { status: 500 });
+    if (countErr) return apiError(countErr, 500);
 
     if (count > 0) {
-      return NextResponse.json(
-        { data: null, error: `Cannot delete stage: ${count} item${count > 1 ? 's' : ''} are in this stage (move them first)` },
-        { status: 409 },
-      );
+      return apiError(`Cannot delete stage: ${count} item${count > 1 ? 's' : ''} are in this stage (move them first)`, 409);
     }
 
     const { error } = await deleteStage(stageId);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+    if (error) return apiError(error, 500);
 
-    return NextResponse.json({ data: { id: stageId }, error: null });
+    return apiOk({ id: stageId });
   } catch (err) {
     console.error('[DELETE /api/pipelines/[id]/stages/[stageId]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to delete stage' }, { status: 500 });
+    return apiError('Failed to delete stage', 500);
   }
 }

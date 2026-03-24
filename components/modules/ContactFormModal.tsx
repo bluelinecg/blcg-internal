@@ -10,9 +10,10 @@
 //   isSaving       — disables buttons while the async save is in flight
 //   saveError      — inline error message shown above the action buttons
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
+import { useFormState } from '@/lib/hooks/use-form-state';
 import type { Contact, ContactStatus, Organization } from '@/lib/types/crm';
 
 type ContactFormData = Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>;
@@ -54,20 +55,11 @@ export function ContactFormModal({
   isSaving,
   saveError,
 }: ContactFormModalProps) {
-  const [form, setForm] = useState<ContactFormData>({ ...DEFAULTS, ...initial });
-  const [errors, setErrors] = useState<Partial<Record<keyof ContactFormData, string>>>({});
+  const { form, errors, setField, reset, setErrors } = useFormState(DEFAULTS, initial);
 
   useEffect(() => {
-    if (isOpen) {
-      setForm({ ...DEFAULTS, ...initial });
-      setErrors({});
-    }
+    if (isOpen) reset(DEFAULTS, initial);
   }, [isOpen, initial]);
-
-  function set<K extends keyof ContactFormData>(key: K, value: ContactFormData[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: undefined }));
-  }
 
   function validate(): boolean {
     const next: typeof errors = {};
@@ -96,14 +88,14 @@ export function ContactFormModal({
           <Input
             label="First Name"
             value={form.firstName}
-            onChange={(e) => set('firstName', e.target.value)}
+            onChange={(e) => setField('firstName', e.target.value)}
             placeholder="Jane"
             error={errors.firstName}
           />
           <Input
             label="Last Name"
             value={form.lastName}
-            onChange={(e) => set('lastName', e.target.value)}
+            onChange={(e) => setField('lastName', e.target.value)}
             placeholder="Smith"
             error={errors.lastName}
           />
@@ -113,13 +105,13 @@ export function ContactFormModal({
             label="Email (optional)"
             type="email"
             value={form.email ?? ''}
-            onChange={(e) => set('email', e.target.value || undefined)}
+            onChange={(e) => setField('email', e.target.value || undefined)}
             placeholder="jane@example.com"
           />
           <Input
             label="Phone (optional)"
             value={form.phone ?? ''}
-            onChange={(e) => set('phone', e.target.value || undefined)}
+            onChange={(e) => setField('phone', e.target.value || undefined)}
             placeholder="+1 (555) 000-0000"
           />
         </div>
@@ -127,26 +119,26 @@ export function ContactFormModal({
           <Input
             label="Title (optional)"
             value={form.title ?? ''}
-            onChange={(e) => set('title', e.target.value || undefined)}
+            onChange={(e) => setField('title', e.target.value || undefined)}
             placeholder="CEO"
           />
           <Select
             label="Status"
             options={STATUS_OPTIONS}
             value={form.status}
-            onChange={(e) => set('status', e.target.value as ContactStatus)}
+            onChange={(e) => setField('status', e.target.value as ContactStatus)}
           />
         </div>
         <Select
           label="Organization (optional)"
           options={orgOptions}
           value={form.organizationId ?? ''}
-          onChange={(e) => set('organizationId', e.target.value || undefined)}
+          onChange={(e) => setField('organizationId', e.target.value || undefined)}
         />
         <Textarea
           label="Notes (optional)"
           value={form.notes ?? ''}
-          onChange={(e) => set('notes', e.target.value || undefined)}
+          onChange={(e) => setField('notes', e.target.value || undefined)}
           placeholder="Any relevant context..."
           rows={3}
         />

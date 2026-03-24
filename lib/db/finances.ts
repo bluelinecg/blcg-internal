@@ -14,7 +14,6 @@ import type {
   ExpenseCategory,
   PaymentMethod,
 } from '@/lib/types/finances';
-import type { Organization } from '@/lib/types/crm';
 import type {
   InvoiceInput,
   UpdateInvoiceInput,
@@ -23,22 +22,11 @@ import type {
 } from '@/lib/validations/finances';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
+import { type OrganizationJoinRow, orgFromJoinRow } from '@/lib/db/crm-joins';
 
 // ---------------------------------------------------------------------------
 // Row types (mirror DB columns)
 // ---------------------------------------------------------------------------
-
-interface OrganizationJoinRow {
-  id: string;
-  name: string;
-  website: string | null;
-  phone: string | null;
-  industry: string | null;
-  address: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 interface InvoiceRow {
   id: string;
@@ -92,20 +80,6 @@ interface ExpenseRow {
 // ---------------------------------------------------------------------------
 // Mapping helpers
 // ---------------------------------------------------------------------------
-
-function orgFromJoinRow(row: OrganizationJoinRow): Organization {
-  return {
-    id: row.id,
-    name: row.name,
-    website: row.website ?? undefined,
-    phone: row.phone ?? undefined,
-    industry: row.industry ?? undefined,
-    address: row.address ?? undefined,
-    notes: row.notes ?? undefined,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
 
 function lineItemFromRow(row: InvoiceLineItemRow): InvoiceLineItem {
   return {

@@ -3,9 +3,9 @@
  * Marks all messages in a thread as read by removing the UNREAD label.
  */
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getGmailClient, decodeThreadId } from '@/lib/integrations/gmail';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -13,8 +13,8 @@ interface RouteParams {
 
 export async function PATCH(_req: Request, { params }: RouteParams): Promise<NextResponse> {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { id } = await params;
     const { accountKey, gmailThreadId } = decodeThreadId(id);
@@ -26,10 +26,10 @@ export async function PATCH(_req: Request, { params }: RouteParams): Promise<Nex
       requestBody: { removeLabelIds: ['UNREAD'] },
     });
 
-    return NextResponse.json({ data: { id }, error: null });
+    return apiOk({ id });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to mark thread as read';
     console.error('[PATCH /api/emails/[id]/read]', err);
-    return NextResponse.json({ data: null, error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }
