@@ -15,5 +15,8 @@ import type { Role } from './roles';
 
 export function useRole(): Role {
   const { user } = useUser();
-  return user?.publicMetadata?.role === 'admin' ? 'admin' : 'member';
+  const role = user?.publicMetadata?.role as string | undefined;
+  if (role === 'admin')  return 'admin';
+  if (role === 'viewer') return 'viewer';
+  return 'member';
 }

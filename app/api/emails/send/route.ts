@@ -7,6 +7,7 @@
 
 import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { guardMember } from '@/lib/auth/roles';
 import { getGmailClient, EMAIL_TO_ACCOUNT_KEY } from '@/lib/integrations/gmail';
 import type { EmailAccount } from '@/lib/types/emails';
 import { z } from 'zod';
@@ -26,6 +27,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+
+    const guard = await guardMember();
+    if (guard) return guard;
 
     const json = await req.json() as unknown;
     const parsed = SendSchema.safeParse(json);

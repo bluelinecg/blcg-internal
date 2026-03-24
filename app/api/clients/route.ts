@@ -8,6 +8,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { listClients, createClient } from '@/lib/db/clients';
 import { ClientSchema } from '@/lib/validations/clients';
+import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 
 // GET /api/clients
@@ -38,6 +39,9 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
     }
+
+    const guard = await guardMember();
+    if (guard) return guard;
 
     const parsed = ClientSchema.safeParse(await request.json());
     if (!parsed.success) {

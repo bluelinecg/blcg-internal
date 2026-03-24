@@ -31,7 +31,9 @@ const STATUS_FILTER_OPTIONS = [
 type ProposalFormData = Omit<Proposal, 'id' | 'createdAt' | 'updatedAt'>;
 
 export function ProposalsPage() {
-  const isAdmin = useRole() === 'admin';
+  const role    = useRole();
+  const isAdmin = role === 'admin';
+  const canEdit = role !== 'viewer';
 
   // Paginated proposals via hook
   const { data: proposals, isLoading, error: fetchError, page, totalPages, totalRecords, sort, order, setPage, setSort, reload } =
@@ -220,7 +222,7 @@ export function ProposalsPage() {
       align: 'right',
       render: (p) => (
         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>Edit</Button>
+          {canEdit && <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>Edit</Button>}
           {isAdmin && (
             <Button
               variant="ghost"
@@ -243,11 +245,11 @@ export function ProposalsPage() {
       <PageHeader
         title="Proposals"
         subtitle={isLoading ? 'Loading…' : `${totalRecords} total proposals`}
-        actions={
+        actions={canEdit && (
           <Button onClick={() => { setEditing(null); setSaveError(null); setFormOpen(true); }}>
             + New Proposal
           </Button>
-        }
+        )}
       />
 
       {deleteError && (
