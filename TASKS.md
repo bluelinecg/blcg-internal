@@ -2,14 +2,14 @@
 
 **Live URL**: https://admin.bluelinecg.com
 **Repo**: github.com/bluelinecg/blcg-internal
-**Current branch**: feature/live-client-data (ready to PR)
+**Current branch**: feature/live-client-data (ready to PR — reset to 84fabcf after agent UI regression)
 
 ---
 
 ## Current status
 
-**Phase**: Pagination/sorting, live data wiring, and Gmail integration all complete
-on `feature/live-client-data`. Branch is pushed and ready to open a PR to main.
+**Phase**: Phase 2 (CRM Data Model) complete. 280 tests passing.
+Phase 3 next: Role-Based Permissions System enhancement + Outbound Webhooks.
 
 ---
 
@@ -26,6 +26,15 @@ on `feature/live-client-data`. Branch is pushed and ready to open a PR to main.
 - [x] /lib/config.ts env variable validation pattern
 - [x] .env.example with all required variables documented
 - [x] vercel.json for correct Vercel framework detection
+- [x] **Test infrastructure** — Jest + RTL + Playwright fully configured; 253 tests
+      passing across 21 suites; `tests/helpers/` has render, factories (all entities
+      incl. Task), and Supabase mock builder; mocks for Clerk and next/navigation
+- [x] **Error monitoring** — `@sentry/nextjs` integrated; client/server/edge configs
+      with PII scrubbing (`beforeSend` filters cookies and auth headers); `global-error.tsx`
+      root error boundary; `instrumentation.ts` registers server/edge configs;
+      `next.config.ts` wrapped with `withSentryConfig` (source maps, bundle optimisation);
+      `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_AUTH_TOKEN` documented in `.env.example`;
+      disabled in non-production environments
 
 ### UI & components
 - [x] Dashboard shell — sidebar nav, TopNav, PageShell, PageHeader
@@ -57,7 +66,7 @@ on `feature/live-client-data`. Branch is pushed and ready to open a PR to main.
 - [x] lib/db/finances.ts (invoices + expenses) + API routes + 18 unit tests
 - [x] All delete flows: GET /blockers → ConfirmDialog → DELETE (409 if blocked)
 - [x] All form modals: isSaving/saveError async feedback props
-- [x] 253 tests passing across all test suites
+- [x] 253 tests passing across all test suites (280 after CRM module)
 
 ### RBAC (merged via feature/rbac)
 - [x] lib/auth/roles.ts — getRole(), isAdmin(), guardAdmin() (uses currentUser(), NOT sessionClaims)
@@ -99,20 +108,94 @@ on `feature/live-client-data`. Branch is pushed and ready to open a PR to main.
 ### Bug fixes (feature/live-client-data)
 - [x] tasks.ts — TaskRow.assignee renamed to assignee_id to match DB column schema
 - [x] emails — invalid_grant fixed by removing Nick's revoked OAuth account from the integration
+- [x] tasks — Supabase check constraint updated to include `backlog` status (run in SQL editor)
+- [x] tasks — fromRow normalises due_date to full ISO datetime to pass Zod validation on edit
+- [x] tasks — assignee and project clearing on edit: empty string was silently dropped via
+      `|| undefined`, now kept and mapped to null in toInsert/updateTask via `|| null`
+
+### CRM Data Model (Phase 2 — complete)
+- [x] lib/types/crm.ts — Contact, Organization, ContactStatus types
+- [x] lib/validations/contacts.ts + organizations.ts — Zod schemas
+- [x] lib/db/contacts.ts — full CRUD + 11 unit tests
+- [x] lib/db/organizations.ts — full CRUD + contact count + getOrganizationContactCount + 16 unit tests
+- [x] lib/utils/dependencies.ts — getOrganizationDeleteBlockers (blocks if contacts exist)
+- [x] lib/utils/dependencies.test.ts — 3 new tests for org blocker
+- [x] API routes: /api/contacts, /api/contacts/[id], /api/organizations, /api/organizations/[id], /api/organizations/[id]/blockers
+- [x] components/modules/OrganizationFormModal.tsx + ContactFormModal.tsx
+- [x] app/(dashboard)/organizations/page.tsx — searchable list, full CRUD, dependency-aware delete
+- [x] app/(dashboard)/contacts/page.tsx — searchable list with status + org filters, full CRUD
+- [x] Sidebar — Contacts and Organizations nav items added
+
+**Migration SQL required** — run in Supabase SQL editor before deploying:
+
+```sql
+-- Organizations table
+CREATE TABLE organizations (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        text NOT NULL,
+  website     text,
+  phone       text,
+  industry    text,
+  address     text,
+  notes       text,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+
+CREATE TRIGGER set_organizations_updated_at
+  BEFORE UPDATE ON organizations
+  FOR EACH ROW EXECUTE FUNCTION moddatetime(updated_at);
+
+-- Contacts table
+CREATE TABLE contacts (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid REFERENCES organizations(id) ON DELETE SET NULL,
+  first_name      text NOT NULL,
+  last_name       text NOT NULL,
+  email           text,
+  phone           text,
+  title           text,
+  status          text NOT NULL DEFAULT 'lead'
+                    CHECK (status IN ('lead', 'prospect', 'active', 'inactive')),
+  notes           text,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
+
+CREATE TRIGGER set_contacts_updated_at
+  BEFORE UPDATE ON contacts
+  FOR EACH ROW EXECUTE FUNCTION moddatetime(updated_at);
+```
 
 ---
 
 ## Immediate next task — PICK UP HERE
 
-### Open PR for feature/live-client-data
+### Roadmap Phase 3 — Role-Based Permissions System + Outbound Webhooks
 
-Branch is pushed and build is clean. Open a PR from `feature/live-client-data` → `main`.
+CRM Data Model complete. Phase 3 covers two tasks:
+1. **RBAC enhancement** — extend existing role system to cover CRM entities (Contacts, Organizations)
+2. **Outbound Webhooks** — trigger webhooks on key events (contact created, status changed, etc.)
+
+---
+
+### Pending: Open PR for feature/live-client-data
+
+Branch is pushed and build is clean. Open a PR from `feature/live-client-data` → `main`
+once the current roadmap session is at a good stopping point.
 
 PR covers:
+- Kanban board column scroll fix (columns now fixed-height, independently scrollable)
 - Pagination/sorting on all list pages (clients, proposals, projects, finances)
 - Gmail integration live (emails page off mock data)
 - Bug fixes: assignee_id column, invalid_grant, optional Gmail config
 - Nick account removal from entire codebase
+- Task bug fixes: backlog constraint, dueDate normalisation, assignee/project clearing
+- Test infrastructure: 253 tests passing, mock fixes, createMockTask + Supabase mock helper
 
 ---
 
@@ -122,9 +205,23 @@ PR covers:
       stat cards; wire to live API data from /api/clients, /api/projects, etc.
 - [ ] **Tasks page pagination** — Kanban board is not paginated; if task count
       grows large, add server-side pagination or a list/table view alternative
-- [ ] **Testing** — Jest + RTL component tests and Playwright E2E tests
-      (unit tests for lib/db are done; UI component tests and E2E coverage still needed;
-      new components: Pagination, SortableHeader; new hook: use-list-state)
+- [ ] **Document storage** — file management for proposals, templates, and project/client
+      documentation. Store files in Supabase Storage. Needs:
+      - Supabase Storage bucket (with per-client/per-project folder structure)
+      - /documents page or per-entity document tab (clients, projects)
+      - Upload, download, rename, delete with dependency-aware controls
+      - File type filtering (PDF, DOCX, etc.) and metadata (name, size, uploaded by, date)
+      - RBAC: all users can view; admin-only delete
+- [ ] **Pagination/SortableHeader/use-list-state tests** — new components from the
+      pagination feature still need co-located test files added
+- [ ] **Link Clients to CRM** — `Client` and `Organization` are currently parallel,
+      unconnected records. When the CRM is mature enough to be the source of truth,
+      bridge them:
+      - Add `organization_id uuid REFERENCES organizations(id)` to the `clients` table
+      - Add `contact_id uuid REFERENCES contacts(id)` to the `proposals` table (tracks
+        the signatory, not just the company name)
+      - Deprecate `contactName`/`email`/`phone` on Client in favour of the linked Contact
+      - UI: show linked org/contact on client detail; allow promoting an org to a client
 - [ ] **Supabase RLS policies** — RLS is enabled on all 9 tables (confirmed in
       migration); permissive policies still need to be defined per-table
       (currently only service role can read/write)

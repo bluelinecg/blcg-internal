@@ -102,6 +102,24 @@ function IconUsers() {
   );
 }
 
+function IconContacts() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function IconOrganizations() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  );
+}
+
 function IconSettings() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -116,13 +134,15 @@ function IconSettings() {
 // Main nav — Dashboard first, then alphabetical. Settings is pinned to the bottom separately.
 const MAIN_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard /> },
-  { label: 'Clients',   href: '/clients',   icon: <IconClients /> },
-  { label: 'Emails',    href: '/emails',    icon: <IconEmails /> },
-  { label: 'Finances',  href: '/finances',  icon: <IconFinances /> },
-  { label: 'Projects',  href: '/projects',  icon: <IconProjects /> },
-  { label: 'Proposals', href: '/proposals', icon: <IconProposals /> },
-  { label: 'Tasks',     href: '/tasks',     icon: <IconTasks /> },
-  { label: 'Users',     href: '/users',     icon: <IconUsers /> },
+  { label: 'Clients',       href: '/clients',       icon: <IconClients /> },
+  { label: 'Contacts',      href: '/contacts',      icon: <IconContacts /> },
+  { label: 'Emails',        href: '/emails',        icon: <IconEmails /> },
+  { label: 'Finances',      href: '/finances',      icon: <IconFinances /> },
+  { label: 'Organizations', href: '/organizations', icon: <IconOrganizations /> },
+  { label: 'Projects',      href: '/projects',      icon: <IconProjects /> },
+  { label: 'Proposals',     href: '/proposals',     icon: <IconProposals /> },
+  { label: 'Tasks',         href: '/tasks',         icon: <IconTasks /> },
+  { label: 'Users',         href: '/users',         icon: <IconUsers /> },
 ];
 
 const SETTINGS_ITEM: NavItem = { label: 'Settings', href: '/settings', icon: <IconSettings /> };

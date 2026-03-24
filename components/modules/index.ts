@@ -9,3 +9,5 @@ export { InvoiceFormModal } from './InvoiceFormModal';
 export { ExpenseFormModal } from './ExpenseFormModal';
 export { ComposeEmailModal } from './ComposeEmailModal';
 export { InviteUserModal } from './InviteUserModal';
+export { OrganizationFormModal } from './OrganizationFormModal';
+export { ContactFormModal } from './ContactFormModal';

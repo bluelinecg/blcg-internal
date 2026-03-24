@@ -3,11 +3,13 @@ import {
   getProposalDeleteBlockers,
   getProjectDeleteBlockers,
   getInvoiceDeleteBlockers,
+  getOrganizationDeleteBlockers,
 } from './dependencies';
 import {
   createMockProposal,
   createMockProject,
   createMockInvoice,
+  createMockContact,
 } from '@/tests/helpers/factories';
 import type { InvoiceStatus } from '@/lib/types/finances';
 
@@ -263,5 +265,30 @@ describe('getInvoiceDeleteBlockers', () => {
     expect(blockers).toHaveLength(1);
     expect(blockers[0]).toMatch(new RegExp(status, 'i'));
     expect(blockers[0]).toMatch(/only draft or cancelled/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getOrganizationDeleteBlockers
+// ---------------------------------------------------------------------------
+
+describe('getOrganizationDeleteBlockers', () => {
+  it('returns empty array when organization has no contacts', () => {
+    expect(getOrganizationDeleteBlockers([])).toEqual([]);
+  });
+
+  it('blocks deletion when organization has one contact', () => {
+    const contact = createMockContact({ organizationId: 'org-1' });
+    const blockers = getOrganizationDeleteBlockers([contact]);
+    expect(blockers).toHaveLength(1);
+    expect(blockers[0]).toMatch(/1 contact/i);
+    expect(blockers[0]).toMatch(/reassign or delete/i);
+  });
+
+  it('uses plural label when organization has multiple contacts', () => {
+    const c1 = createMockContact({ id: 'contact-1', organizationId: 'org-1' });
+    const c2 = createMockContact({ id: 'contact-2', organizationId: 'org-1' });
+    const [msg] = getOrganizationDeleteBlockers([c1, c2]);
+    expect(msg).toMatch(/2 contacts/i);
   });
 });

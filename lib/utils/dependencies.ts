@@ -8,6 +8,7 @@
 import type { Proposal } from '@/lib/types/proposals';
 import type { Project } from '@/lib/types/projects';
 import type { Invoice } from '@/lib/types/finances';
+import type { Contact } from '@/lib/types/crm';
 
 // --- Client dependencies ---
 // Blocked if: active proposals, active/on-hold projects, or outstanding invoices.
@@ -90,6 +91,20 @@ export function getProjectDeleteBlockers(
 export function getInvoiceDeleteBlockers(status: Invoice['status']): string[] {
   if (status !== 'draft' && status !== 'cancelled') {
     return [`Invoice is "${status}" — only draft or cancelled invoices can be deleted`];
+  }
+  return [];
+}
+
+// --- Organization dependencies ---
+// Blocked if: has any linked contacts.
+// contactCount comes from the live DB check at the API layer; the frontend
+// passes the cached value from the list view for optimistic UX.
+
+export function getOrganizationDeleteBlockers(contacts: Contact[]): string[] {
+  if (contacts.length > 0) {
+    return [
+      `${contacts.length} contact${contacts.length > 1 ? 's' : ''} linked to this organization (reassign or delete them first)`,
+    ];
   }
   return [];
 }
