@@ -173,38 +173,63 @@ CREATE TRIGGER set_contacts_updated_at
 
 ---
 
+### Activity Logging / Audit Trail (feature/activity-logging — in progress)
+- [x] lib/types/audit-log.ts — AuditLog, AuditAction, AuditEntityType types
+- [x] lib/db/audit-log.ts — insertLog(), listLogs(), listLogsForEntity() + 8 unit tests
+- [x] lib/utils/audit.ts — logAction() server helper (resolves actor from Clerk)
+- [x] app/api/audit-log/route.ts — GET, entity-scoped + global (admin only)
+- [x] lib/db/finances.ts — getExpenseById() added
+- [x] logAction() wired into all mutating routes:
+      clients, contacts, organizations, proposals, projects, tasks, invoices, expenses
+      (POST = created, PATCH = updated/status_changed, DELETE = deleted)
+- [x] components/modules/ActivityFeed.tsx — timeline feed with pagination, relative timestamps
+- [x] ClientDetailView — Activity card in right sidebar
+- [x] settings/page.tsx — "Activity Log" tab (admin only), global log view
+- [x] 305 tests passing (25 suites)
+
+**Migration SQL required** — run in Supabase SQL editor before deploying:
+
+```sql
+CREATE TABLE audit_log (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_type  text NOT NULL,
+  entity_id    uuid NOT NULL,
+  entity_label text NOT NULL,
+  action       text NOT NULL CHECK (action IN ('created', 'updated', 'deleted', 'status_changed')),
+  actor_id     text NOT NULL,
+  actor_name   text NOT NULL,
+  metadata     jsonb,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_audit_log_entity ON audit_log (entity_type, entity_id, created_at DESC);
+CREATE INDEX idx_audit_log_created_at ON audit_log (created_at DESC);
+```
+
 ## Immediate next task — PICK UP HERE
 
-### Roadmap Phase 3 — Role-Based Permissions System + Outbound Webhooks
+Open a PR for `feature/activity-logging` → `main` once migration SQL is run and build is confirmed.
 
-CRM Data Model complete. Phase 3 covers two tasks:
-1. **RBAC enhancement** — extend existing role system to cover CRM entities (Contacts, Organizations)
-2. **Outbound Webhooks** — trigger webhooks on key events (contact created, status changed, etc.)
+## Backlog (foundations-first order)
 
----
-
-### Pending: Open PR for feature/live-client-data
-
-Branch is pushed and build is clean. Open a PR from `feature/live-client-data` → `main`
-once the current roadmap session is at a good stopping point.
-
-PR covers:
-- Kanban board column scroll fix (columns now fixed-height, independently scrollable)
-- Pagination/sorting on all list pages (clients, proposals, projects, finances)
-- Gmail integration live (emails page off mock data)
-- Bug fixes: assignee_id column, invalid_grant, optional Gmail config
-- Nick account removal from entire codebase
-- Task bug fixes: backlog constraint, dueDate normalisation, assignee/project clearing
-- Test infrastructure: 253 tests passing, mock fixes, createMockTask + Supabase mock helper
-
----
-
-## Backlog (after PR merged)
-
+- [ ] **Supabase RLS Policies** — RLS is enabled on all tables but no per-role policies
+      defined yet. Currently only service role can read/write — security foundation.
 - [ ] **Dashboard wiring** — /dashboard page still uses MOCK_* imports for
       stat cards; wire to live API data from /api/clients, /api/projects, etc.
-- [ ] **Tasks page pagination** — Kanban board is not paginated; if task count
-      grows large, add server-side pagination or a list/table view alternative
+- [ ] **Link Clients to CRM** — `Client` and `Organization` are currently parallel,
+      unconnected records:
+      - Add `organization_id uuid REFERENCES organizations(id)` to the `clients` table
+      - Add `contact_id uuid REFERENCES contacts(id)` to the `proposals` table
+      - Deprecate flat `contactName`/`email`/`phone` on Client in favour of linked Contact
+      - UI: show linked org/contact on client detail; allow promoting an org to a client
+- [ ] **Marketing Module** — campaign tracking, lead source attribution, conversion funnel
+      (depends on CRM link above being in place)
+- [ ] **Tasks page pagination** — Kanban board is not paginated; add server-side pagination
+      or list/table view alternative as task count grows
+- [ ] **Pagination/SortableHeader/use-list-state tests** — components from the pagination
+      feature still need co-located test files
 - [ ] **Document storage** — file management for proposals, templates, and project/client
       documentation. Store files in Supabase Storage. Needs:
       - Supabase Storage bucket (with per-client/per-project folder structure)
@@ -212,19 +237,6 @@ PR covers:
       - Upload, download, rename, delete with dependency-aware controls
       - File type filtering (PDF, DOCX, etc.) and metadata (name, size, uploaded by, date)
       - RBAC: all users can view; admin-only delete
-- [ ] **Pagination/SortableHeader/use-list-state tests** — new components from the
-      pagination feature still need co-located test files added
-- [ ] **Link Clients to CRM** — `Client` and `Organization` are currently parallel,
-      unconnected records. When the CRM is mature enough to be the source of truth,
-      bridge them:
-      - Add `organization_id uuid REFERENCES organizations(id)` to the `clients` table
-      - Add `contact_id uuid REFERENCES contacts(id)` to the `proposals` table (tracks
-        the signatory, not just the company name)
-      - Deprecate `contactName`/`email`/`phone` on Client in favour of the linked Contact
-      - UI: show linked org/contact on client detail; allow promoting an org to a client
-- [ ] **Supabase RLS policies** — RLS is enabled on all 9 tables (confirmed in
-      migration); permissive policies still need to be defined per-table
-      (currently only service role can read/write)
 - [ ] **Agentic workflow** — implement two-agent Claude Code pipeline
       (dev agent + review agent via Agent SDK)
 

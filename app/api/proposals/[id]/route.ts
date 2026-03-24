@@ -16,6 +16,7 @@ import {
 import { UpdateProposalSchema } from '@/lib/validations/proposals';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
 import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
+import { logAction } from '@/lib/utils/audit';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -67,6 +68,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     if (data && parsed.data.status !== undefined) {
       void dispatchWebhookEvent('proposal.status_changed', data as unknown as Record<string, unknown>);
+      void logAction({ entityType: 'proposal', entityId: id, entityLabel: data.title, action: 'status_changed', metadata: { to: data.status } });
+    } else if (data) {
+      void logAction({ entityType: 'proposal', entityId: id, entityLabel: data.title, action: 'updated' });
     }
 
     return NextResponse.json({ data, error: null });
@@ -89,6 +93,9 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { id } = await params;
 
+    // Fetch entity label before deletion for audit log
+    const { data: proposal } = await getProposalById(id);
+
     const { linkedProjects, error: depError } = await getProposalDependencyCounts(id);
     if (depError) return NextResponse.json({ data: null, error: depError }, { status: 500 });
 
@@ -101,6 +108,8 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { error } = await deleteProposal(id);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+
+    void logAction({ entityType: 'proposal', entityId: id, entityLabel: proposal?.title ?? id, action: 'deleted' });
 
     return NextResponse.json({ data: { id }, error: null });
   } catch (err) {

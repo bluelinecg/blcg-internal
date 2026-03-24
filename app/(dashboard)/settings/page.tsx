@@ -12,12 +12,14 @@ import type { TabItem } from '@/components/ui/Tabs';
 import { BRAND } from '@/lib/constants/brand';
 import { useRole } from '@/lib/auth/use-role';
 import type { WebhookEndpoint, WebhookDelivery, WebhookEventType } from '@/lib/types/webhooks';
+import { ActivityFeed } from '@/components/modules';
 
 const TABS: TabItem[] = [
   { id: 'profile',       label: 'Profile' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'preferences',   label: 'Preferences' },
   { id: 'webhooks',      label: 'Webhooks' },
+  { id: 'activity',      label: 'Activity Log' },
 ];
 
 const TIMEZONE_OPTIONS = [
@@ -39,7 +41,7 @@ export function SettingsPage() {
 
   const tabs = role === 'admin'
     ? TABS
-    : TABS.filter((t) => t.id !== 'webhooks');
+    : TABS.filter((t) => t.id !== 'webhooks' && t.id !== 'activity');
 
   return (
     <PageShell>
@@ -51,6 +53,7 @@ export function SettingsPage() {
       {activeTab === 'notifications' && <NotificationsTab />}
       {activeTab === 'preferences'   && <PreferencesTab />}
       {activeTab === 'webhooks'      && <WebhooksTab />}
+      {activeTab === 'activity'      && <ActivityLogTab />}
     </PageShell>
   );
 }
@@ -603,6 +606,24 @@ interface ToggleSwitchProps {
   onChange: () => void;
 }
 
+// --- Activity Log tab (admin only) ---
+
+function ActivityLogTab() {
+  return (
+    <div className="flex flex-col gap-6">
+      <Card className="p-6">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-900">Global Activity Log</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            All create, update, delete, and status change events across every entity in the system.
+          </p>
+        </div>
+        <ActivityFeed pageSize={25} />
+      </Card>
+    </div>
+  );
+}
+
 function ToggleSwitch({ checked, onChange }: ToggleSwitchProps) {
   return (
     <button
@@ -621,3 +642,4 @@ function ToggleSwitch({ checked, onChange }: ToggleSwitchProps) {
     </button>
   );
 }
+

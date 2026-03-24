@@ -15,6 +15,7 @@ import {
 } from '@/lib/db/projects';
 import { UpdateProjectSchema } from '@/lib/validations/projects';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
+import { logAction } from '@/lib/utils/audit';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -62,6 +63,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
     if (!data) return NextResponse.json({ data: null, error: 'Project not found' }, { status: 404 });
 
+    if (parsed.data.status !== undefined) {
+      void logAction({ entityType: 'project', entityId: id, entityLabel: data.name, action: 'status_changed', metadata: { to: data.status } });
+    } else {
+      void logAction({ entityType: 'project', entityId: id, entityLabel: data.name, action: 'updated' });
+    }
+
     return NextResponse.json({ data, error: null });
   } catch (err) {
     console.error('[PATCH /api/projects/[id]]', err);
@@ -81,6 +88,9 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { id } = await params;
 
+    // Fetch entity label before deletion for audit log
+    const { data: project } = await getProjectById(id);
+
     const { outstandingInvoices, error: depError } = await getProjectDependencyCounts(id);
     if (depError) return NextResponse.json({ data: null, error: depError }, { status: 500 });
 
@@ -96,6 +106,8 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { error } = await deleteProject(id);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+
+    void logAction({ entityType: 'project', entityId: id, entityLabel: project?.name ?? id, action: 'deleted' });
 
     return NextResponse.json({ data: { id }, error: null });
   } catch (err) {

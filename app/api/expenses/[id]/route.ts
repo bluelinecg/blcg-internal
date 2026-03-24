@@ -7,9 +7,10 @@
 
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import { updateExpense, deleteExpense } from '@/lib/db/finances';
+import { getExpenseById, updateExpense, deleteExpense } from '@/lib/db/finances';
 import { UpdateExpenseSchema } from '@/lib/validations/finances';
 import { guardAdmin } from '@/lib/auth/roles';
+import { logAction } from '@/lib/utils/audit';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -37,6 +38,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
     if (!data) return NextResponse.json({ data: null, error: 'Expense not found' }, { status: 404 });
 
+    void logAction({ entityType: 'expense', entityId: id, entityLabel: data.description, action: 'updated' });
+
     return NextResponse.json({ data, error: null });
   } catch (err) {
     console.error('[PATCH /api/expenses/[id]]', err);
@@ -56,8 +59,13 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { id } = await params;
 
+    // Fetch entity label before deletion for audit log
+    const { data: expense } = await getExpenseById(id);
+
     const { error } = await deleteExpense(id);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+
+    void logAction({ entityType: 'expense', entityId: id, entityLabel: expense?.description ?? id, action: 'deleted' });
 
     return NextResponse.json({ data: { id }, error: null });
   } catch (err) {

@@ -10,6 +10,7 @@ import { listClients, createClient } from '@/lib/db/clients';
 import { ClientSchema } from '@/lib/validations/clients';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
+import { logAction } from '@/lib/utils/audit';
 
 // GET /api/clients
 export async function GET(request: Request) {
@@ -53,6 +54,8 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ data: null, error }, { status: 500 });
     }
+
+    if (data) void logAction({ entityType: 'client', entityId: data.id, entityLabel: data.name, action: 'created' });
 
     return NextResponse.json({ data, error: null }, { status: 201 });
   } catch (err) {

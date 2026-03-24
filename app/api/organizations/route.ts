@@ -11,6 +11,7 @@ import { OrganizationSchema } from '@/lib/validations/organizations';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
+import { logAction } from '@/lib/utils/audit';
 
 export async function GET(request: Request) {
   try {
@@ -49,7 +50,10 @@ export async function POST(request: Request) {
     const { data, error } = await createOrganization(parsed.data);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
 
-    if (data) void dispatchWebhookEvent('organization.created', data as unknown as Record<string, unknown>);
+    if (data) {
+      void dispatchWebhookEvent('organization.created', data as unknown as Record<string, unknown>);
+      void logAction({ entityType: 'organization', entityId: data.id, entityLabel: data.name, action: 'created' });
+    }
 
     return NextResponse.json({ data, error: null }, { status: 201 });
   } catch (err) {

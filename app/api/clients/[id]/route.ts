@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { getClientById, updateClient, deleteClient, getClientDependencyCounts } from '@/lib/db/clients';
 import { UpdateClientSchema } from '@/lib/validations/clients';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
+import { logAction } from '@/lib/utils/audit';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -59,6 +60,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
     if (!data) return NextResponse.json({ data: null, error: 'Client not found' }, { status: 404 });
 
+    void logAction({ entityType: 'client', entityId: id, entityLabel: data.name, action: 'updated' });
+
     return NextResponse.json({ data, error: null });
   } catch (err) {
     console.error('[PATCH /api/clients/[id]]', err);
@@ -78,6 +81,9 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     if (guard) return guard;
 
     const { id } = await params;
+
+    // Fetch entity label before deletion for audit log
+    const { data: client } = await getClientById(id);
 
     // Server-side dependency check — never trust the frontend check alone
     const { activeProposals, activeProjects, activeInvoices, error: depError } =
@@ -107,6 +113,8 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     const { error } = await deleteClient(id);
     if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+
+    void logAction({ entityType: 'client', entityId: id, entityLabel: client?.name ?? id, action: 'deleted' });
 
     return NextResponse.json({ data: { id }, error: null });
   } catch (err) {
