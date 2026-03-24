@@ -5,9 +5,9 @@
 // Used by the frontend to populate ConfirmDialog's blockedBy prop before opening.
 // Auth: requires a valid Clerk session.
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getClientDependencyCounts } from '@/lib/db/clients';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -15,18 +15,14 @@ interface RouteContext {
 
 export async function GET(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { id } = await params;
     const { activeProposals, activeProjects, activeInvoices, error } =
       await getClientDependencyCounts(id);
 
-    if (error) {
-      return NextResponse.json({ data: null, error }, { status: 500 });
-    }
+    if (error) return apiError(error, 500);
 
     const blockers: string[] = [];
     if (activeProposals > 0) {
@@ -45,9 +41,9 @@ export async function GET(_request: Request, { params }: RouteContext) {
       );
     }
 
-    return NextResponse.json({ data: blockers, error: null });
+    return apiOk(blockers);
   } catch (err) {
     console.error('[GET /api/clients/[id]/blockers]', err);
-    return NextResponse.json({ data: null, error: 'Failed to check dependencies' }, { status: 500 });
+    return apiError('Failed to check dependencies', 500);
   }
 }

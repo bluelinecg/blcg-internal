@@ -4,7 +4,6 @@
  * Message bodies are not included — fetch /api/emails/[id] for full thread content.
  */
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import {
   ACCOUNT_KEYS,
@@ -12,13 +11,14 @@ import {
   threadFromGmailMetadata,
 } from '@/lib/integrations/gmail';
 import type { EmailThread } from '@/lib/types/emails';
+import { requireAuth, apiError } from '@/lib/api/utils';
 
 const THREADS_PER_ACCOUNT = 20;
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const results = await Promise.all(
       ACCOUNT_KEYS.map(async (accountKey) => {
@@ -60,6 +60,6 @@ export async function GET(): Promise<NextResponse> {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to fetch emails';
     console.error('[GET /api/emails]', err);
-    return NextResponse.json({ data: null, error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }

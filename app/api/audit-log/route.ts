@@ -13,12 +13,12 @@
 //       Global log (no entityId filter) requires admin role.
 // Response shape: { data: AuditLog[] | null, total: number | null, error: string | null }
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { listLogs, listLogsForEntity } from '@/lib/db/audit-log';
 import { guardAdmin } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 import type { AuditEntityType } from '@/lib/types/audit-log';
+import { requireAuth, apiError } from '@/lib/api/utils';
 
 const VALID_ENTITY_TYPES: AuditEntityType[] = [
   'client', 'contact', 'organization', 'proposal',
@@ -27,10 +27,8 @@ const VALID_ENTITY_TYPES: AuditEntityType[] = [
 
 export async function GET(request: Request) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, total: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const url = new URL(request.url);
     const entityType = url.searchParams.get('entityType');
@@ -40,10 +38,7 @@ export async function GET(request: Request) {
     // Entity-scoped request — any authenticated user
     if (entityType && entityId) {
       if (!VALID_ENTITY_TYPES.includes(entityType as AuditEntityType)) {
-        return NextResponse.json(
-          { data: null, total: null, error: `Invalid entityType: ${entityType}` },
-          { status: 400 },
-        );
+        return apiError(`Invalid entityType: ${entityType}`, 400);
       }
 
       const { data, total, error } = await listLogsForEntity(
@@ -51,7 +46,7 @@ export async function GET(request: Request) {
         entityId,
         options,
       );
-      if (error) return NextResponse.json({ data: null, total: null, error }, { status: 500 });
+      if (error) return apiError(error, 500);
       return NextResponse.json({ data, total, error: null });
     }
 
@@ -60,11 +55,11 @@ export async function GET(request: Request) {
     if (guard) return guard;
 
     const { data, total, error } = await listLogs(options);
-    if (error) return NextResponse.json({ data: null, total: null, error }, { status: 500 });
+    if (error) return apiError(error, 500);
 
     return NextResponse.json({ data, total, error: null });
   } catch (err) {
     console.error('[GET /api/audit-log]', err);
-    return NextResponse.json({ data: null, total: null, error: 'Failed to load audit log' }, { status: 500 });
+    return apiError('Failed to load audit log', 500);
   }
 }

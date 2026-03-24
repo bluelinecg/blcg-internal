@@ -8,7 +8,8 @@
 //   initial   — pre-filled values for edit mode (omit for create)
 //   projects  — list of projects for the optional project selector
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useFormState } from '@/lib/hooks/use-form-state';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
 import type { Expense, ExpenseCategory } from '@/lib/types/finances';
@@ -51,20 +52,11 @@ function makeDefaults(): ExpenseFormData {
 }
 
 export function ExpenseFormModal({ isOpen, onClose, onSave, initial, projects, isSaving, saveError }: ExpenseFormModalProps) {
-  const [form, setForm] = useState<ExpenseFormData>({ ...makeDefaults(), ...initial });
-  const [errors, setErrors] = useState<Partial<Record<keyof ExpenseFormData, string>>>({});
+  const { form, errors, setField, reset, setErrors } = useFormState(makeDefaults(), initial);
 
   useEffect(() => {
-    if (isOpen) {
-      setForm({ ...makeDefaults(), ...initial });
-      setErrors({});
-    }
+    if (isOpen) reset(makeDefaults(), initial);
   }, [isOpen, initial]);
-
-  function set<K extends keyof ExpenseFormData>(key: K, value: ExpenseFormData[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: undefined }));
-  }
 
   function validate(): boolean {
     const next: typeof errors = {};
@@ -97,7 +89,7 @@ export function ExpenseFormModal({ isOpen, onClose, onSave, initial, projects, i
         <Input
           label="Description"
           value={form.description}
-          onChange={(e) => set('description', e.target.value)}
+          onChange={(e) => setField('description', e.target.value)}
           placeholder="e.g. Figma Professional — Monthly"
           error={errors.description}
         />
@@ -106,13 +98,13 @@ export function ExpenseFormModal({ isOpen, onClose, onSave, initial, projects, i
             label="Category"
             options={CATEGORY_OPTIONS}
             value={form.category}
-            onChange={(e) => set('category', e.target.value as ExpenseCategory)}
+            onChange={(e) => setField('category', e.target.value as ExpenseCategory)}
           />
           <Input
             label="Amount ($)"
             type="number"
             value={form.amount.toString()}
-            onChange={(e) => set('amount', parseFloat(e.target.value) || 0)}
+            onChange={(e) => setField('amount', parseFloat(e.target.value) || 0)}
             error={errors.amount}
           />
         </div>
@@ -120,26 +112,26 @@ export function ExpenseFormModal({ isOpen, onClose, onSave, initial, projects, i
           <Input
             label="Vendor (optional)"
             value={form.vendor ?? ''}
-            onChange={(e) => set('vendor', e.target.value || undefined)}
+            onChange={(e) => setField('vendor', e.target.value || undefined)}
             placeholder="e.g. Figma"
           />
           <Input
             label="Date"
             type="date"
             value={form.date ? form.date.split('T')[0] : ''}
-            onChange={(e) => set('date', e.target.value ? `${e.target.value}T00:00:00Z` : '')}
+            onChange={(e) => setField('date', e.target.value ? `${e.target.value}T00:00:00Z` : '')}
           />
         </div>
         <Select
           label="Project (optional)"
           options={projectOptions}
           value={form.projectId ?? ''}
-          onChange={(e) => set('projectId', e.target.value || undefined)}
+          onChange={(e) => setField('projectId', e.target.value || undefined)}
         />
         <Textarea
           label="Notes (optional)"
           value={form.notes ?? ''}
-          onChange={(e) => set('notes', e.target.value || undefined)}
+          onChange={(e) => setField('notes', e.target.value || undefined)}
           rows={2}
         />
         <div className="flex justify-end gap-3 pt-2">

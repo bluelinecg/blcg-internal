@@ -12,7 +12,8 @@
 //   isSaving    — shows loading state on submit button
 //   saveError   — displays an API error below the form
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useFormState } from '@/lib/hooks/use-form-state';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
 import type { PipelineStage } from '@/lib/types/pipelines';
@@ -54,34 +55,22 @@ export function PipelineItemFormModal({
   isSaving,
   saveError,
 }: PipelineItemFormModalProps) {
-  const [form, setForm] = useState<PipelineItemFormData>({
-    stageId:   initial?.stageId   ?? defaultStageId ?? stages[0]?.id ?? '',
-    title:     initial?.title     ?? '',
-    value:     initial?.value     ?? '',
-    contactId: initial?.contactId ?? '',
-    clientId:  initial?.clientId  ?? '',
-    notes:     initial?.notes     ?? '',
-  });
-  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  function makeDefaults(): PipelineItemFormData {
+    return {
+      stageId:   defaultStageId ?? stages[0]?.id ?? '',
+      title:     '',
+      value:     '',
+      contactId: '',
+      clientId:  '',
+      notes:     '',
+    };
+  }
+
+  const { form, errors, setField, reset, setErrors } = useFormState(makeDefaults(), initial);
 
   useEffect(() => {
-    if (isOpen) {
-      setForm({
-        stageId:   initial?.stageId   ?? defaultStageId ?? stages[0]?.id ?? '',
-        title:     initial?.title     ?? '',
-        value:     initial?.value     ?? '',
-        contactId: initial?.contactId ?? '',
-        clientId:  initial?.clientId  ?? '',
-        notes:     initial?.notes     ?? '',
-      });
-      setErrors({});
-    }
+    if (isOpen) reset(makeDefaults(), initial);
   }, [isOpen, initial, defaultStageId, stages]);
-
-  function setField(key: keyof PipelineItemFormData, value: string) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: undefined }));
-  }
 
   function handleSubmit() {
     const next: typeof errors = {};

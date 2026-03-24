@@ -4,10 +4,11 @@
 // Auth: requires 'owner' or 'admin' role.
 // Guard: cannot remove yourself; cannot remove the last owner.
 
-import { auth, clerkClient, currentUser } from '@clerk/nextjs/server';
+import { clerkClient, currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import type { UserRole } from '@/lib/types/users';
 import { UpdateRoleSchema } from '@/lib/validations/users';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 const ALLOWED_ROLES: UserRole[] = ['owner', 'admin'];
 
@@ -17,15 +18,13 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const caller = await currentUser();
     const callerRole = caller?.publicMetadata?.role as UserRole | undefined;
     if (!callerRole || !ALLOWED_ROLES.includes(callerRole)) {
-      return NextResponse.json({ data: null, error: 'Forbidden' }, { status: 403 });
+      return apiError('Forbidden', 403);
     }
 
     const { id } = await params;
@@ -33,7 +32,7 @@ export async function PATCH(
     const parsed = UpdateRoleSchema.safeParse(await request.json());
     if (!parsed.success) {
       const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
-      return NextResponse.json({ data: null, error }, { status: 400 });
+      return apiError(error, 400);
     }
 
     const { role } = parsed.data;
@@ -41,10 +40,10 @@ export async function PATCH(
     const client = await clerkClient();
     await client.users.updateUser(id, { publicMetadata: { role } });
 
-    return NextResponse.json({ data: { id, role }, error: null });
+    return apiOk({ id, role });
   } catch (error) {
     console.error('[PATCH /api/users/[id]]', error);
-    return NextResponse.json({ data: null, error: 'Failed to update role' }, { status: 500 });
+    return apiError('Failed to update role', 500);
   }
 }
 
@@ -54,25 +53,21 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const caller = await currentUser();
     const callerRole = caller?.publicMetadata?.role as UserRole | undefined;
     if (!callerRole || !ALLOWED_ROLES.includes(callerRole)) {
-      return NextResponse.json({ data: null, error: 'Forbidden' }, { status: 403 });
+      return apiError('Forbidden', 403);
     }
 
     const { id } = await params;
 
     // Prevent self-removal
     if (id === userId) {
-      return NextResponse.json(
-        { data: null, error: 'You cannot remove your own account' },
-        { status: 400 },
-      );
+      return apiError('You cannot remove your own account', 400);
     }
 
     // Prevent removing the last owner
@@ -86,17 +81,14 @@ export async function DELETE(
         (u) => (u.publicMetadata?.role as UserRole) === 'owner',
       ).length;
       if (ownerCount <= 1) {
-        return NextResponse.json(
-          { data: null, error: 'Cannot remove the last owner' },
-          { status: 400 },
-        );
+        return apiError('Cannot remove the last owner', 400);
       }
     }
 
     await client.users.deleteUser(id);
-    return NextResponse.json({ data: { id }, error: null });
+    return apiOk({ id });
   } catch (error) {
     console.error('[DELETE /api/users/[id]]', error);
-    return NextResponse.json({ data: null, error: 'Failed to remove user' }, { status: 500 });
+    return apiError('Failed to remove user', 500);
   }
 }

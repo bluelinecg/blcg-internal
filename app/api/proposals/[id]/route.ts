@@ -5,7 +5,6 @@
 // Auth: requires a valid Clerk session.
 // Response shape: { data: T | null, error: string | null }
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import {
   getProposalById,
@@ -17,6 +16,7 @@ import { UpdateProposalSchema } from '@/lib/validations/proposals';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
 import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
 import { logAction } from '@/lib/utils/audit';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -25,31 +25,27 @@ interface RouteContext {
 // GET /api/proposals/[id]
 export async function GET(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { id } = await params;
     const { data, error } = await getProposalById(id);
 
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Proposal not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Proposal not found', 404);
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[GET /api/proposals/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to load proposal' }, { status: 500 });
+    return apiError('Failed to load proposal', 500);
   }
 }
 
 // PATCH /api/proposals/[id]
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -59,12 +55,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const parsed = UpdateProposalSchema.safeParse(await request.json());
     if (!parsed.success) {
       const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
-      return NextResponse.json({ data: null, error }, { status: 400 });
+      return apiError(error, 400);
     }
 
     const { data, error } = await updateProposal(id, parsed.data);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Proposal not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Proposal not found', 404);
 
     if (data && parsed.data.status !== undefined) {
       void dispatchWebhookEvent('proposal.status_changed', data as unknown as Record<string, unknown>);
@@ -73,20 +69,18 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       void logAction({ entityType: 'proposal', entityId: id, entityLabel: data.title, action: 'updated' });
     }
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[PATCH /api/proposals/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to update proposal' }, { status: 500 });
+    return apiError('Failed to update proposal', 500);
   }
 }
 
 // DELETE /api/proposals/[id]
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -97,23 +91,20 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { data: proposal } = await getProposalById(id);
 
     const { linkedProjects, error: depError } = await getProposalDependencyCounts(id);
-    if (depError) return NextResponse.json({ data: null, error: depError }, { status: 500 });
+    if (depError) return apiError(depError, 500);
 
     if (linkedProjects > 0) {
-      return NextResponse.json(
-        { data: null, error: `Cannot delete proposal: linked to ${linkedProjects} project${linkedProjects > 1 ? 's' : ''}` },
-        { status: 409 },
-      );
+      return apiError(`Cannot delete proposal: linked to ${linkedProjects} project${linkedProjects > 1 ? 's' : ''}`, 409);
     }
 
     const { error } = await deleteProposal(id);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+    if (error) return apiError(error, 500);
 
     void logAction({ entityType: 'proposal', entityId: id, entityLabel: proposal?.title ?? id, action: 'deleted' });
 
-    return NextResponse.json({ data: { id }, error: null });
+    return apiOk({ id });
   } catch (err) {
     console.error('[DELETE /api/proposals/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to delete proposal' }, { status: 500 });
+    return apiError('Failed to delete proposal', 500);
   }
 }

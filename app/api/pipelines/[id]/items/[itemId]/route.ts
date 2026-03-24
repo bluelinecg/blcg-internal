@@ -5,11 +5,11 @@
 // Auth: requires a valid Clerk session.
 // Response shape: { data: T | null, error: string | null }
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getItemById, updateItem, deleteItem } from '@/lib/db/pipelines';
 import { UpdatePipelineItemSchema } from '@/lib/validations/pipelines';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
   params: Promise<{ id: string; itemId: string }>;
@@ -17,26 +17,26 @@ interface RouteContext {
 
 export async function GET(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { itemId } = await params;
     const { data, error } = await getItemById(itemId);
 
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Item not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Item not found', 404);
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[GET /api/pipelines/[id]/items/[itemId]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to load item' }, { status: 500 });
+    return apiError('Failed to load item', 500);
   }
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -46,24 +46,24 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const parsed = UpdatePipelineItemSchema.safeParse(await request.json());
     if (!parsed.success) {
       const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
-      return NextResponse.json({ data: null, error }, { status: 400 });
+      return apiError(error, 400);
     }
 
     const { data, error } = await updateItem(itemId, parsed.data);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Item not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Item not found', 404);
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[PATCH /api/pipelines/[id]/items/[itemId]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to update item' }, { status: 500 });
+    return apiError('Failed to update item', 500);
   }
 }
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -71,11 +71,11 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { itemId } = await params;
 
     const { error } = await deleteItem(itemId);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+    if (error) return apiError(error, 500);
 
-    return NextResponse.json({ data: { id: itemId }, error: null });
+    return apiOk({ id: itemId });
   } catch (err) {
     console.error('[DELETE /api/pipelines/[id]/items/[itemId]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to delete item' }, { status: 500 });
+    return apiError('Failed to delete item', 500);
   }
 }

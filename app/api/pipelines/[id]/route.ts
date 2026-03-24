@@ -5,11 +5,11 @@
 // Auth: requires a valid Clerk session.
 // Response shape: { data: T | null, error: string | null }
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getPipelineById, updatePipeline, deletePipeline, getPipelineItemCount } from '@/lib/db/pipelines';
 import { UpdatePipelineSchema } from '@/lib/validations/pipelines';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -17,26 +17,26 @@ interface RouteContext {
 
 export async function GET(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { id } = await params;
     const { data, error } = await getPipelineById(id);
 
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Pipeline not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Pipeline not found', 404);
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[GET /api/pipelines/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to load pipeline' }, { status: 500 });
+    return apiError('Failed to load pipeline', 500);
   }
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -46,24 +46,24 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const parsed = UpdatePipelineSchema.safeParse(await request.json());
     if (!parsed.success) {
       const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
-      return NextResponse.json({ data: null, error }, { status: 400 });
+      return apiError(error, 400);
     }
 
     const { data, error } = await updatePipeline(id, parsed.data);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Pipeline not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Pipeline not found', 404);
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[PATCH /api/pipelines/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to update pipeline' }, { status: 500 });
+    return apiError('Failed to update pipeline', 500);
   }
 }
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -71,21 +71,18 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { id } = await params;
 
     const { count, error: countErr } = await getPipelineItemCount(id);
-    if (countErr) return NextResponse.json({ data: null, error: countErr }, { status: 500 });
+    if (countErr) return apiError(countErr, 500);
 
     if (count > 0) {
-      return NextResponse.json(
-        { data: null, error: `Cannot delete pipeline: ${count} item${count > 1 ? 's' : ''} exist (move or delete them first)` },
-        { status: 409 },
-      );
+      return apiError(`Cannot delete pipeline: ${count} item${count > 1 ? 's' : ''} exist (move or delete them first)`, 409);
     }
 
     const { error } = await deletePipeline(id);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+    if (error) return apiError(error, 500);
 
-    return NextResponse.json({ data: { id }, error: null });
+    return apiOk({ id });
   } catch (err) {
     console.error('[DELETE /api/pipelines/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to delete pipeline' }, { status: 500 });
+    return apiError('Failed to delete pipeline', 500);
   }
 }

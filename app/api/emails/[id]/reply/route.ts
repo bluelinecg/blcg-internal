@@ -6,11 +6,11 @@
  * The reply is sent from the account that owns the thread.
  */
 
-import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { guardMember } from '@/lib/auth/roles';
 import { getGmailClient, decodeThreadId } from '@/lib/integrations/gmail';
 import { z } from 'zod';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 const ReplySchema = z.object({
   body: z.string().min(1, 'Reply body is required'),
@@ -22,8 +22,8 @@ interface RouteParams {
 
 export async function POST(req: NextRequest, { params }: RouteParams): Promise<NextResponse> {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
     const json = await req.json() as unknown;
     const parsed = ReplySchema.safeParse(json);
     if (!parsed.success) {
-      return NextResponse.json({ data: null, error: parsed.error.issues[0].message }, { status: 400 });
+      return apiError(parsed.error.issues[0].message, 400);
     }
 
     // Fetch the thread to get the last message's headers for threading
@@ -80,10 +80,10 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
       requestBody: { raw, threadId: gmailThreadId },
     });
 
-    return NextResponse.json({ data: { threadId: id }, error: null });
+    return apiOk({ threadId: id });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to send reply';
     console.error('[POST /api/emails/[id]/reply]', err);
-    return NextResponse.json({ data: null, error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }

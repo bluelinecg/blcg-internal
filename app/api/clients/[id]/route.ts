@@ -5,12 +5,12 @@
 // Auth: requires a valid Clerk session on all methods.
 // Response shape: { data: T | null, error: string | null }
 
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getClientById, updateClient, deleteClient, getClientDependencyCounts } from '@/lib/db/clients';
 import { UpdateClientSchema } from '@/lib/validations/clients';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
 import { logAction } from '@/lib/utils/audit';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -19,31 +19,27 @@ interface RouteContext {
 // GET /api/clients/[id]
 export async function GET(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { id } = await params;
     const { data, error } = await getClientById(id);
 
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Client not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Client not found', 404);
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[GET /api/clients/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to load client' }, { status: 500 });
+    return apiError('Failed to load client', 500);
   }
 }
 
 // PATCH /api/clients/[id]
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -53,29 +49,27 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const parsed = UpdateClientSchema.safeParse(await request.json());
     if (!parsed.success) {
       const error = parsed.error.issues[0]?.message ?? 'Invalid request body';
-      return NextResponse.json({ data: null, error }, { status: 400 });
+      return apiError(error, 400);
     }
 
     const { data, error } = await updateClient(id, parsed.data);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
-    if (!data) return NextResponse.json({ data: null, error: 'Client not found' }, { status: 404 });
+    if (error) return apiError(error, 500);
+    if (!data) return apiError('Client not found', 404);
 
     void logAction({ entityType: 'client', entityId: id, entityLabel: data.name, action: 'updated' });
 
-    return NextResponse.json({ data, error: null });
+    return apiOk(data);
   } catch (err) {
     console.error('[PATCH /api/clients/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to update client' }, { status: 500 });
+    return apiError('Failed to update client', 500);
   }
 }
 
 // DELETE /api/clients/[id]
 export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ data: null, error: 'Unauthorised' }, { status: 401 });
-    }
+    const authResult = await requireAuth();
+    if (authResult instanceof NextResponse) return authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -89,9 +83,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { activeProposals, activeProjects, activeInvoices, error: depError } =
       await getClientDependencyCounts(id);
 
-    if (depError) {
-      return NextResponse.json({ data: null, error: depError }, { status: 500 });
-    }
+    if (depError) return apiError(depError, 500);
 
     const blockers: string[] = [];
     if (activeProposals > 0) {
@@ -105,20 +97,17 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     }
 
     if (blockers.length > 0) {
-      return NextResponse.json(
-        { data: null, error: `Cannot delete client: ${blockers.join(', ')}` },
-        { status: 409 },
-      );
+      return apiError(`Cannot delete client: ${blockers.join(', ')}`, 409);
     }
 
     const { error } = await deleteClient(id);
-    if (error) return NextResponse.json({ data: null, error }, { status: 500 });
+    if (error) return apiError(error, 500);
 
     void logAction({ entityType: 'client', entityId: id, entityLabel: client?.name ?? id, action: 'deleted' });
 
-    return NextResponse.json({ data: { id }, error: null });
+    return apiOk({ id });
   } catch (err) {
     console.error('[DELETE /api/clients/[id]]', err);
-    return NextResponse.json({ data: null, error: 'Failed to delete client' }, { status: 500 });
+    return apiError('Failed to delete client', 500);
   }
 }

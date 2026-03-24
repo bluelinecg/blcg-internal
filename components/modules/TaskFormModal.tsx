@@ -12,6 +12,7 @@
 //   saveError    — inline error message shown above the action buttons
 
 import { useState, useEffect } from 'react';
+import { useFormState } from '@/lib/hooks/use-form-state';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
 import type { Task, TaskStatus, TaskPriority, TaskRecurrence, ChecklistItem } from '@/lib/types/tasks';
@@ -75,23 +76,16 @@ const DEFAULTS: TaskFormData = {
 export function TaskFormModal({
   isOpen, onClose, onSave, initial, projects, allTasks = [], isSaving, saveError,
 }: TaskFormModalProps) {
-  const [form, setForm]           = useState<TaskFormData>({ ...DEFAULTS, ...initial });
-  const [errors, setErrors]       = useState<Partial<Record<keyof TaskFormData, string>>>({});
+  const { form, errors, setField, reset, setErrors } = useFormState(DEFAULTS, initial);
   const [checklistInput, setChecklistInput] = useState('');
 
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
-      setForm({ ...DEFAULTS, ...initial });
-      setErrors({});
+      reset(DEFAULTS, initial);
       setChecklistInput('');
     }
   }, [isOpen, initial]);
-
-  function set<K extends keyof TaskFormData>(key: K, value: TaskFormData[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: undefined }));
-  }
 
   function validate(): boolean {
     const next: typeof errors = {};
@@ -111,19 +105,19 @@ export function TaskFormModal({
     const text = checklistInput.trim();
     if (!text) return;
     const item: ChecklistItem = { id: crypto.randomUUID(), text, completed: false };
-    set('checklist', [...form.checklist, item]);
+    setField('checklist', [...form.checklist, item]);
     setChecklistInput('');
   }
 
   function removeChecklistItem(id: string) {
-    set('checklist', form.checklist.filter((i) => i.id !== id));
+    setField('checklist', form.checklist.filter((i) => i.id !== id));
   }
 
   // --- Blocked-by helpers ---
 
   function toggleBlockedBy(taskId: string) {
     const current = form.blockedBy;
-    set('blockedBy', current.includes(taskId)
+    setField('blockedBy', current.includes(taskId)
       ? current.filter((id) => id !== taskId)
       : [...current, taskId],
     );
@@ -146,14 +140,14 @@ export function TaskFormModal({
         <Input
           label="Title"
           value={form.title}
-          onChange={(e) => set('title', e.target.value)}
+          onChange={(e) => setField('title', e.target.value)}
           placeholder="Describe the task..."
           error={errors.title}
         />
         <Textarea
           label="Description (optional)"
           value={form.description ?? ''}
-          onChange={(e) => set('description', e.target.value)}
+          onChange={(e) => setField('description', e.target.value)}
           placeholder="Additional context or acceptance criteria..."
           rows={3}
         />
@@ -162,13 +156,13 @@ export function TaskFormModal({
             label="Status"
             options={STATUS_OPTIONS}
             value={form.status}
-            onChange={(e) => set('status', e.target.value as TaskStatus)}
+            onChange={(e) => setField('status', e.target.value as TaskStatus)}
           />
           <Select
             label="Priority"
             options={PRIORITY_OPTIONS}
             value={form.priority}
-            onChange={(e) => set('priority', e.target.value as TaskPriority)}
+            onChange={(e) => setField('priority', e.target.value as TaskPriority)}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -176,13 +170,13 @@ export function TaskFormModal({
             label="Project"
             options={projectOptions}
             value={form.projectId ?? ''}
-            onChange={(e) => set('projectId', e.target.value)}
+            onChange={(e) => setField('projectId', e.target.value)}
           />
           <Select
             label="Assignee"
             options={ASSIGNEE_OPTIONS}
             value={form.assignee ?? ''}
-            onChange={(e) => set('assignee', e.target.value)}
+            onChange={(e) => setField('assignee', e.target.value)}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -190,13 +184,13 @@ export function TaskFormModal({
             label="Due Date (optional)"
             type="date"
             value={form.dueDate ? form.dueDate.split('T')[0] : ''}
-            onChange={(e) => set('dueDate', e.target.value ? `${e.target.value}T00:00:00Z` : undefined)}
+            onChange={(e) => setField('dueDate', e.target.value ? `${e.target.value}T00:00:00Z` : undefined)}
           />
           <Select
             label="Recurrence"
             options={RECURRENCE_OPTIONS}
             value={form.recurrence}
-            onChange={(e) => set('recurrence', e.target.value as TaskRecurrence)}
+            onChange={(e) => setField('recurrence', e.target.value as TaskRecurrence)}
           />
         </div>
 

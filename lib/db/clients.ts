@@ -8,26 +8,14 @@
 
 import { serverClient } from '@/lib/db/supabase';
 import type { Client, ClientStatus } from '@/lib/types/clients';
-import type { Organization } from '@/lib/types/crm';
 import type { ClientInput, UpdateClientInput } from '@/lib/validations/clients';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
+import { type OrganizationJoinRow, orgFromJoinRow } from '@/lib/db/crm-joins';
 
 // ---------------------------------------------------------------------------
 // Row type (mirrors DB columns)
 // ---------------------------------------------------------------------------
-
-interface OrganizationJoinRow {
-  id: string;
-  name: string;
-  website: string | null;
-  phone: string | null;
-  industry: string | null;
-  address: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 interface ClientRow {
   id: string;
@@ -51,20 +39,6 @@ interface ClientRow {
 // ---------------------------------------------------------------------------
 // Mapping helpers
 // ---------------------------------------------------------------------------
-
-function orgFromJoinRow(row: OrganizationJoinRow): Organization {
-  return {
-    id: row.id,
-    name: row.name,
-    website: row.website ?? undefined,
-    phone: row.phone ?? undefined,
-    industry: row.industry ?? undefined,
-    address: row.address ?? undefined,
-    notes: row.notes ?? undefined,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
 
 function fromRow(row: ClientRow): Client {
   return {
