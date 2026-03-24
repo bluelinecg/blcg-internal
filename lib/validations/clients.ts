@@ -11,9 +11,10 @@ export const ClientSchema = z.object({
   industry:     z.string().optional(),
   address:      z.string().optional(),
   website:      z.string().url('Enter a valid URL').optional().or(z.literal('')),
-  referredBy:   z.string().optional(),
-  status:       ClientStatusSchema,
-  notes:        z.string().optional(),
+  referredBy:     z.string().optional(),
+  status:         ClientStatusSchema,
+  notes:          z.string().optional(),
+  organizationId: z.string().uuid().optional(),
 });
 
 export const UpdateClientSchema = ClientSchema.partial();

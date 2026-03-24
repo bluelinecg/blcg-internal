@@ -6,6 +6,7 @@ import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { ClientForm } from '@/components/modules';
 import { getClientById } from '@/lib/db/clients';
+import { listOrganizations } from '@/lib/db/organizations';
 
 interface EditClientPageProps {
   params: Promise<{ id: string }>;
@@ -13,7 +14,11 @@ interface EditClientPageProps {
 
 export default async function EditClientPage({ params }: EditClientPageProps) {
   const { id } = await params;
-  const { data: client, error } = await getClientById(id);
+
+  const [{ data: client, error }, { data: organizations }] = await Promise.all([
+    getClientById(id),
+    listOrganizations({ pageSize: 100 }),
+  ]);
 
   if (error) throw new Error(error);
   if (!client) notFound();
@@ -30,7 +35,7 @@ export default async function EditClientPage({ params }: EditClientPageProps) {
         title="Edit Client"
         subtitle={`Updating details for ${client.name}.`}
       />
-      <ClientForm client={client} />
+      <ClientForm client={client} organizations={organizations ?? []} />
     </PageShell>
   );
 }

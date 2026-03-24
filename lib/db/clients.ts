@@ -8,6 +8,7 @@
 
 import { serverClient } from '@/lib/db/supabase';
 import type { Client, ClientStatus } from '@/lib/types/clients';
+import type { Organization } from '@/lib/types/crm';
 import type { ClientInput, UpdateClientInput } from '@/lib/validations/clients';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
@@ -15,6 +16,18 @@ import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
 // ---------------------------------------------------------------------------
 // Row type (mirrors DB columns)
 // ---------------------------------------------------------------------------
+
+interface OrganizationJoinRow {
+  id: string;
+  name: string;
+  website: string | null;
+  phone: string | null;
+  industry: string | null;
+  address: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 interface ClientRow {
   id: string;
@@ -29,6 +42,8 @@ interface ClientRow {
   referred_by: string | null;
   status: ClientStatus;
   notes: string | null;
+  organization_id: string | null;
+  organizations?: OrganizationJoinRow | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +51,20 @@ interface ClientRow {
 // ---------------------------------------------------------------------------
 // Mapping helpers
 // ---------------------------------------------------------------------------
+
+function orgFromJoinRow(row: OrganizationJoinRow): Organization {
+  return {
+    id: row.id,
+    name: row.name,
+    website: row.website ?? undefined,
+    phone: row.phone ?? undefined,
+    industry: row.industry ?? undefined,
+    address: row.address ?? undefined,
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
 function fromRow(row: ClientRow): Client {
   return {
@@ -51,12 +80,14 @@ function fromRow(row: ClientRow): Client {
     referredBy: row.referred_by ?? undefined,
     status: row.status,
     notes: row.notes ?? undefined,
+    organizationId: row.organization_id ?? undefined,
+    organization: row.organizations ? orgFromJoinRow(row.organizations) : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-function toInsert(data: ClientInput): Omit<ClientRow, 'id' | 'created_at' | 'updated_at'> {
+function toInsert(data: ClientInput): Omit<ClientRow, 'id' | 'created_at' | 'updated_at' | 'organizations'> {
   return {
     name: data.name,
     contact_name: data.contactName,
@@ -69,11 +100,12 @@ function toInsert(data: ClientInput): Omit<ClientRow, 'id' | 'created_at' | 'upd
     referred_by: data.referredBy ?? null,
     status: data.status,
     notes: data.notes ?? null,
+    organization_id: data.organizationId ?? null,
   };
 }
 
-function toUpdate(data: UpdateClientInput): Partial<Omit<ClientRow, 'id' | 'created_at' | 'updated_at'>> {
-  const row: Partial<Omit<ClientRow, 'id' | 'created_at' | 'updated_at'>> = {};
+function toUpdate(data: UpdateClientInput): Partial<Omit<ClientRow, 'id' | 'created_at' | 'updated_at' | 'organizations'>> {
+  const row: Partial<Omit<ClientRow, 'id' | 'created_at' | 'updated_at' | 'organizations'>> = {};
   if (data.name !== undefined) row.name = data.name;
   if (data.contactName !== undefined) row.contact_name = data.contactName;
   if (data.contactTitle !== undefined) row.contact_title = data.contactTitle ?? null;
@@ -85,6 +117,7 @@ function toUpdate(data: UpdateClientInput): Partial<Omit<ClientRow, 'id' | 'crea
   if (data.referredBy !== undefined) row.referred_by = data.referredBy ?? null;
   if (data.status !== undefined) row.status = data.status;
   if (data.notes !== undefined) row.notes = data.notes ?? null;
+  if (data.organizationId !== undefined) row.organization_id = data.organizationId ?? null;
   return row;
 }
 
@@ -101,7 +134,7 @@ export async function listClients(options?: ListOptions): Promise<PaginatedResul
 
     const { data, count, error } = await serverClient()
       .from('clients')
-      .select('*', { count: 'exact' })
+      .select('*, organizations(*)', { count: 'exact' })
       .order(sort, { ascending: order !== 'desc' })
       .range(from, to);
 
@@ -118,7 +151,7 @@ export async function getClientById(id: string): Promise<{ data: Client | null; 
   try {
     const { data, error } = await serverClient()
       .from('clients')
-      .select('*')
+      .select('*, organizations(*)')
       .eq('id', id)
       .single();
 
@@ -139,7 +172,7 @@ export async function createClient(input: ClientInput): Promise<{ data: Client |
     const { data, error } = await serverClient()
       .from('clients')
       .insert(toInsert(input))
-      .select('*')
+      .select('*, organizations(*)')
       .single();
 
     if (error) return { data: null, error: error.message };
@@ -165,7 +198,7 @@ export async function updateClient(
       .from('clients')
       .update(patch)
       .eq('id', id)
-      .select('*')
+      .select('*, organizations(*)')
       .single();
 
     if (error) return { data: null, error: error.message };

@@ -34,6 +34,7 @@ export const ProposalSchema = z.object({
   notes:                       z.string().optional(),
   sentAt:                      z.string().datetime({ offset: true }).optional(),
   expiresAt:                   z.string().datetime({ offset: true }).optional(),
+  contactId:                   z.string().uuid().optional(),
 });
 
 export const UpdateProposalSchema = ProposalSchema.partial();
