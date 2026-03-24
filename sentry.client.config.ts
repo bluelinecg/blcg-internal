@@ -30,7 +30,7 @@ Sentry.init({
   // Prevents accidental capture of tokens, passwords, or PII (OWASP A02 / A09).
   beforeSend(event) {
     if (event.request?.cookies) {
-      event.request.cookies = '[Filtered]';
+      delete event.request.cookies;
     }
     return event;
   },

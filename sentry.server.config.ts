@@ -15,7 +15,7 @@ Sentry.init({
   // Scrub cookies and auth headers before sending to Sentry (OWASP A02 / A09).
   beforeSend(event) {
     if (event.request?.cookies) {
-      event.request.cookies = '[Filtered]';
+      delete event.request.cookies;
     }
     if (event.request?.headers?.authorization) {
       event.request.headers.authorization = '[Filtered]';
