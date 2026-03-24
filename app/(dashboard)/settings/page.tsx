@@ -4,17 +4,20 @@
 // Profile section is mostly informational (real values will come from Clerk user object).
 // All form values are local state (mock) — wire to Clerk/Supabase when ready.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Tabs, Card, Button, Input, Select, Textarea } from '@/components/ui';
+import { Tabs, Card, Button, Input, Select, Textarea, Badge, ConfirmDialog, Spinner } from '@/components/ui';
 import type { TabItem } from '@/components/ui/Tabs';
 import { BRAND } from '@/lib/constants/brand';
+import { useRole } from '@/lib/auth/use-role';
+import type { WebhookEndpoint, WebhookDelivery, WebhookEventType } from '@/lib/types/webhooks';
 
 const TABS: TabItem[] = [
   { id: 'profile',       label: 'Profile' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'preferences',   label: 'Preferences' },
+  { id: 'webhooks',      label: 'Webhooks' },
 ];
 
 const TIMEZONE_OPTIONS = [
@@ -32,16 +35,22 @@ const DATE_FORMAT_OPTIONS = [
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
+  const role = useRole();
+
+  const tabs = role === 'admin'
+    ? TABS
+    : TABS.filter((t) => t.id !== 'webhooks');
 
   return (
     <PageShell>
       <PageHeader title="Settings" subtitle="Manage your account and application preferences" />
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} className="mb-6" />
+      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} className="mb-6" />
 
       {activeTab === 'profile'       && <ProfileTab />}
       {activeTab === 'notifications' && <NotificationsTab />}
       {activeTab === 'preferences'   && <PreferencesTab />}
+      {activeTab === 'webhooks'      && <WebhooksTab />}
     </PageShell>
   );
 }
@@ -271,6 +280,318 @@ function PreferencesTab() {
         <p className="text-xs text-gray-400 mb-4">These actions are irreversible. Proceed with caution.</p>
         <Button variant="danger" size="sm">Delete My Account</Button>
       </Card>
+    </div>
+  );
+}
+
+// --- Webhooks tab ---
+
+const ALL_EVENTS: { value: WebhookEventType; label: string }[] = [
+  { value: 'contact.created',        label: 'Contact Created' },
+  { value: 'contact.updated',        label: 'Contact Updated' },
+  { value: 'organization.created',   label: 'Organization Created' },
+  { value: 'task.created',           label: 'Task Created' },
+  { value: 'task.status_changed',    label: 'Task Status Changed' },
+  { value: 'proposal.status_changed', label: 'Proposal Status Changed' },
+];
+
+const DELIVERY_STATUS_VARIANT: Record<string, 'green' | 'red' | 'gray'> = {
+  success: 'green',
+  failed:  'red',
+  pending: 'gray',
+};
+
+function WebhooksTab() {
+  const [endpoints, setEndpoints]         = useState<WebhookEndpoint[]>([]);
+  const [isLoading, setIsLoading]         = useState(true);
+  const [fetchError, setFetchError]       = useState<string | null>(null);
+
+  const [formOpen, setFormOpen]           = useState(false);
+  const [url, setUrl]                     = useState('');
+  const [description, setDescription]     = useState('');
+  const [selectedEvents, setSelectedEvents] = useState<WebhookEventType[]>([]);
+  const [isSaving, setIsSaving]           = useState(false);
+  const [saveError, setSaveError]         = useState<string | null>(null);
+  const [newSecret, setNewSecret]         = useState<string | null>(null);
+
+  const [deleteTarget, setDeleteTarget]   = useState<WebhookEndpoint | null>(null);
+  const [isDeleting, setIsDeleting]       = useState(false);
+  const [deleteError, setDeleteError]     = useState<string | null>(null);
+
+  const [logEndpoint, setLogEndpoint]     = useState<WebhookEndpoint | null>(null);
+  const [deliveries, setDeliveries]       = useState<WebhookDelivery[]>([]);
+  const [logLoading, setLogLoading]       = useState(false);
+  const [logError, setLogError]           = useState<string | null>(null);
+
+  useEffect(() => { void loadEndpoints(); }, []);
+
+  async function loadEndpoints() {
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const res  = await fetch('/api/webhooks/endpoints');
+      const json = await res.json() as { data: WebhookEndpoint[] | null; error: string | null };
+      if (!res.ok || json.error) { setFetchError(json.error ?? 'Failed to load'); return; }
+      setEndpoints(json.data ?? []);
+    } catch {
+      setFetchError('Failed to load webhook endpoints');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleCreate() {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const res  = await fetch('/api/webhooks/endpoints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, description: description || undefined, events: selectedEvents }),
+      });
+      const json = await res.json() as { data: WebhookEndpoint | null; error: string | null };
+      if (!res.ok || json.error) { setSaveError(json.error ?? 'Failed to create'); return; }
+      if (json.data) {
+        setNewSecret(json.data.secret);
+        setEndpoints((prev) => [json.data!, ...prev]);
+        setUrl('');
+        setDescription('');
+        setSelectedEvents([]);
+        setFormOpen(false);
+      }
+    } catch {
+      setSaveError('Network error. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const res  = await fetch(`/api/webhooks/endpoints/${deleteTarget.id}`, { method: 'DELETE' });
+      const json = await res.json() as { data: unknown; error: string | null };
+      if (!res.ok || json.error) { setDeleteError(json.error ?? 'Failed to delete'); setDeleteTarget(null); return; }
+      setEndpoints((prev) => prev.filter((e) => e.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch {
+      setDeleteError('Network error. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  async function openLog(endpoint: WebhookEndpoint) {
+    setLogEndpoint(endpoint);
+    setLogLoading(true);
+    setLogError(null);
+    setDeliveries([]);
+    try {
+      const res  = await fetch(`/api/webhooks/endpoints/${endpoint.id}/deliveries`);
+      const json = await res.json() as { data: WebhookDelivery[] | null; error: string | null };
+      if (!res.ok || json.error) { setLogError(json.error ?? 'Failed to load'); return; }
+      setDeliveries(json.data ?? []);
+    } catch {
+      setLogError('Failed to load delivery log');
+    } finally {
+      setLogLoading(false);
+    }
+  }
+
+  function toggleEvent(event: WebhookEventType) {
+    setSelectedEvents((prev) =>
+      prev.includes(event) ? prev.filter((e) => e !== event) : [...prev, event],
+    );
+  }
+
+  return (
+    <div className="max-w-3xl space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-800">Webhook Endpoints</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Receive signed HTTP POST events when key actions occur in the app.</p>
+        </div>
+        <Button onClick={() => { setFormOpen(true); setSaveError(null); setNewSecret(null); }} size="sm">
+          + Add Endpoint
+        </Button>
+      </div>
+
+      {deleteError && (
+        <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3">
+          <p className="text-sm text-red-600">{deleteError}</p>
+        </div>
+      )}
+
+      {/* New secret banner — shown once after creation */}
+      {newSecret && (
+        <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3">
+          <p className="text-xs font-semibold text-green-700 mb-1">Endpoint created — save your signing secret now. It will not be shown again.</p>
+          <code className="text-xs font-mono text-green-900 break-all">{newSecret}</code>
+          <button onClick={() => setNewSecret(null)} className="ml-4 text-xs text-green-600 hover:underline">Dismiss</button>
+        </div>
+      )}
+
+      {/* Create form */}
+      {formOpen && (
+        <Card className="p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-gray-700">New Endpoint</h3>
+          {saveError && <p className="text-xs text-red-500">{saveError}</p>}
+          <Input
+            label="URL"
+            placeholder="https://example.com/webhook"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+          <Input
+            label="Description (optional)"
+            placeholder="e.g. Zapier CRM sync"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <div>
+            <p className="text-xs font-medium text-gray-700 mb-2">Events</p>
+            <div className="grid grid-cols-2 gap-2">
+              {ALL_EVENTS.map((ev) => (
+                <label key={ev.value} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedEvents.includes(ev.value)}
+                    onChange={() => toggleEvent(ev.value)}
+                    className="rounded border-gray-300 text-brand-blue"
+                  />
+                  <span className="text-xs text-gray-700">{ev.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button onClick={handleCreate} disabled={isSaving || !url || selectedEvents.length === 0} size="sm">
+              {isSaving ? 'Saving…' : 'Save Endpoint'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => { setFormOpen(false); setSaveError(null); }}>
+              Cancel
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Endpoint list */}
+      <Card>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12"><Spinner /></div>
+        ) : fetchError ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-sm text-red-500">{fetchError}</p>
+          </div>
+        ) : endpoints.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-sm text-gray-400">No endpoints configured. Add one to start receiving events.</p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">URL</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Events</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                <th className="px-6 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {endpoints.map((ep) => (
+                <tr key={ep.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <p className="text-sm font-medium text-gray-900 truncate max-w-xs" title={ep.url}>{ep.url}</p>
+                    {ep.description && <p className="text-xs text-gray-400 mt-0.5">{ep.description}</p>}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-1">
+                      {ep.events.map((ev) => (
+                        <span key={ev} className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-brand-navy/10 text-brand-navy font-medium">
+                          {ev}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <Badge variant={ep.isActive ? 'green' : 'gray'}>{ep.isActive ? 'Active' : 'Inactive'}</Badge>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => openLog(ep)}
+                        className="text-xs text-gray-400 hover:text-brand-blue transition-colors px-1"
+                      >
+                        View Log
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(ep)}
+                        className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+
+      {/* Delivery log panel */}
+      {logEndpoint && (
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700">Delivery Log</h3>
+              <p className="text-xs text-gray-400 mt-0.5 truncate max-w-sm">{logEndpoint.url}</p>
+            </div>
+            <button onClick={() => setLogEndpoint(null)} className="text-xs text-gray-400 hover:text-gray-600">Close</button>
+          </div>
+          {logLoading ? (
+            <div className="flex items-center justify-center py-8"><Spinner /></div>
+          ) : logError ? (
+            <p className="text-sm text-red-500 py-4">{logError}</p>
+          ) : deliveries.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4">No deliveries recorded yet.</p>
+          ) : (
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="pb-2 text-left font-semibold text-gray-500">Event</th>
+                  <th className="pb-2 text-left font-semibold text-gray-500">Status</th>
+                  <th className="pb-2 text-left font-semibold text-gray-500">HTTP</th>
+                  <th className="pb-2 text-left font-semibold text-gray-500">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {deliveries.map((d) => (
+                  <tr key={d.id}>
+                    <td className="py-2 text-gray-700 font-mono">{d.eventType}</td>
+                    <td className="py-2">
+                      <Badge variant={DELIVERY_STATUS_VARIANT[d.status] ?? 'gray'}>{d.status}</Badge>
+                    </td>
+                    <td className="py-2 text-gray-500">{d.httpStatus ?? '—'}</td>
+                    <td className="py-2 text-gray-400">{new Date(d.attemptedAt).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      )}
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Webhook Endpoint"
+        description={`Are you sure you want to delete the endpoint at "${deleteTarget?.url}"? All delivery history will be removed.`}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
