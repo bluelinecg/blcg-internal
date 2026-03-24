@@ -1,12 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-const nextConfig: NextConfig = {
-  // Expose the instrumentation hook so Sentry's server/edge configs are registered.
-  experimental: {
-    instrumentationHook: true,
-  },
-};
+const nextConfig: NextConfig = {};
 
 export default withSentryConfig(nextConfig, {
   // Suppress verbose Sentry build output.
