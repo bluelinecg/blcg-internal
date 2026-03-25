@@ -110,13 +110,15 @@ export function TasksPage() {
   ], [projects]);
 
   const filtered = useMemo(() => {
-    return tasks.filter((t) => {
-      const matchesProject =
-        projectFilter === 'all' ||
-        (projectFilter === 'none' ? !t.projectId : t.projectId === projectFilter);
-      const matchesAssignee = assigneeFilter === 'all' || t.assignee === assigneeFilter;
-      return matchesProject && matchesAssignee;
-    });
+    return tasks
+      .filter((t) => {
+        const matchesProject =
+          projectFilter === 'all' ||
+          (projectFilter === 'none' ? !t.projectId : t.projectId === projectFilter);
+        const matchesAssignee = assigneeFilter === 'all' || t.assignee === assigneeFilter;
+        return matchesProject && matchesAssignee;
+      })
+      .sort((a, b) => a.sortOrder - b.sortOrder);
   }, [tasks, projectFilter, assigneeFilter]);
 
   // --- CRUD handlers ---
@@ -335,17 +337,22 @@ function TaskCard({ task, projectMap, tasksById, onEdit, onDelete, onChecklistTo
 
   return (
     <div className="p-3 space-y-2">
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <Badge variant={priorityCfg.variant}>{priorityCfg.label}</Badge>
-        {project && (
-          <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-brand-navy/10 text-brand-navy font-medium truncate max-w-28" title={project.name}>
-            {project.name.split('—')[0].trim()}
-          </span>
-        )}
-        {task.recurrence !== 'none' && (
-          <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 font-medium" title={`Repeats ${task.recurrence}`}>
-            ↻
-          </span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Badge variant={priorityCfg.variant}>{priorityCfg.label}</Badge>
+          {project && (
+            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-brand-navy/10 text-brand-navy font-medium truncate max-w-28" title={project.name}>
+              {project.name.split('—')[0].trim()}
+            </span>
+          )}
+          {task.recurrence !== 'none' && (
+            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 font-medium" title={`Repeats ${task.recurrence}`}>
+              ↻
+            </span>
+          )}
+        </div>
+        {task.sortOrder > 0 && (
+          <span className="text-xs text-gray-300 font-mono tabular-nums flex-shrink-0">#{task.sortOrder}</span>
         )}
       </div>
 

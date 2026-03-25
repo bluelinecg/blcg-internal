@@ -105,7 +105,7 @@ function toInsert(
   return {
     client_id: data.clientId ?? null,
     organization_id: data.organizationId,
-    proposal_number: data.proposalNumber,
+    proposal_number: data.proposalNumber ?? '',
     title: data.title,
     status: data.status,
     situation: data.situation ?? null,

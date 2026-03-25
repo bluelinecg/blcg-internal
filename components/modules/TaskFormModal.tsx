@@ -65,6 +65,7 @@ const DEFAULTS: TaskFormData = {
   description: '',
   status:      'todo',
   priority:    'medium',
+  sortOrder:   0,
   projectId:   undefined,
   assignee:    undefined,
   dueDate:     undefined,

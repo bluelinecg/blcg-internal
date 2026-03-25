@@ -85,7 +85,8 @@ export function AutomationRuleFormModal({
   }, [isOpen, initial]); // reset is intentionally omitted — it only calls stable React state setters
 
   function handleAddCondition() {
-    setLocalConditions([...localConditions, { field: '', operator: 'is', value: '' }]);
+    const firstField = (CONDITION_FIELDS[form.triggerType] ?? [])[0] ?? '';
+    setLocalConditions([...localConditions, { field: firstField, operator: 'is', value: '' }]);
   }
 
   function handleRemoveCondition(idx: number) {

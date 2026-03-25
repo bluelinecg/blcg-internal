@@ -144,7 +144,6 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, organizati
       expiresAt: form.expiresAt || undefined,
       sentAt: form.sentAt || undefined,
     });
-    onClose();
   }
 
   const orgOptions = [

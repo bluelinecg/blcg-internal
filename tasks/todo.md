@@ -1,71 +1,60 @@
-# Notification System — Implementation Plan
+# Write Missing DB Migrations
 
-## Status: Awaiting Approval
+## Status: Complete — Pending Run in Supabase
 
 ## Overview
-Build a first-party in-app notification system with per-user preferences, an unread badge in the top nav, a dropdown panel, and a full history page. Preferences are stored in Supabase and replace the existing mock state in Settings > Notifications. The automation engine's `send_notification` stub is wired to `insertNotification()` so automations can deliver real in-app alerts.
+Create a migration file for 9 tables that exist in the live Supabase instance but had no
+`CREATE TABLE` statement in the repo. Without these, any fresh-DB setup fails at the RLS
+policies migration (20260324000000) which references tables that don't yet exist.
 
-## Risks & Unknowns
-- `TopNav` is `'use client'` but has no data fetching today — a simple `useEffect` + fetch on mount for badge count is fine for v1; no realtime subscription needed.
-- `send_notification` action config currently only has `message` and `recipientId`. For v1, `recipientId` targets the user who created the rule; broaden later.
-- `notification_preferences` defaults are handled in the DB layer — return `DEFAULT_NOTIFICATION_PREFERENCES` on first read (no row yet); upsert on first save.
-- Migration timestamp: `20260325000000` (after last migration `20260324010000`).
+## Key Decision: Timestamp 20260323
 
-## Steps
+The new migration is stamped `20260323000000` — intentionally between the initial schema
+(20260322) and the RLS policies migration (20260324). This ensures the tables exist before
+the policies that reference them are applied.
 
-### Phase 1: Database
-- [ ] Write `supabase/migrations/20260325000000_notifications.sql`
-  - `notifications` table: `id uuid PK`, `user_id text not null`, `type text not null`, `title text not null`, `body text not null`, `entity_type text`, `entity_id uuid`, `is_read bool not null default false`, `created_at timestamptz not null default now()`
-  - `notification_preferences` table: `id uuid PK`, `user_id text not null unique`, `preferences jsonb not null default '{}'`, `updated_at timestamptz not null default now()`
-  - `set_updated_at()` trigger on `notification_preferences`
-  - Composite index on `notifications (user_id, is_read, created_at DESC)`
-  - RLS enabled on both tables; policies scoped to `user_id = auth.jwt() ->> 'sub'`
-- [ ] Run migration in Supabase dashboard
+Naming it `20260326001000` (as originally drafted) would have placed it AFTER the RLS migration,
+leaving a fresh-DB setup broken.
 
-### Phase 2: Types & Validation
-- [ ] Create `lib/types/notifications.ts`
-  - `NotificationType` union: `'new_proposal' | 'proposal_accepted' | 'invoice_paid' | 'invoice_overdue' | 'new_email' | 'task_due' | 'weekly_digest' | 'automation'`
-  - `Notification` interface
-  - `NotificationPreferences` interface (seven boolean keys matching existing mock)
-  - `DEFAULT_NOTIFICATION_PREFERENCES` constant
-- [ ] Create `lib/validations/notifications.ts`
-  - `InsertNotificationSchema`, `PatchNotificationSchema`, `NotificationPreferencesSchema`
+## Tables Created
 
-### Phase 3: DB Layer
-- [ ] Create `lib/db/notifications.ts`
-  - `listNotifications(userId, options?)`, `getUnreadCount(userId)`, `markRead(id, userId)`, `markUnread(id, userId)`, `markAllRead(userId)`, `deleteNotification(id, userId)`, `insertNotification(input)`
-- [ ] Create `lib/db/notification-preferences.ts`
-  - `getPreferences(userId)` — returns defaults if no row exists
-  - `upsertPreferences(userId, prefs)`
+| Table | Dependencies | Notes |
+|-------|-------------|-------|
+| `organizations` | — | CRM: companies/accounts |
+| `contacts` | organizations | CRM: individuals |
+| `audit_log` | — | Append-only, no updated_at |
+| `pipelines` | — | Pipeline definitions |
+| `pipeline_stages` | pipelines (cascade) | Ordered columns |
+| `pipeline_items` | pipelines, pipeline_stages, contacts, clients | Deal cards |
+| `pipeline_stage_history` | pipeline_items, pipeline_stages (cascade) | Stage transition log — referenced in lib/db/pipelines.ts but missing from backlog #1's original list |
+| `webhook_endpoints` | — | Registered destination URLs |
+| `webhook_deliveries` | webhook_endpoints (cascade) | Per-attempt delivery log |
 
-### Phase 4: API Routes
-- [ ] `app/api/notifications/route.ts` — GET (list + unread count), POST (insert)
-- [ ] `app/api/notifications/[id]/route.ts` — PATCH (mark read/unread), DELETE
-- [ ] `app/api/notifications/mark-all-read/route.ts` — POST
-- [ ] `app/api/notifications/preferences/route.ts` — GET, PUT
+## RLS Split
 
-### Phase 5: UI
-- [ ] Update `components/layout/TopNav.tsx` — bell icon with unread badge, opens `NotificationDropdown`
-- [ ] Create `components/modules/NotificationDropdown.tsx` — recent 10, mark read, delete, mark all read, "View all" link, close on outside click
-- [ ] Update `NotificationsTab` in `app/(dashboard)/settings/page.tsx` — wire to real preferences API, replace mock state
-- [ ] Create `app/(dashboard)/notifications/page.tsx` — full history, All/Unread filter, bulk mark-all-read
+| Table group | Policies location |
+|------------|------------------|
+| contacts, organizations, audit_log, pipelines, pipeline_stages, pipeline_items | `20260324000000_rls_policies.sql` (pre-existing) |
+| pipeline_stage_history, webhook_endpoints, webhook_deliveries | `20260323000000_missing_tables.sql` (this migration) |
 
-### Phase 6: Automation Integration
-- [ ] Update `send_notification` case in `lib/automations/actions.ts` — call `insertNotification()`, resolve `userId` from `recipientId` config or trigger context, map `message` → `body`
+## Action Required
+- [ ] Run migration in Supabase dashboard: paste contents of `supabase/migrations/20260323000000_missing_tables.sql`
+  - Note: tables already exist in live DB — all `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, and `CREATE OR REPLACE TRIGGER` statements are idempotent
+  - Only net-new effect on live DB: RLS policies for pipeline_stage_history, webhook_endpoints, and webhook_deliveries
 
-### Phase 7: Tests
-- [ ] `lib/db/notifications.test.ts`
-- [ ] `lib/db/notification-preferences.test.ts`
-- [ ] `app/api/notifications/route.test.ts`
-- [ ] `app/api/notifications/[id]/route.test.ts`
-- [ ] `app/api/notifications/preferences/route.test.ts`
+## Verification (Fresh DB)
+- [ ] Run all 6 migrations in order — zero errors
+- [ ] `select count(*) from contacts` — succeeds
+- [ ] `select count(*) from organizations` — succeeds
+- [ ] `select count(*) from audit_log` — succeeds
+- [ ] `select count(*) from pipelines` — succeeds
+- [ ] `select count(*) from pipeline_stage_history` — succeeds
+- [ ] `select count(*) from webhook_endpoints` — succeeds
+- [ ] `select count(*) from webhook_deliveries` — succeeds
 
-## Verification
-- [ ] All API routes return correct `{ data, error }` shapes
-- [ ] Bell badge updates on new notification
-- [ ] Mark read/unread persists and reflects in UI without full reload
-- [ ] Delete removes notification immediately (optimistic update)
-- [ ] Preferences survive a page refresh
-- [ ] Automation `send_notification` action creates a real notification row
-- [ ] `npx tsc --noEmit` passes
-- [ ] `npx jest` passes
+## Files Changed
+- `supabase/migrations/20260323000000_missing_tables.sql` — NEW
+
+## No App Code Changes
+This is a pure schema migration. No TypeScript changes were required — the app code
+in lib/db/ already assumed these tables existed.

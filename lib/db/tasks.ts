@@ -20,6 +20,7 @@ interface TaskRow {
   description: string | null;
   status:      TaskStatus;
   priority:    TaskPriority;
+  sort_order:  number;
   project_id:  string | null;
   assignee_id: string | null;
   due_date:    string | null;
@@ -41,6 +42,7 @@ function fromRow(row: TaskRow): Task {
     description: row.description ?? undefined,
     status:      row.status,
     priority:    row.priority,
+    sortOrder:   row.sort_order ?? 0,
     projectId:   row.project_id ?? undefined,
     assignee:    row.assignee_id ?? undefined,
     dueDate:     row.due_date ? `${row.due_date}T00:00:00Z` : undefined,
@@ -58,6 +60,7 @@ function toInsert(data: TaskInput): Omit<TaskRow, 'id' | 'created_at' | 'updated
     description: data.description ?? null,
     status:      data.status,
     priority:    data.priority,
+    sort_order:  data.sortOrder ?? 0,
     project_id:  data.projectId || null,
     assignee_id: data.assignee || null,
     due_date:    data.dueDate ? data.dueDate.split('T')[0] : null,
@@ -144,6 +147,7 @@ export async function updateTask(
     if (input.description !== undefined) patch.description = input.description ?? null;
     if (input.status      !== undefined) patch.status      = input.status;
     if (input.priority    !== undefined) patch.priority    = input.priority;
+    if (input.sortOrder   !== undefined) patch.sort_order  = input.sortOrder;
     if (input.projectId   !== undefined) patch.project_id  = input.projectId || null;
     if (input.assignee    !== undefined) patch.assignee_id = input.assignee || null;
     if (input.dueDate     !== undefined) patch.due_date    = input.dueDate ? input.dueDate.split('T')[0] : null;

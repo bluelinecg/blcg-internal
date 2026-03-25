@@ -141,6 +141,7 @@ export function createMockTask(overrides: Partial<Task> = {}): Task {
     title: 'Build login page',
     status: 'todo',
     priority: 'medium',
+    sortOrder: 0,
     recurrence: 'none',
     checklist: [],
     blockedBy: [],

@@ -263,6 +263,7 @@ describe('createNextRecurrence', () => {
     assignee:    'Ryan',
     dueDate:     '2026-04-07T00:00:00Z',
     recurrence:  'weekly' as const,
+    sortOrder:   0,
     checklist:   [],
     blockedBy:   [],
     createdAt:   '2026-01-01T00:00:00Z',

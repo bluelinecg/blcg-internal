@@ -81,7 +81,6 @@ export function ProjectFormModal({ isOpen, onClose, onSave, initial, organizatio
       targetDate: form.targetDate || undefined,
       notes: form.notes || undefined,
     });
-    onClose();
   }
 
   const orgOptions = [
