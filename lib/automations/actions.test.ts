@@ -8,20 +8,23 @@ import type { AutomationAction } from '@/lib/types/automations';
 // Mocks
 // ---------------------------------------------------------------------------
 
-jest.mock('@/lib/db/tasks',     () => ({ createTask:     jest.fn() }));
-jest.mock('@/lib/db/pipelines', () => ({ updateItem:     jest.fn() }));
-jest.mock('@/lib/db/proposals', () => ({ updateProposal: jest.fn() }));
+jest.mock('@/lib/db/tasks',         () => ({ createTask:          jest.fn() }));
+jest.mock('@/lib/db/pipelines',     () => ({ updateItem:          jest.fn() }));
+jest.mock('@/lib/db/proposals',     () => ({ updateProposal:      jest.fn() }));
 jest.mock('@/lib/utils/webhook-delivery', () => ({ dispatchWebhookEvent: jest.fn() }));
+jest.mock('@/lib/db/notifications', () => ({ insertNotification:  jest.fn() }));
 
-import { createTask }           from '@/lib/db/tasks';
-import { updateItem }           from '@/lib/db/pipelines';
-import { updateProposal }       from '@/lib/db/proposals';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
+import { createTask }              from '@/lib/db/tasks';
+import { updateItem }              from '@/lib/db/pipelines';
+import { updateProposal }          from '@/lib/db/proposals';
+import { dispatchWebhookEvent }    from '@/lib/utils/webhook-delivery';
+import { insertNotification }      from '@/lib/db/notifications';
 
-const mockCreateTask         = createTask         as jest.Mock;
-const mockUpdateItem         = updateItem         as jest.Mock;
-const mockUpdateProposal     = updateProposal     as jest.Mock;
+const mockCreateTask         = createTask          as jest.Mock;
+const mockUpdateItem         = updateItem          as jest.Mock;
+const mockUpdateProposal     = updateProposal      as jest.Mock;
 const mockDispatchWebhook    = dispatchWebhookEvent as jest.Mock;
+const mockInsertNotification = insertNotification  as jest.Mock;
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -170,11 +173,13 @@ describe('executeAction — update_status (pipeline item)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// send_notification (stub)
+// send_notification
 // ---------------------------------------------------------------------------
 
 describe('executeAction — send_notification', () => {
-  it('returns success without calling any DB function', async () => {
+  it('inserts a notification and returns success', async () => {
+    mockInsertNotification.mockResolvedValue({ data: {}, error: null });
+
     const action: AutomationAction = {
       type:   'send_notification',
       config: { message: 'SLA exceeded for {{title}}', recipientId: 'user-1' },
@@ -183,8 +188,35 @@ describe('executeAction — send_notification', () => {
     const result = await executeAction(action, { title: 'Deal X' });
 
     expect(result.status).toBe('success');
-    expect(mockCreateTask).not.toHaveBeenCalled();
-    expect(mockUpdateItem).not.toHaveBeenCalled();
+    expect(mockInsertNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', type: 'automation', body: 'SLA exceeded for Deal X' }),
+    );
+  });
+
+  it('returns failed when recipientId cannot be resolved', async () => {
+    const action: AutomationAction = {
+      type:   'send_notification',
+      config: { message: 'Alert' },
+    };
+
+    const result = await executeAction(action, {});
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toMatch(/No recipient/);
+  });
+
+  it('returns failed when insertNotification returns an error', async () => {
+    mockInsertNotification.mockResolvedValue({ data: null, error: 'DB error' });
+
+    const action: AutomationAction = {
+      type:   'send_notification',
+      config: { message: 'Alert', recipientId: 'user-1' },
+    };
+
+    const result = await executeAction(action, {});
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toBe('DB error');
   });
 });
 

@@ -4,7 +4,7 @@
 // Profile section is mostly informational (real values will come from Clerk user object).
 // All form values are local state (mock) — wire to Clerk/Supabase when ready.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import { Tabs, Card, Button, Input, Select, Textarea, Badge, ConfirmDialog, Spinner } from '@/components/ui';
@@ -13,6 +13,8 @@ import { BRAND } from '@/lib/constants/brand';
 import { useRole } from '@/lib/auth/use-role';
 import type { WebhookEndpoint, WebhookDelivery, WebhookEventType } from '@/lib/types/webhooks';
 import { ActivityFeed } from '@/components/modules';
+import type { NotificationPreferences } from '@/lib/types/notifications';
+import { DEFAULT_NOTIFICATION_PREFERENCES } from '@/lib/types/notifications';
 
 const TABS: TabItem[] = [
   { id: 'profile',       label: 'Profile' },
@@ -163,47 +165,96 @@ function ProfileTab() {
 // --- Notifications tab ---
 
 function NotificationsTab() {
-  const [prefs, setPrefs] = useState({
-    newProposal:      true,
-    proposalAccepted: true,
-    invoicePaid:      true,
-    invoiceOverdue:   true,
-    newEmail:         false,
-    taskDue:          true,
-    weeklyDigest:     true,
-  });
+  const [prefs, setPrefs]       = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const [isLoading, setIsLoading] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saved, setSaved]         = useState(false);
 
-  function toggle(key: keyof typeof prefs) {
-    setPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+  const loadPrefs = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res  = await fetch('/api/notifications/preferences');
+      const json = await res.json() as { data: NotificationPreferences | null; error: string | null };
+      if (res.ok && json.data) setPrefs(json.data);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadPrefs(); }, [loadPrefs]);
+
+  async function toggle(key: keyof NotificationPreferences) {
+    const updated = { ...prefs, [key]: !prefs[key] };
+    setPrefs(updated);
+    setSaveError(null);
+    try {
+      const res  = await fetch('/api/notifications/preferences', {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(updated),
+      });
+      const json = await res.json() as { data: null; error: string | null };
+      if (!res.ok || json.error) {
+        setSaveError(json.error ?? 'Failed to save preferences');
+        setPrefs(prefs); // revert
+        return;
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setSaveError('Network error. Please try again.');
+      setPrefs(prefs); // revert
+    }
   }
 
-  const notifGroups = [
+  const notifGroups: Array<{
+    label: string;
+    items: Array<{ key: keyof NotificationPreferences; label: string; description: string }>;
+  }> = [
     {
       label: 'Proposals & Finances',
       items: [
-        { key: 'newProposal' as const,      label: 'New proposal created',          description: 'When a proposal is added to the system' },
-        { key: 'proposalAccepted' as const, label: 'Proposal accepted',             description: 'When a client accepts a proposal' },
-        { key: 'invoicePaid' as const,      label: 'Invoice paid',                  description: 'When an invoice is marked as paid' },
-        { key: 'invoiceOverdue' as const,   label: 'Invoice overdue',               description: 'When an invoice passes its due date unpaid' },
+        { key: 'newProposal',      label: 'New proposal created',  description: 'When a proposal is added to the system' },
+        { key: 'proposalAccepted', label: 'Proposal accepted',     description: 'When a client accepts a proposal' },
+        { key: 'invoicePaid',      label: 'Invoice paid',          description: 'When an invoice is marked as paid' },
+        { key: 'invoiceOverdue',   label: 'Invoice overdue',       description: 'When an invoice passes its due date unpaid' },
       ],
     },
     {
       label: 'Tasks & Email',
       items: [
-        { key: 'newEmail' as const,    label: 'New email received',   description: 'Notify when a new email arrives in any account' },
-        { key: 'taskDue' as const,     label: 'Task due soon',        description: 'Reminder 24 hours before a task is due' },
+        { key: 'newEmail', label: 'New email received', description: 'Notify when a new email arrives in any account' },
+        { key: 'taskDue',  label: 'Task due soon',      description: 'Reminder 24 hours before a task is due' },
       ],
     },
     {
       label: 'Digest',
       items: [
-        { key: 'weeklyDigest' as const, label: 'Weekly digest email', description: 'Summary of activity, open tasks, and outstanding invoices every Monday' },
+        { key: 'weeklyDigest', label: 'Weekly digest email', description: 'Summary of activity, open tasks, and outstanding invoices every Monday' },
       ],
     },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Spinner />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl space-y-6">
+      {saveError && (
+        <div className="rounded bg-red-50 border border-red-200 px-4 py-3">
+          <p className="text-sm text-red-600">{saveError}</p>
+        </div>
+      )}
+      {saved && (
+        <div className="rounded bg-green-50 border border-green-200 px-4 py-3">
+          <p className="text-sm text-green-600">Preferences saved.</p>
+        </div>
+      )}
       {notifGroups.map((group) => (
         <Card key={group.label} className="p-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">{group.label}</h3>
@@ -216,7 +267,7 @@ function NotificationsTab() {
                 </div>
                 <ToggleSwitch
                   checked={prefs[item.key]}
-                  onChange={() => toggle(item.key)}
+                  onChange={() => void toggle(item.key)}
                 />
               </div>
             ))}

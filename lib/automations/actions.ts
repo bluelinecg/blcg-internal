@@ -7,6 +7,7 @@ import { createTask, updateTask } from '@/lib/db/tasks';
 import { updateItem } from '@/lib/db/pipelines';
 import { updateProposal } from '@/lib/db/proposals';
 import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
+import { insertNotification } from '@/lib/db/notifications';
 import type { AutomationAction, ActionResult } from '@/lib/types/automations';
 import type { WebhookEventType } from '@/lib/types/webhooks';
 
@@ -114,10 +115,25 @@ export async function executeAction(
       }
 
       case 'send_notification': {
-        // Stub — logs intent. Replace with real notification delivery in a future phase.
-        const message     = resolveTemplate(String(action.config.message ?? ''), triggerData);
-        const recipientId = action.config.recipientId ? String(action.config.recipientId) : 'all';
-        console.error(`[automation:send_notification] STUB — to: ${recipientId}, message: ${message}`);
+        const body        = resolveTemplate(String(action.config.message ?? ''), triggerData);
+        const title       = action.config.title
+          ? resolveTemplate(String(action.config.title), triggerData)
+          : 'Automation notification';
+        const recipientId = action.config.recipientId
+          ? String(action.config.recipientId)
+          : String(triggerData.assigneeId ?? triggerData.actorId ?? triggerData.userId ?? '');
+
+        if (!recipientId) {
+          return { type: action.type, status: 'failed', error: 'No recipient resolved for send_notification' };
+        }
+
+        const { error } = await insertNotification({
+          userId: recipientId,
+          type:   'automation',
+          title,
+          body,
+        });
+        if (error) return { type: action.type, status: 'failed', error };
         return { type: action.type, status: 'success' };
       }
 
