@@ -1,6 +1,8 @@
+/** @jest-environment node */
 // Unit tests for app/api/notifications/preferences/route.ts (GET / PUT)
 
 import { GET, PUT } from './route';
+import { NextResponse } from 'next/server';
 
 jest.mock('@/lib/db/notification-preferences', () => ({
   getPreferences:    jest.fn(),
@@ -45,7 +47,7 @@ describe('GET /api/notifications/preferences', () => {
   });
 
   it('returns 401 when unauthenticated', async () => {
-    mockAuth.mockResolvedValue({ status: 401 });
+    mockAuth.mockResolvedValue(new NextResponse(null, { status: 401 }));
     const res = await GET();
     expect((res as { status: number }).status).toBe(401);
   });
@@ -77,7 +79,7 @@ describe('PUT /api/notifications/preferences', () => {
   });
 
   it('returns 401 when unauthenticated', async () => {
-    mockAuth.mockResolvedValue({ status: 401 });
+    mockAuth.mockResolvedValue(new NextResponse(null, { status: 401 }));
     const res = await PUT(makeRequest(DEFAULT_NOTIFICATION_PREFERENCES));
     expect((res as { status: number }).status).toBe(401);
   });

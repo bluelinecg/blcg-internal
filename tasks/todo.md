@@ -58,3 +58,72 @@ leaving a fresh-DB setup broken.
 ## No App Code Changes
 This is a pure schema migration. No TypeScript changes were required — the app code
 in lib/db/ already assumed these tables existed.
+
+---
+
+# AI Developer Module — Backlog
+
+A packaged "AI Developer" offering: a chatbot-driven maintenance and support layer
+shipped with every client web app. Non-technical users describe bugs or feature requests
+in plain English; the AI triages, explains, and (depending on tier) proposes or deploys fixes.
+Hosted and billed client-side — BLCG is the builder, not the ongoing operator.
+
+Full concept and rationale: stored in memory at `project_ai_developer_module.md`.
+
+---
+
+## Tier 1 — Automated Intake & Triage
+**Status: Backlog**
+
+The fully-automated layer. No human in the loop. Buildable now.
+
+### Tasks
+- [ ] Design the `ai-developer` package structure within the app template
+- [ ] Build `AIDeveloperChat` component — chat UI embeddable in any client app
+- [ ] Integrate Claude API — client supplies their own Anthropic API key via env var
+- [ ] Implement system prompt with injected codebase context (file tree + key patterns)
+- [ ] Build agent tool: search codebase / documentation
+- [ ] Build agent tool: create structured GitHub issue from conversation
+- [ ] Implement severity triage logic (P1 blocker vs. minor vs. feature request)
+- [ ] Implement "known issue" lookup before creating duplicate tickets
+- [ ] Add audit logging for all AI actions (leverage existing audit_log pattern)
+- [ ] Write tests for intake flow, triage classification, and issue creation
+- [ ] Document per-client onboarding setup (API key, repo connection, codebase indexing)
+
+---
+
+## Tier 2 — AI-Drafted, Human-Approved Fixes
+**Status: Backlog (after Tier 1 is stable)**
+
+AI proposes fixes; a BLCG dev reviews asynchronously; automated deploy on approval.
+Requires staging environment and an approval workflow UI.
+
+### Tasks
+- [ ] Design approval workflow: AI proposes fix → BLCG review queue → approve/reject
+- [ ] Build fix proposal UI — non-technical plain-language explanation of what changed
+- [ ] Build BLCG reviewer interface — diff view + approve/reject action
+- [ ] Integrate with CI/CD: trigger staging deploy on approval
+- [ ] Build agent tool: read and write files within the client codebase (sandboxed)
+- [ ] Build agent tool: trigger staging deploy pipeline
+- [ ] Implement escalation logic — agent must recognize when a request is out of scope
+- [ ] Add guardrails: agent cannot touch auth, security config, or DB migrations autonomously
+- [ ] Write tests for fix proposal generation, approval flow, and deploy trigger
+- [ ] Define SLA and pricing model for Tier 2 (BLCG async review time)
+
+---
+
+## Tier 3 — Autonomous Low-Risk Deploys
+**Status: Backlog (roadmap — 12–24 months)**
+
+Fully autonomous deploys for pre-classified low-risk changes. Client approves via staging
+preview; no BLCG involvement required. Escalates complex or risky changes automatically.
+
+### Tasks
+- [ ] Define and document the "low-risk change" classification criteria
+- [ ] Build change risk classifier — gates autonomous deploy vs. escalation path
+- [ ] Build client-facing staging preview and self-serve approve/reject UI
+- [ ] Implement autonomous deploy pipeline (client approves, CI/CD fires)
+- [ ] Build escalation routing — sends high-risk requests back to BLCG Tier 2 queue
+- [ ] Security audit: review agent permissions, sandboxing, and blast radius
+- [ ] Write end-to-end tests covering autonomous deploy + rollback on failure
+- [ ] Define pricing model and client contract language for autonomous tier

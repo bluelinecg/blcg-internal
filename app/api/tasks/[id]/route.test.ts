@@ -1,3 +1,4 @@
+/** @jest-environment node */
 // Unit tests for app/api/tasks/[id]/route.ts
 // Tests GET, PATCH, DELETE handlers with automation engine and webhook dispatch.
 // All dependencies are mocked — no real DB, Clerk, or network calls.
@@ -165,18 +166,18 @@ describe('PATCH /api/tasks/[id] — status change to done', () => {
   });
 
   it('dispatches task.status_changed but not task.completed when status changes to non-done', async () => {
-    const taskUpdated = { ...MOCK_TASK, status: 'blocked' };
+    const taskUpdated = { ...MOCK_TASK, status: 'in_review' };
 
     mockGetTask.mockResolvedValue({ data: MOCK_TASK, error: null });
     mockUpdateTask.mockResolvedValue({ data: taskUpdated, error: null });
     mockApiOk();
 
-    const req = makePatchRequest({ status: 'blocked' });
+    const req = makePatchRequest({ status: 'in_review' });
     await PATCH(req, { params: PARAMS });
 
     expect(mockDispatchWebhook).toHaveBeenCalledWith(
       'task.status_changed',
-      expect.objectContaining({ status: 'blocked' }),
+      expect.objectContaining({ status: 'in_review' }),
     );
 
     // Only task.status_changed should be called, NOT task.completed
