@@ -44,7 +44,11 @@ export async function POST(request: Request) {
       return apiError(error, 400);
     }
 
-    const { data, error } = await createProposal(parsed.data);
+    const today = new Date();
+    const datePart = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+    const proposalNumber = parsed.data.proposalNumber || `PROP-${datePart}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+
+    const { data, error } = await createProposal({ ...parsed.data, proposalNumber });
     if (error) return apiError(error, 500);
 
     if (data) void logAction({ entityType: 'proposal', entityId: data.id, entityLabel: data.title, action: 'created' });

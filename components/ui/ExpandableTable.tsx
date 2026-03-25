@@ -56,21 +56,25 @@ export function ExpandableTable<T>({
         <tr className="border-b border-gray-100">
           {/* Expand toggle column */}
           <th className="w-10 px-4 py-3" />
-          {columns.map((col) => (
-            <th
-              key={col.key}
-              style={col.width ? { width: col.width } : undefined}
-              className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 ${
-                col.align === 'right'
-                  ? 'text-right'
-                  : col.align === 'center'
-                  ? 'text-center'
-                  : 'text-left'
-              }`}
-            >
-              {col.header}
-            </th>
-          ))}
+          {columns.map((col) =>
+            React.isValidElement(col.header) ? (
+              React.cloneElement(col.header as React.ReactElement, { key: col.key })
+            ) : (
+              <th
+                key={col.key}
+                style={col.width ? { width: col.width } : undefined}
+                className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 ${
+                  col.align === 'right'
+                    ? 'text-right'
+                    : col.align === 'center'
+                    ? 'text-center'
+                    : 'text-left'
+                }`}
+              >
+                {col.header}
+              </th>
+            )
+          )}
         </tr>
       </thead>
       <tbody>

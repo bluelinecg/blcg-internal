@@ -23,6 +23,7 @@ export const TaskSchema = z.object({
   description: z.string().optional(),
   status:      TaskStatusSchema,
   priority:    TaskPrioritySchema,
+  sortOrder:   z.number().int().min(0).optional(),
   projectId:   z.string().optional(),
   // assignee is a Clerk user ID — plain string until user-lookup is wired
   assignee:    z.string().optional(),

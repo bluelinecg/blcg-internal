@@ -1,71 +1,79 @@
-# Notification System — Implementation Plan
+# Kanban Sort Order & Backlog Cleanup
 
-## Status: Awaiting Approval
+## Status: Complete — Pending DB Migration Run
 
 ## Overview
-Build a first-party in-app notification system with per-user preferences, an unread badge in the top nav, a dropdown panel, and a full history page. Preferences are stored in Supabase and replace the existing mock state in Settings > Notifications. The automation engine's `send_notification` stub is wired to `insertNotification()` so automations can deliver real in-app alerts.
+Add `sort_order` per-column ordering to the tasks table so the kanban board reflects the
+agreed roadmap priority. Insert 22 net-new backlog tasks from the 2026-03-26 platform audit.
+Fix the `tasks.status` CHECK constraint to include `'backlog'` (was missing from initial schema).
 
-## Risks & Unknowns
-- `TopNav` is `'use client'` but has no data fetching today — a simple `useEffect` + fetch on mount for badge count is fine for v1; no realtime subscription needed.
-- `send_notification` action config currently only has `message` and `recipientId`. For v1, `recipientId` targets the user who created the rule; broaden later.
-- `notification_preferences` defaults are handled in the DB layer — return `DEFAULT_NOTIFICATION_PREFERENCES` on first read (no row yet); upsert on first save.
-- Migration timestamp: `20260325000000` (after last migration `20260324010000`).
+## Changes Delivered
 
-## Steps
+### DB Migration — `supabase/migrations/20260326000000_tasks_schema_and_sort_order.sql`
+- `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence / checklist / blocked_by` — adds missing columns for fresh-DB reproducibility
+- `ALTER TABLE tasks DROP CONSTRAINT tasks_status_check` + re-add with `'backlog'` included
+- `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS sort_order integer not null default 0`
+- `CREATE INDEX tasks_status_sort_order_idx ON tasks (status, sort_order)`
+- `UPDATE` statements setting sort_order on all 21 existing non-done tasks (backlog + todo)
+- `INSERT` of 22 new backlog tasks, ordered by roadmap phase (sort_order gaps left between phases)
 
-### Phase 1: Database
-- [ ] Write `supabase/migrations/20260325000000_notifications.sql`
-  - `notifications` table: `id uuid PK`, `user_id text not null`, `type text not null`, `title text not null`, `body text not null`, `entity_type text`, `entity_id uuid`, `is_read bool not null default false`, `created_at timestamptz not null default now()`
-  - `notification_preferences` table: `id uuid PK`, `user_id text not null unique`, `preferences jsonb not null default '{}'`, `updated_at timestamptz not null default now()`
-  - `set_updated_at()` trigger on `notification_preferences`
-  - Composite index on `notifications (user_id, is_read, created_at DESC)`
-  - RLS enabled on both tables; policies scoped to `user_id = auth.jwt() ->> 'sub'`
-- [ ] Run migration in Supabase dashboard
+### Code Changes
+- `lib/types/tasks.ts` — `sortOrder: number` added to `Task` interface
+- `lib/validations/tasks.ts` — `sortOrder: z.number().int().min(0).optional()` added to `TaskSchema`
+- `lib/db/tasks.ts` — `sort_order` in `TaskRow`, `fromRow`, `toInsert`, and `updateTask` patch builder
+- `app/(dashboard)/tasks/page.tsx` — `filtered` sorted by `sortOrder ASC` before render; `#N` badge shown on each card when `sortOrder > 0`
+- `lib/mock/tasks.ts` — `sortOrder: 0` added to all 12 mock task fixtures
+- `tests/helpers/factories.ts` — `sortOrder: 0` added to `createMockTask` default
+- `lib/db/tasks.test.ts` — `sortOrder: 0` added to `RECURRING_TASK` fixture
+- `components/modules/TaskFormModal.tsx` — `sortOrder: 0` added to `DEFAULTS`
 
-### Phase 2: Types & Validation
-- [ ] Create `lib/types/notifications.ts`
-  - `NotificationType` union: `'new_proposal' | 'proposal_accepted' | 'invoice_paid' | 'invoice_overdue' | 'new_email' | 'task_due' | 'weekly_digest' | 'automation'`
-  - `Notification` interface
-  - `NotificationPreferences` interface (seven boolean keys matching existing mock)
-  - `DEFAULT_NOTIFICATION_PREFERENCES` constant
-- [ ] Create `lib/validations/notifications.ts`
-  - `InsertNotificationSchema`, `PatchNotificationSchema`, `NotificationPreferencesSchema`
-
-### Phase 3: DB Layer
-- [ ] Create `lib/db/notifications.ts`
-  - `listNotifications(userId, options?)`, `getUnreadCount(userId)`, `markRead(id, userId)`, `markUnread(id, userId)`, `markAllRead(userId)`, `deleteNotification(id, userId)`, `insertNotification(input)`
-- [ ] Create `lib/db/notification-preferences.ts`
-  - `getPreferences(userId)` — returns defaults if no row exists
-  - `upsertPreferences(userId, prefs)`
-
-### Phase 4: API Routes
-- [ ] `app/api/notifications/route.ts` — GET (list + unread count), POST (insert)
-- [ ] `app/api/notifications/[id]/route.ts` — PATCH (mark read/unread), DELETE
-- [ ] `app/api/notifications/mark-all-read/route.ts` — POST
-- [ ] `app/api/notifications/preferences/route.ts` — GET, PUT
-
-### Phase 5: UI
-- [ ] Update `components/layout/TopNav.tsx` — bell icon with unread badge, opens `NotificationDropdown`
-- [ ] Create `components/modules/NotificationDropdown.tsx` — recent 10, mark read, delete, mark all read, "View all" link, close on outside click
-- [ ] Update `NotificationsTab` in `app/(dashboard)/settings/page.tsx` — wire to real preferences API, replace mock state
-- [ ] Create `app/(dashboard)/notifications/page.tsx` — full history, All/Unread filter, bulk mark-all-read
-
-### Phase 6: Automation Integration
-- [ ] Update `send_notification` case in `lib/automations/actions.ts` — call `insertNotification()`, resolve `userId` from `recipientId` config or trigger context, map `message` → `body`
-
-### Phase 7: Tests
-- [ ] `lib/db/notifications.test.ts`
-- [ ] `lib/db/notification-preferences.test.ts`
-- [ ] `app/api/notifications/route.test.ts`
-- [ ] `app/api/notifications/[id]/route.test.ts`
-- [ ] `app/api/notifications/preferences/route.test.ts`
+## Action Required
+- [ ] Run migration in Supabase dashboard: paste contents of `20260326000000_tasks_schema_and_sort_order.sql`
 
 ## Verification
-- [ ] All API routes return correct `{ data, error }` shapes
-- [ ] Bell badge updates on new notification
-- [ ] Mark read/unread persists and reflects in UI without full reload
-- [ ] Delete removes notification immediately (optimistic update)
-- [ ] Preferences survive a page refresh
-- [ ] Automation `send_notification` action creates a real notification row
-- [ ] `npx tsc --noEmit` passes
+- [ ] Backlog column cards render in sort_order sequence (1, 2, 3 …) with `#N` badge visible
+- [ ] Todo column cards render in sort_order sequence (1–7)
+- [ ] 22 new tasks appear in backlog at correct positions
+- [ ] `npx tsc --noEmit` passes (no new errors introduced)
 - [ ] `npx jest` passes
+
+## Sort Order Map (Backlog)
+
+| # | Task | Phase |
+|---|------|-------|
+| 1 | Write Missing DB Migrations | P1 |
+| 2 | Fix Schema Mismatches — Projects | P1 |
+| 3 | Wire automation engine to proposals/invoices | P1 |
+| 4 | Wire preference-based notifications | P1 |
+| 5 | Webhooks Detail Route — GET + PATCH | P1 |
+| 6 | Dashboard Wiring | P1 |
+| 7 | Contact Detail Page | P2 |
+| 8 | Organization Detail Page | P2 |
+| 9 | Finance Overview Tab — KPI Cards | P2 |
+| 10 | Automations — Execution History UI | P2 |
+| 11 | Increase API Test Coverage to 80% | P2 |
+| 12 | Skeleton Loading States | P2 |
+| 13 | Pagination / SortableHeader Tests | P2 |
+| 14 | Time Tracking Module | P3 |
+| 15 | Product & Service Catalog | P3 |
+| 16 | PDF Document Generation | P3 |
+| 17 | Client Portal | P3 |
+| 18 | Global Search | P3 |
+| 19 | Recurring Billing | P3 |
+| 20 | Unified Integration Framework | P4 |
+| 21 | File Storage (S3 / Drive) | P4 |
+| 22 | Payments (Stripe / QuickBooks) | P4 |
+| 23 | Scheduling & Appointments Module | P4 |
+| 24 | Calendar Integration | P4 |
+| 25 | SMS & Email (Twilio / SendGrid) | P4 |
+| 26 | Dynamic Form Builder | P4 |
+| 27 | Vendor & Supplier Management | P4 |
+| 28 | Purchase Orders | P4 |
+| 29 | Reporting & Dashboard System | P5 |
+| 30 | Marketing Module | P5 |
+| 31 | Inventory Management | P5 |
+| 32 | Job / Work Orders | P5 |
+| 33 | Bulk Actions on List Pages | P5 |
+| 34 | Mobile Responsiveness Audit | P5 |
+| 35 | Agentic Workflow (Dev + Review Agents) | P5 |
+| 36 | Agent / MCP Architecture | P5 |
