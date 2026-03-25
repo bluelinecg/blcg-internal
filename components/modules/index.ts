@@ -15,3 +15,4 @@ export { ActivityFeed } from './ActivityFeed';
 export { PipelineFormModal } from './PipelineFormModal';
 export { PipelineItemFormModal } from './PipelineItemFormModal';
 export { PipelineStagesModal } from './PipelineStagesModal';
+export { NotificationDropdown } from './NotificationDropdown';
