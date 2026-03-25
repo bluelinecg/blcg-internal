@@ -17,6 +17,7 @@ import { guardAdmin, guardMember } from '@/lib/auth/roles';
 import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
 import { logAction } from '@/lib/utils/audit';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
+import { runAutomations } from '@/lib/automations/engine';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -36,7 +37,6 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
     return apiOk(data);
   } catch (err) {
-    console.error('[GET /api/proposals/[id]]', err);
     return apiError('Failed to load proposal', 500);
   }
 }
@@ -64,6 +64,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     if (data && parsed.data.status !== undefined) {
       void dispatchWebhookEvent('proposal.status_changed', data as unknown as Record<string, unknown>);
+      void runAutomations('proposal.status_changed', data as unknown as Record<string, unknown>);
       void logAction({ entityType: 'proposal', entityId: id, entityLabel: data.title, action: 'status_changed', metadata: { to: data.status } });
     } else if (data) {
       void logAction({ entityType: 'proposal', entityId: id, entityLabel: data.title, action: 'updated' });
@@ -71,7 +72,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     return apiOk(data);
   } catch (err) {
-    console.error('[PATCH /api/proposals/[id]]', err);
     return apiError('Failed to update proposal', 500);
   }
 }
@@ -104,7 +104,6 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     return apiOk({ id });
   } catch (err) {
-    console.error('[DELETE /api/proposals/[id]]', err);
     return apiError('Failed to delete proposal', 500);
   }
 }

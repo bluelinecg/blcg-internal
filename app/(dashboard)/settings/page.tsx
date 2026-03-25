@@ -290,12 +290,13 @@ function PreferencesTab() {
 // --- Webhooks tab ---
 
 const ALL_EVENTS: { value: WebhookEventType; label: string }[] = [
-  { value: 'contact.created',        label: 'Contact Created' },
-  { value: 'contact.updated',        label: 'Contact Updated' },
-  { value: 'organization.created',   label: 'Organization Created' },
-  { value: 'task.created',           label: 'Task Created' },
-  { value: 'task.status_changed',    label: 'Task Status Changed' },
-  { value: 'proposal.status_changed', label: 'Proposal Status Changed' },
+  { value: 'contact.created',             label: 'Contact Created' },
+  { value: 'contact.updated',             label: 'Contact Updated' },
+  { value: 'organization.created',        label: 'Organization Created' },
+  { value: 'task.created',                label: 'Task Created' },
+  { value: 'task.status_changed',         label: 'Task Status Changed' },
+  { value: 'proposal.status_changed',     label: 'Proposal Status Changed' },
+  { value: 'pipeline.item_stage_changed', label: 'Pipeline Item Stage Changed' },
 ];
 
 const DELIVERY_STATUS_VARIANT: Record<string, 'green' | 'red' | 'gray'> = {

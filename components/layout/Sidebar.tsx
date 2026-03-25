@@ -139,6 +139,17 @@ function IconSettings() {
   );
 }
 
+function IconAutomations() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+      <polyline points="13 2 13 9 20 9" />
+      <line x1="9" y1="13" x2="15" y2="13" />
+      <line x1="9" y1="17" x2="15" y2="17" />
+    </svg>
+  );
+}
+
 // --- Nav items ---
 
 // Main nav — Dashboard first, then alphabetical. Settings is pinned to the bottom separately.
@@ -154,6 +165,10 @@ const MAIN_NAV_ITEMS: NavItem[] = [
   { label: 'Proposals',     href: '/proposals',     icon: <IconProposals /> },
   { label: 'Tasks',         href: '/tasks',         icon: <IconTasks /> },
   { label: 'Users',         href: '/users',         icon: <IconUsers /> },
+];
+
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  { label: 'Automations', href: '/automations', icon: <IconAutomations /> },
 ];
 
 const SETTINGS_ITEM: NavItem = { label: 'Settings', href: '/settings', icon: <IconSettings /> };
@@ -185,6 +200,9 @@ export function Sidebar() {
   const visibleNavItems = MAIN_NAV_ITEMS.filter(
     (item) => item.href !== '/finances' || role === 'admin'
   );
+  const visibleAdminItems = ADMIN_NAV_ITEMS.filter(
+    () => role === 'admin'
+  );
 
   return (
     <aside className="flex flex-col w-64 min-h-screen bg-brand-navy">
@@ -200,6 +218,16 @@ export function Sidebar() {
           {visibleNavItems.map((item) => (
             <NavLink key={item.href} item={item} pathname={pathname} />
           ))}
+
+          {/* Admin section */}
+          {visibleAdminItems.length > 0 && (
+            <>
+              <div className="my-2 border-t border-white/10" />
+              {visibleAdminItems.map((item) => (
+                <NavLink key={item.href} item={item} pathname={pathname} />
+              ))}
+            </>
+          )}
         </div>
 
         {/* Settings pinned to bottom */}

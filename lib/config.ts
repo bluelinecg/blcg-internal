@@ -40,4 +40,7 @@ export const config = {
     refreshTokenRyan: optionalEnv("GMAIL_REFRESH_TOKEN_RYAN"),
     refreshTokenGmail: optionalEnv("GMAIL_REFRESH_TOKEN_GMAIL"),
   },
+  // Vercel Cron secret — injected automatically by Vercel as Authorization: Bearer <secret>
+  // Optional so the app boots locally without it; the cron route validates it at runtime.
+  cronSecret: optionalEnv("CRON_SECRET"),
 } as const;

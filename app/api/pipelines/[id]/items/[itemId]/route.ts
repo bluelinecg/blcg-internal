@@ -10,6 +10,9 @@ import { getItemById, updateItem, deleteItem } from '@/lib/db/pipelines';
 import { UpdatePipelineItemSchema } from '@/lib/validations/pipelines';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
+import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
+import { logAction } from '@/lib/utils/audit';
+import { runAutomations } from '@/lib/automations/engine';
 
 interface RouteContext {
   params: Promise<{ id: string; itemId: string }>;
@@ -28,7 +31,6 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
     return apiOk(data);
   } catch (err) {
-    console.error('[GET /api/pipelines/[id]/items/[itemId]]', err);
     return apiError('Failed to load item', 500);
   }
 }
@@ -41,7 +43,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const guard = await guardMember();
     if (guard) return guard;
 
-    const { itemId } = await params;
+    const { id: pipelineId, itemId } = await params;
 
     const parsed = UpdatePipelineItemSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -49,13 +51,34 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return apiError(error, 400);
     }
 
+    // Capture previous stageId before update for change detection
+    const { data: existing } = await getItemById(itemId);
+    const previousStageId = existing?.stageId;
+
     const { data, error } = await updateItem(itemId, parsed.data);
     if (error) return apiError(error, 500);
     if (!data) return apiError('Item not found', 404);
 
+    const stageChanged = parsed.data.stageId !== undefined && parsed.data.stageId !== previousStageId;
+
+    if (stageChanged) {
+      const triggerData = {
+        id:              data.id,
+        itemId:          data.id,
+        pipelineId,
+        stageId:         data.stageId,
+        previousStageId: previousStageId ?? null,
+        title:           data.title,
+      };
+      void dispatchWebhookEvent('pipeline.item_stage_changed', triggerData as unknown as Record<string, unknown>);
+      void runAutomations('pipeline.item_stage_changed', triggerData as unknown as Record<string, unknown>);
+      void logAction({ entityType: 'pipeline_item', entityId: itemId, entityLabel: data.title, action: 'status_changed', metadata: { to: data.stageId, from: previousStageId } });
+    } else {
+      void logAction({ entityType: 'pipeline_item', entityId: itemId, entityLabel: data.title, action: 'updated' });
+    }
+
     return apiOk(data);
   } catch (err) {
-    console.error('[PATCH /api/pipelines/[id]/items/[itemId]]', err);
     return apiError('Failed to update item', 500);
   }
 }
@@ -75,7 +98,6 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     return apiOk({ id: itemId });
   } catch (err) {
-    console.error('[DELETE /api/pipelines/[id]/items/[itemId]]', err);
     return apiError('Failed to delete item', 500);
   }
 }
