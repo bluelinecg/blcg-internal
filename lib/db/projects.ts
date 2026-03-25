@@ -3,11 +3,11 @@
 // Call only from server-side code — API routes, Server Actions, async Server Components.
 //
 // Schema mapping notes:
-//   DB milestones.title       → Milestone.name
-//   DB milestones.sort_order  → Milestone.order
-//   DB projects.end_date      → Project.targetDate
-//   DB projects.description   → Project.notes
-//   completedDate is not stored in the DB schema (always undefined)
+//   DB milestones.title          → Milestone.name
+//   DB milestones.sort_order     → Milestone.order
+//   DB projects.end_date         → Project.targetDate
+//   DB projects.description      → Project.notes
+//   DB projects.completed_date   → Project.completedDate
 
 import { serverClient } from '@/lib/db/supabase';
 import type { Project, Milestone, ProjectStatus, MilestoneStatus } from '@/lib/types/projects';
@@ -31,6 +31,7 @@ interface ProjectRow {
   status: ProjectStatus;
   start_date: string | null;
   end_date: string | null;
+  completed_date: string | null;
   budget: number | null;
   created_at: string;
   updated_at: string;
@@ -75,6 +76,7 @@ function fromRow(row: ProjectRow): Project {
     status: row.status,
     startDate: row.start_date ?? row.created_at,
     targetDate: row.end_date ?? undefined,
+    completedDate: row.completed_date ?? undefined,
     budget: row.budget ?? 0,
     milestones: (row.milestones ?? []).map(milestoneFromRow),
     notes: row.description ?? undefined,
@@ -95,6 +97,7 @@ function toInsert(
     status: data.status,
     start_date: data.startDate ? data.startDate.split('T')[0] : null,
     end_date: data.targetDate ? data.targetDate.split('T')[0] : null,
+    completed_date: data.completedDate ? data.completedDate.split('T')[0] : null,
     budget: data.budget ?? null,
   };
 }
@@ -212,6 +215,7 @@ export async function updateProject(
     if (input.status !== undefined) patch.status = input.status;
     if (input.startDate !== undefined) patch.start_date = input.startDate ? input.startDate.split('T')[0] : null;
     if (input.targetDate !== undefined) patch.end_date = input.targetDate ? input.targetDate.split('T')[0] : null;
+    if (input.completedDate !== undefined) patch.completed_date = input.completedDate ? input.completedDate.split('T')[0] : null;
     if (input.budget !== undefined) patch.budget = input.budget ?? null;
 
     const { data: projectRow, error: projectErr } = await db

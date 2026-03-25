@@ -55,7 +55,7 @@ For every task:
 6. Write or update tests
 7. Verify correctness
 8. Review before completion
-9. Document results in tasks/todo.md
+9. Commit changes and open a pull request
 10. Capture lessons if applicable
 
 ---
@@ -63,22 +63,22 @@ For every task:
 ## Standard Execution Flows
 
 ### Feature Development
-planner → implementation → test-writer → reviewer
+planner → implementation → test-writer → reviewer → commit → PR
 
 ### Bug Fixing
-debugger → implementation → test-writer → reviewer
+debugger → implementation → test-writer → reviewer → commit → PR
 
 ### Database Changes
-db-designer → planner → implementation → test-writer → reviewer
+db-designer → planner → implementation → test-writer → reviewer → commit → PR
 
 ### API Development
-api-designer → planner → implementation → test-writer → reviewer
+api-designer → planner → implementation → test-writer → reviewer → commit → PR
 
 ### Frontend Work
-frontend-design → implementation → reviewer
+frontend-design → implementation → reviewer → commit → PR
 
 ### Refactoring
-refactorer → test-writer → reviewer
+refactorer → test-writer → reviewer → commit → PR
 
 Do not skip steps.
 
@@ -95,7 +95,6 @@ A task is non-trivial if it includes:
 - Unclear requirements
 
 Requirements:
-- Write plan to tasks/todo.md
 - Use atomic, testable steps
 - Identify risks and unknowns
 - Wait for approval before implementation
@@ -105,19 +104,37 @@ Stop and re-plan before continuing.
 
 ---
 
-## Task Management
+## Kanban Board — Source of Truth
 
-All work must be tracked in tasks/todo.md.
+The Kanban board at `/tasks` is the single source of truth for all work.
 
-Rules:
-- Use checkbox format
-- Keep tasks small and clear
-- Update progress continuously
+**At the start of every task:**
+- Read the board to understand current state and priority order
+- Identify the task being worked on and move it to `in_progress`
 
-At completion, include:
-- Summary of changes
-- Reasoning for decisions
-- Verification steps performed
+**During a task:**
+- Update status as work progresses
+
+**At completion:**
+- Move the task to `done`
+
+The board is accessed via the internal API. No Clerk session required.
+
+```bash
+# List all tasks
+curl -s -H "x-internal-key: $INTERNAL_API_KEY" http://localhost:3000/api/internal/tasks
+
+# Update a task (status, sortOrder, etc.)
+curl -s -X PATCH \
+  -H "x-internal-key: $INTERNAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"in_progress"}' \
+  http://localhost:3000/api/internal/tasks/<id>
+```
+
+Valid status values: `backlog`, `todo`, `in_progress`, `done`
+
+Do not create shadow tracking files (tasks/todo.md, etc.) as a substitute for the board.
 
 ---
 
@@ -133,6 +150,37 @@ Before marking complete:
 
 Standard:
 Would a senior engineer approve this?
+
+---
+
+## Delivery — Commit & Pull Request
+
+Every completed Kanban task must be committed and submitted as a pull request. No exceptions.
+
+### Rules
+
+- One PR per Kanban task — never bundle multiple tasks into one PR
+- Commit all changes on the task's feature branch before opening a PR
+- PR title must reference the task name (e.g. `feat: fix schema mismatches — projects`)
+- PR body must include a summary of what changed and why
+
+### Commit flow
+
+```bash
+git add <specific files>
+git commit -m "feat: <task title>"
+git push origin <branch>
+```
+
+### PR creation
+
+The `gh` CLI is not available in this environment.
+
+After pushing, provide:
+1. The GitHub PR URL for the user to open: `https://github.com/bluelinecg/blcg-internal/compare/<branch>`
+2. A ready-to-paste PR title and body
+
+Do not attempt to run `gh pr create`. Do not skip this step.
 
 ---
 

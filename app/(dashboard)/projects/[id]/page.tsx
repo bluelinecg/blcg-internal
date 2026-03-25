@@ -12,6 +12,7 @@ import { getProposalById } from '@/lib/db/proposals';
 import type { ProjectStatus, MilestoneStatus } from '@/lib/types/projects';
 
 const STATUS_BADGE: Record<ProjectStatus, { variant: 'green' | 'blue' | 'yellow' | 'red' | 'gray'; label: string }> = {
+  planning:  { variant: 'blue',   label: 'Planning' },
   active:    { variant: 'green',  label: 'Active' },
   on_hold:   { variant: 'yellow', label: 'On Hold' },
   completed: { variant: 'gray',   label: 'Completed' },

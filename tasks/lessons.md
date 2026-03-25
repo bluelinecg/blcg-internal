@@ -21,6 +21,16 @@ Agents must:
 
 ---
 
+## Lesson: Every Kanban task ends with a commit and a PR — no exceptions
+
+**Rule:** After verifying a task is complete, always commit the changes, push the branch, and provide the GitHub compare URL with a ready-to-paste PR title and body. This is mandatory, not optional.
+
+**Why:** Work that isn't committed and PR'd is invisible, unreviewed, and undeployed. This standard was codified on 2026-03-25.
+
+**How to apply:** Make this the final step of every task before marking it done on the board. Commit specific files (not `git add .`), push, then provide the PR link and copy.
+
+---
+
 ## Lesson: `gh` CLI is not available in this environment
 
 **Rule:** Do not attempt to use `gh pr create` or any `gh` command. The GitHub CLI is not installed.

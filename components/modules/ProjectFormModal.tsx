@@ -30,6 +30,7 @@ interface ProjectFormModalProps {
 }
 
 const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
+  { value: 'planning',  label: 'Planning' },
   { value: 'active',    label: 'Active' },
   { value: 'on_hold',   label: 'On Hold' },
   { value: 'completed', label: 'Completed' },

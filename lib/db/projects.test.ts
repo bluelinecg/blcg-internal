@@ -59,6 +59,7 @@ const PROJECT_ROW = {
   status: 'active',
   start_date: '2026-01-01',
   end_date: '2026-06-01',
+  completed_date: '2026-05-15',
   budget: 15000,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
@@ -83,9 +84,24 @@ describe('listProjects', () => {
     expect(data![0].id).toBe('proj-1');
     expect(data![0].name).toBe('ACME Website');
     expect(data![0].targetDate).toBe('2026-06-01');
+    expect(data![0].completedDate).toBe('2026-05-15');
     expect(data![0].notes).toBe('Full redesign');
     expect(data![0].milestones[0].name).toBe('Discovery');
     expect(data![0].milestones[0].order).toBe(1);
+  });
+
+  it('maps planning status and null completed_date correctly', async () => {
+    const planningRow = { ...PROJECT_ROW, status: 'planning', completed_date: null };
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: [planningRow], error: null });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const { data, error } = await listProjects();
+
+    expect(error).toBeNull();
+    expect(data![0].status).toBe('planning');
+    expect(data![0].completedDate).toBeUndefined();
   });
 
   it('returns error string on DB failure', async () => {

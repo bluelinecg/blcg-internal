@@ -1,6 +1,6 @@
 import type { Organization } from './crm';
 
-export type ProjectStatus = 'active' | 'on_hold' | 'completed' | 'cancelled';
+export type ProjectStatus = 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
 
 export type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'blocked';
 

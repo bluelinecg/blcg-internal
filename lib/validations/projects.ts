@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const ProjectStatusSchema = z.enum([
+  'planning',
   'active',
   'on_hold',
   'completed',

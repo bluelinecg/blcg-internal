@@ -20,6 +20,7 @@ type StatusFilter = ProjectStatus | 'all';
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'all',       label: 'All Projects' },
+  { value: 'planning',  label: 'Planning' },
   { value: 'active',    label: 'Active' },
   { value: 'on_hold',   label: 'On Hold' },
   { value: 'completed', label: 'Completed' },
@@ -27,6 +28,7 @@ const STATUS_FILTER_OPTIONS = [
 ];
 
 const STATUS_BADGE: Record<ProjectStatus, { variant: 'green' | 'blue' | 'yellow' | 'red' | 'gray'; label: string }> = {
+  planning:  { variant: 'blue',   label: 'Planning' },
   active:    { variant: 'green',  label: 'Active' },
   on_hold:   { variant: 'yellow', label: 'On Hold' },
   completed: { variant: 'gray',   label: 'Completed' },
