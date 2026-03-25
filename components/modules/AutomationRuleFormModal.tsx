@@ -82,7 +82,7 @@ export function AutomationRuleFormModal({
       setLocalConditions(initial?.conditions ?? []);
       setLocalActions((initial?.actions ?? []) as Array<{ type: AutomationActionType; config: Record<string, unknown> }>);
     }
-  }, [isOpen, initial, reset]);
+  }, [isOpen, initial]); // reset is intentionally omitted — it only calls stable React state setters
 
   function handleAddCondition() {
     setLocalConditions([...localConditions, { field: '', operator: 'is', value: '' }]);
