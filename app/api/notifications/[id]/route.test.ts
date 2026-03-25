@@ -1,6 +1,8 @@
+/** @jest-environment node */
 // Unit tests for app/api/notifications/[id]/route.ts (PATCH / DELETE)
 
 import { PATCH, DELETE } from './route';
+import { NextResponse } from 'next/server';
 
 jest.mock('@/lib/db/notifications', () => ({
   markRead:           jest.fn(),
@@ -62,7 +64,7 @@ describe('PATCH /api/notifications/[id]', () => {
   });
 
   it('returns 401 when unauthenticated', async () => {
-    mockAuth.mockResolvedValue({ status: 401 });
+    mockAuth.mockResolvedValue(new NextResponse(null, { status: 401 }));
     const res = await PATCH(makeRequest({ isRead: true }), { params: PARAMS });
     expect((res as { status: number }).status).toBe(401);
   });
@@ -89,7 +91,7 @@ describe('DELETE /api/notifications/[id]', () => {
   });
 
   it('returns 401 when unauthenticated', async () => {
-    mockAuth.mockResolvedValue({ status: 401 });
+    mockAuth.mockResolvedValue(new NextResponse(null, { status: 401 }));
     const res = await DELETE({} as Request, { params: PARAMS });
     expect((res as { status: number }).status).toBe(401);
   });

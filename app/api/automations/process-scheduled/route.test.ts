@@ -1,3 +1,4 @@
+/** @jest-environment node */
 // Unit tests for app/api/automations/process-scheduled/route.ts
 // Tests auth guard, SLA dedup, and summary counts.
 // All dependencies are mocked.

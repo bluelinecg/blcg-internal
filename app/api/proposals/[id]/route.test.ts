@@ -1,3 +1,4 @@
+/** @jest-environment node */
 // Unit tests for app/api/proposals/[id]/route.ts
 // Tests GET, PATCH, DELETE handlers with automation engine and webhook dispatch.
 // All dependencies are mocked — no real DB, Clerk, or network calls.
@@ -169,7 +170,7 @@ describe('PATCH /api/proposals/[id] — status change', () => {
 
   it('returns 400 on invalid request body', async () => {
     mockApiError();
-    const req = makePatchRequest({ invalidField: 'value' });
+    const req = makePatchRequest({ status: 'not-a-valid-status' });
 
     await PATCH(req, { params: PARAMS });
 

@@ -152,7 +152,7 @@ export function TaskFormModal({
           placeholder="Additional context or acceptance criteria..."
           rows={3}
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <Select
             label="Status"
             options={STATUS_OPTIONS}
@@ -164,6 +164,13 @@ export function TaskFormModal({
             options={PRIORITY_OPTIONS}
             value={form.priority}
             onChange={(e) => setField('priority', e.target.value as TaskPriority)}
+          />
+          <Input
+            label="Sort Order"
+            type="number"
+            min="0"
+            value={String(form.sortOrder)}
+            onChange={(e) => setField('sortOrder', Math.max(0, parseInt(e.target.value, 10) || 0))}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">

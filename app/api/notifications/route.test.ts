@@ -1,6 +1,8 @@
+/** @jest-environment node */
 // Unit tests for app/api/notifications/route.ts (GET list / POST insert)
 
 import { GET, POST } from './route';
+import { NextResponse } from 'next/server';
 
 jest.mock('@/lib/db/notifications', () => ({
   listNotifications: jest.fn(),
@@ -51,7 +53,7 @@ describe('GET /api/notifications', () => {
   });
 
   it('returns 401 when unauthenticated', async () => {
-    mockAuth.mockResolvedValue({ status: 401 });
+    mockAuth.mockResolvedValue(new NextResponse(null, { status: 401 }));
     const res = await GET();
     expect((res as { status: number }).status).toBe(401);
   });
@@ -91,7 +93,7 @@ describe('POST /api/notifications', () => {
   });
 
   it('returns 401 when unauthenticated', async () => {
-    mockAuth.mockResolvedValue({ status: 401 });
+    mockAuth.mockResolvedValue(new NextResponse(null, { status: 401 }));
     const res = await POST(makeRequest({ type: 'automation', title: 'T', body: 'B' }));
     expect((res as { status: number }).status).toBe(401);
   });

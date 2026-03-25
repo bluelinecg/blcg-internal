@@ -1,3 +1,4 @@
+/** @jest-environment node */
 // Unit tests for app/api/automations/[id]/route.ts (GET / PATCH / DELETE)
 // All dependencies are mocked — no real DB or Clerk calls.
 

@@ -1,3 +1,4 @@
+/** @jest-environment node */
 // Unit tests for app/api/pipelines/[id]/items/[itemId]/route.ts
 // Tests GET, PATCH, DELETE handlers with automation engine and webhook dispatch.
 // All dependencies are mocked — no real DB, Clerk, or network calls.
@@ -128,6 +129,7 @@ function makePatchRequest(body: unknown): Request {
 
 describe('PATCH /api/pipelines/[id]/items/[itemId] — stage change', () => {
   it('dispatches webhook and automation engine when stage changes', async () => {
+    const newStageId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     const previousItem = { ...MOCK_ITEM, stageId: 'stage-1' };
     const updatedItem = { ...MOCK_ITEM, stageId: 'stage-2' };
 
@@ -135,7 +137,7 @@ describe('PATCH /api/pipelines/[id]/items/[itemId] — stage change', () => {
     mockUpdateItem.mockResolvedValue({ data: updatedItem, error: null });
     mockApiOk();
 
-    const req = makePatchRequest({ stageId: 'stage-2' });
+    const req = makePatchRequest({ stageId: newStageId });
     await PATCH(req, { params: PARAMS });
 
     // Verify webhook dispatch
@@ -196,7 +198,7 @@ describe('PATCH /api/pipelines/[id]/items/[itemId] — stage change', () => {
 
   it('returns 400 on invalid request body', async () => {
     mockApiError();
-    const req = makePatchRequest({ invalidField: 'value' });
+    const req = makePatchRequest({ stageId: 'not-a-valid-uuid' });
 
     await PATCH(req, { params: PARAMS });
 
@@ -223,7 +225,7 @@ describe('PATCH /api/pipelines/[id]/items/[itemId] — stage change', () => {
     mockUpdateItem.mockResolvedValue({ data: null, error: null });
     mockApiError();
 
-    const req = makePatchRequest({ stageId: 'stage-2' });
+    const req = makePatchRequest({ stageId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' });
     await PATCH(req, { params: PARAMS });
 
     expect(apiError).toHaveBeenCalledWith('Item not found', 404);

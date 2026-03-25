@@ -1,3 +1,4 @@
+/** @jest-environment node */
 // Unit tests for app/api/automations/[id]/runs/route.ts (GET run history)
 // All dependencies are mocked.
 
