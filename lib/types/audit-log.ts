@@ -11,7 +11,8 @@ export type AuditEntityType =
   | 'project'
   | 'task'
   | 'invoice'
-  | 'expense';
+  | 'expense'
+  | 'pipeline_item';
 
 export interface AuditLog {
   id: string;

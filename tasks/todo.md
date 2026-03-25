@@ -207,3 +207,75 @@ Two execution paths:
 ## Open Questions
 
 None — requirements are clear from the plan.
+
+---
+
+## Phase 2 — Inbound Webhooks
+
+Deferred from Phase 1. Enables external systems to POST events into BLCG and trigger
+automation rules — completing the event-driven loop.
+
+### Architecture
+
+```
+External system → POST /api/webhooks/receive/[slug]
+                    ↓ verify HMAC signature
+                    ↓ normalize payload
+                    ↓ runAutomations('external.webhook_received', normalizedData)
+                    ↓ automation rules execute internal actions
+```
+
+### New trigger type
+
+Add `'external.webhook_received'` to `AutomationTriggerType`.
+`trigger_config` shape: `{ inboundEndpointId, sourceLabel?, expectedEvent? }`
+
+### DB changes
+
+- New table `inbound_webhook_endpoints`:
+  `(id, name, slug uuid unique, secret, source_label, is_active, created_by, timestamps)`
+- The existing `webhook_endpoints` table is outbound-only — no schema change needed.
+  If a unified view is ever desired, add a `direction` column at that time.
+- Add index on `slug` for fast lookup on receive route.
+- RLS: admin-only create/delete; member read.
+
+### New API route
+
+`app/api/webhooks/receive/[slug]/route.ts` — POST only
+- No Clerk session (unauthenticated public endpoint)
+- Auth via `X-BLCG-Signature: sha256=<hmac>` header check
+- Verify signature with stored secret using `crypto.timingSafeEqual`
+- Parse body, normalize to `{ source, event, payload }` shape
+- Call `void runAutomations('external.webhook_received', normalizedData)`
+- Always return 200 immediately (async processing — never block the sender)
+- Rate limit: check request count by slug within 60s window before processing
+
+### Payload normalization
+
+Each inbound endpoint can optionally store a `field_map` jsonb column mapping
+external payload fields to BLCG-standard condition fields (e.g. `status → proposal.status`).
+Without a map, raw payload is passed as-is to conditions.
+
+### Security requirements (beyond current engine)
+
+- HMAC-SHA256 signature verification (timing-safe comparison)
+- Replay attack protection: reject if `X-BLCG-Timestamp` header is >5 minutes old
+- Rate limiting per slug (e.g. max 100 req/min) — implement via Supabase counter or
+  Vercel Edge middleware
+- Secrets never returned after creation (same pattern as outbound webhook secrets)
+
+### UI additions
+
+- Settings → Webhooks tab: add "Inbound" sub-section alongside existing "Outbound"
+- Shows generated receive URL (`/api/webhooks/receive/[slug]`) + copy button
+- Signing secret shown once on creation
+- `AutomationRuleFormModal`: add `external.webhook_received` to trigger type options
+  with endpoint selector dropdown
+
+### Risks
+
+- Public unauthenticated endpoint — rate limiting and signature verification are
+  non-negotiable before shipping
+- Payload normalization complexity varies by source — ship with pass-through first,
+  add field mapping UI later
+- Must return 200 immediately; never let automation execution time block the sender

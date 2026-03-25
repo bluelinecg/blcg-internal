@@ -12,6 +12,7 @@ import { guardAdmin, guardMember } from '@/lib/auth/roles';
 import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
 import { logAction } from '@/lib/utils/audit';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
+import { runAutomations } from '@/lib/automations/engine';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -30,7 +31,6 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
     return apiOk(data);
   } catch (err) {
-    console.error('[GET /api/tasks/[id]]', err);
     return apiError('Failed to load task', 500);
   }
 }
@@ -57,20 +57,22 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     if (data && parsed.data.status !== undefined) {
       void dispatchWebhookEvent('task.status_changed', data as unknown as Record<string, unknown>);
+      void runAutomations('task.status_changed', data as unknown as Record<string, unknown>);
       void logAction({ entityType: 'task', entityId: id, entityLabel: data.title, action: 'status_changed', metadata: { to: data.status } });
+      if (parsed.data.status === 'done') {
+        void runAutomations('task.completed', data as unknown as Record<string, unknown>);
+      }
     } else if (data) {
       void logAction({ entityType: 'task', entityId: id, entityLabel: data.title, action: 'updated' });
     }
 
     // When a recurring task is marked done, auto-create the next occurrence.
-    // TODO: dispatch automation engine event here once the Automation Engine is built.
     if (data && parsed.data.status === 'done' && data.recurrence !== 'none') {
       void createNextRecurrence(data);
     }
 
     return apiOk(data);
   } catch (err) {
-    console.error('[PATCH /api/tasks/[id]]', err);
     return apiError('Failed to update task', 500);
   }
 }
@@ -95,7 +97,6 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     return apiOk({ id });
   } catch (err) {
-    console.error('[DELETE /api/tasks/[id]]', err);
     return apiError('Failed to delete task', 500);
   }
 }

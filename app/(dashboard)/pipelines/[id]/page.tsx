@@ -8,13 +8,15 @@
 import { useState, useEffect, useMemo, use } from 'react';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout';
-import { Button, KanbanBoard, Badge, Spinner, ConfirmDialog } from '@/components/ui';
+import { Button, KanbanBoard, Badge, Spinner, ConfirmDialog, Tabs } from '@/components/ui';
 import { useRole } from '@/lib/auth/use-role';
 import { PipelineFormModal, PipelineItemFormModal, PipelineStagesModal } from '@/components/modules';
 import type { Pipeline, PipelineItem, PipelineStage } from '@/lib/types/pipelines';
 import type { Contact } from '@/lib/types/crm';
 import type { Client } from '@/lib/types/clients';
 import type { PipelineInput, PipelineItemInput } from '@/lib/validations/pipelines';
+import type { AutomationRule } from '@/lib/types/automations';
+import { PipelineAutomationsTab } from './automations-tab';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -54,23 +56,29 @@ export function PipelineDetailPage({ params }: PageProps) {
   const [isDeleting, setIsDeleting]     = useState(false);
   const [deleteError, setDeleteError]   = useState<string | null>(null);
 
+  // Tabs and automations
+  const [activeTab, setActiveTab] = useState<'kanban' | 'automations'>('kanban');
+  const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
+
   useEffect(() => { void loadAll(); }, [pipelineId]);
 
   async function loadAll() {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const [pipelineRes, itemsRes, contactsRes, clientsRes] = await Promise.all([
+      const [pipelineRes, itemsRes, contactsRes, clientsRes, automationsRes] = await Promise.all([
         fetch(`/api/pipelines/${pipelineId}`),
         fetch(`/api/pipelines/${pipelineId}/items?pageSize=100`),
         fetch('/api/contacts?pageSize=100&sort=first_name'),
         fetch('/api/clients?pageSize=100&sort=name'),
+        fetch('/api/automations'),
       ]);
-      const [pj, ij, coj, clj] = await Promise.all([
+      const [pj, ij, coj, clj, aj] = await Promise.all([
         pipelineRes.json() as Promise<{ data: Pipeline | null; error: string | null }>,
         itemsRes.json() as Promise<{ data: PipelineItem[] | null; error: string | null }>,
         contactsRes.json() as Promise<{ data: Contact[] | null; error: string | null }>,
         clientsRes.json() as Promise<{ data: Client[] | null; error: string | null }>,
+        automationsRes.json() as Promise<{ data: AutomationRule[] | null; error: string | null }>,
       ]);
 
       if (!pipelineRes.ok || pj.error) { setFetchError(pj.error ?? 'Failed to load pipeline'); return; }
@@ -80,6 +88,11 @@ export function PipelineDetailPage({ params }: PageProps) {
       setItems(ij.data ?? []);
       setContacts(coj.data ?? []);
       setClients(clj.data ?? []);
+      // Filter automations for pipeline.item_stage_changed trigger
+      const pipelineAutomations = (aj.data ?? []).filter(
+        (rule) => rule.triggerType === 'pipeline.item_stage_changed' && rule.isActive
+      );
+      setAutomationRules(pipelineAutomations);
     } catch {
       setFetchError('Failed to load pipeline');
     } finally {
@@ -267,50 +280,74 @@ export function PipelineDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {stages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-4">
-          <p className="text-sm text-gray-400">No stages yet.</p>
-          {canEdit && (
-            <Button onClick={() => setStagesOpen(true)}>Add Stages</Button>
-          )}
-        </div>
-      ) : (
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <KanbanBoard
-            columns={columns}
-            items={items}
-            getItemId={(item) => item.id}
-            getItemColumn={(item) => item.stageId}
-            onMoveItem={handleMoveItem}
-            columnAccent={columnAccent}
-            renderCard={(item) => (
-              <PipelineItemCard
-                item={item}
-                stages={stages}
-                canEdit={canEdit}
-                isAdmin={isAdmin}
-                onEdit={() => openItemFormForEdit(item)}
-                onDelete={() => setDeleteTarget(item)}
-                onAddToStage={canEdit ? openItemFormForStage : undefined}
-              />
-            )}
-          />
-        </div>
+      {/* Tabs — only show to admins */}
+      {isAdmin && (
+        <Tabs
+          tabs={[
+            { id: 'kanban', label: 'Kanban Board' },
+            { id: 'automations', label: 'Automations' },
+          ]}
+          activeTab={activeTab}
+          onChange={(id) => setActiveTab(id as 'kanban' | 'automations')}
+          className="mb-6"
+        />
       )}
 
-      {/* Add item per stage — shown as a row of buttons below empty-state only when there are stages */}
-      {stages.length > 0 && canEdit && (
-        <div className="mt-4 flex gap-4 overflow-x-auto pb-1">
-          {stages.map((stage) => (
-            <button
-              key={stage.id}
-              onClick={() => openItemFormForStage(stage.id)}
-              className="flex-shrink-0 min-w-52 text-left text-xs text-brand-blue hover:underline px-1"
-            >
-              + Add item to {stage.name}
-            </button>
-          ))}
-        </div>
+      {/* Kanban View */}
+      {activeTab === 'kanban' && (
+        <>
+          {stages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <p className="text-sm text-gray-400">No stages yet.</p>
+              {canEdit && (
+                <Button onClick={() => setStagesOpen(true)}>Add Stages</Button>
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <KanbanBoard
+                columns={columns}
+                items={items}
+                getItemId={(item) => item.id}
+                getItemColumn={(item) => item.stageId}
+                onMoveItem={handleMoveItem}
+                columnAccent={columnAccent}
+                renderCard={(item) => (
+                  <PipelineItemCard
+                    item={item}
+                    stages={stages}
+                    canEdit={canEdit}
+                    isAdmin={isAdmin}
+                    onEdit={() => openItemFormForEdit(item)}
+                    onDelete={() => setDeleteTarget(item)}
+                    onAddToStage={canEdit ? openItemFormForStage : undefined}
+                    hasAutomations={automationRules.length > 0}
+                  />
+                )}
+              />
+            </div>
+          )}
+
+          {/* Add item per stage — shown as a row of buttons below empty-state only when there are stages */}
+          {stages.length > 0 && canEdit && (
+            <div className="mt-4 flex gap-4 overflow-x-auto pb-1">
+              {stages.map((stage) => (
+                <button
+                  key={stage.id}
+                  onClick={() => openItemFormForStage(stage.id)}
+                  className="flex-shrink-0 min-w-52 text-left text-xs text-brand-blue hover:underline px-1"
+                >
+                  + Add item to {stage.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Automations View */}
+      {activeTab === 'automations' && (
+        <PipelineAutomationsTab pipelineId={pipelineId} onRulesChange={setAutomationRules} />
       )}
 
       {/* Modals */}
@@ -376,12 +413,28 @@ interface PipelineItemCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onAddToStage?: (stageId: string) => void;
+  hasAutomations?: boolean;
 }
 
-function PipelineItemCard({ item, canEdit, isAdmin, onEdit, onDelete }: PipelineItemCardProps) {
+function IconBolt() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  );
+}
+
+function PipelineItemCard({ item, canEdit, isAdmin, onEdit, onDelete, hasAutomations }: PipelineItemCardProps) {
   return (
     <div className="p-3 space-y-2">
-      <p className="text-sm font-medium text-gray-900 leading-snug">{item.title}</p>
+      <div className="flex items-start gap-2">
+        <p className="text-sm font-medium text-gray-900 leading-snug flex-1">{item.title}</p>
+        {hasAutomations && (
+          <div title="This item triggers automations when moved" className="text-amber-500 flex-shrink-0">
+            <IconBolt />
+          </div>
+        )}
+      </div>
 
       {item.value !== undefined && (
         <p className="text-xs font-semibold text-green-700">
