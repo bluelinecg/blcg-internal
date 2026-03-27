@@ -7,7 +7,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Tabs, StatCard, Card, Badge, Select, Input, Button, ConfirmDialog, Spinner, Pagination, SortableHeader } from '@/components/ui';
+import { Tabs, StatCard, Card, Badge, Select, Input, Button, ConfirmDialog, Skeleton, TableSkeleton, Pagination, SortableHeader } from '@/components/ui';
 import type { TabItem } from '@/components/ui/Tabs';
 import { useListState } from '@/lib/hooks/use-list-state';
 import { InvoiceFormModal, ExpenseFormModal } from '@/components/modules';
@@ -252,7 +252,36 @@ export function FinancesPage() {
     return (
       <PageShell>
         <PageHeader title="Finances" subtitle="Revenue, invoices, and expense tracking" />
-        <div className="flex items-center justify-center py-16"><Spinner /></div>
+        {/* Tab bar skeleton */}
+        <div className="flex gap-2 mb-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-9 w-24 rounded-md" />
+          ))}
+        </div>
+        {/* Overview stat cards skeleton */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-lg border border-gray-200 bg-white p-4 space-y-2">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-7 w-24" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          ))}
+        </div>
+        {/* Recent invoices + expenses cards skeleton */}
+        <div className="grid grid-cols-2 gap-6">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={i}>
+              <div className="px-5 py-4 border-b border-gray-100">
+                <Skeleton className="h-4 w-32" />
+              </div>
+              <TableSkeleton
+                rows={4}
+                columns={[{ width: 'w-28' }, { width: 'w-20' }, { width: 'w-16' }]}
+              />
+            </Card>
+          ))}
+        </div>
       </PageShell>
     );
   }

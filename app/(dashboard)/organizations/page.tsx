@@ -7,7 +7,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import {
-  Button, Badge, Card, ConfirmDialog, Spinner, Input,
+  Button, Badge, Card, ConfirmDialog, TableSkeleton, Input,
 } from '@/components/ui';
 import { OrganizationFormModal } from '@/components/modules';
 import { useRole } from '@/lib/auth/use-role';
@@ -169,7 +169,15 @@ export default function OrganizationsPage() {
 
       <Card>
         {isLoading ? (
-          <div className="flex items-center justify-center py-16"><Spinner /></div>
+          <TableSkeleton
+            columns={[
+              { width: 'w-40' },
+              { width: 'w-28' },
+              { width: 'w-24' },
+              { width: 'w-12' },
+              { width: 'w-12' },
+            ]}
+          />
         ) : fetchError ? (
           <div className="flex items-center justify-center py-16">
             <p className="text-sm text-red-500">{fetchError}</p>

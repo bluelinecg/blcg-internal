@@ -7,7 +7,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import {
-  Button, Badge, Card, ConfirmDialog, Spinner, Input, Select,
+  Button, Badge, Card, ConfirmDialog, TableSkeleton, Input, Select,
 } from '@/components/ui';
 import { ContactFormModal } from '@/components/modules';
 import { useRole } from '@/lib/auth/use-role';
@@ -196,7 +196,17 @@ export default function ContactsPage() {
 
       <Card>
         {isLoading ? (
-          <div className="flex items-center justify-center py-16"><Spinner /></div>
+          <TableSkeleton
+            columns={[
+              { width: 'w-36' },
+              { width: 'w-16' },
+              { width: 'w-28' },
+              { width: 'w-32' },
+              { width: 'w-36' },
+              { width: 'w-24' },
+              { width: 'w-12' },
+            ]}
+          />
         ) : fetchError ? (
           <div className="flex items-center justify-center py-16">
             <p className="text-sm text-red-500">{fetchError}</p>

@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, Input, Select, Spinner, Pagination, SortableHeader } from '@/components/ui';
+import { Button, Card, Input, Select, TableSkeleton, Pagination, SortableHeader } from '@/components/ui';
 import { StatusBadge } from '@/components/modules';
 import { useListState } from '@/lib/hooks/use-list-state';
 import type { Client, ClientStatus } from '@/lib/types/clients';
@@ -72,9 +72,16 @@ export function ClientsPage() {
       {/* Table */}
       <Card>
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Spinner />
-          </div>
+          <TableSkeleton
+            columns={[
+              { width: 'w-40', avatar: true },
+              { width: 'w-28' },
+              { width: 'w-36' },
+              { width: 'w-24' },
+              { width: 'w-16' },
+              { width: 'w-12' },
+            ]}
+          />
         ) : error ? (
           <div className="flex items-center justify-center py-16">
             <p className="text-sm text-red-500">{error}</p>

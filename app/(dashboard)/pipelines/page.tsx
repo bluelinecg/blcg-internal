@@ -8,7 +8,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, Badge, Spinner, ConfirmDialog } from '@/components/ui';
+import { Button, Card, Badge, Skeleton, ConfirmDialog } from '@/components/ui';
 import { useRole } from '@/lib/auth/use-role';
 import { useListState } from '@/lib/hooks/use-list-state';
 import { PipelineFormModal } from '@/components/modules';
@@ -111,7 +111,23 @@ export function PipelinesPage() {
       )}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16"><Spinner /></div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-lg border border-gray-200 bg-white p-5 space-y-3">
+              <div className="flex items-start justify-between">
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-5 w-14 rounded-full" />
+              </div>
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-3/4" />
+              <div className="flex gap-2 pt-1">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : fetchError ? (
         <div className="flex items-center justify-center py-16">
           <p className="text-sm text-red-500">{fetchError}</p>

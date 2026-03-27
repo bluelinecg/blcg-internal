@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Card, Button, Spinner } from '@/components/ui';
+import { Card, Button, Skeleton } from '@/components/ui';
 import type { Notification } from '@/lib/types/notifications';
 
 type Filter = 'all' | 'unread';
@@ -103,7 +103,19 @@ export default function NotificationsPage() {
 
       <Card>
         {isLoading ? (
-          <div className="flex items-center justify-center py-16"><Spinner /></div>
+          <div className="divide-y divide-gray-50">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-4 px-6 py-4">
+                <Skeleton className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-72" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-3 w-16 flex-shrink-0" />
+              </div>
+            ))}
+          </div>
         ) : fetchError ? (
           <div className="flex items-center justify-center py-16">
             <p className="text-sm text-red-500">{fetchError}</p>

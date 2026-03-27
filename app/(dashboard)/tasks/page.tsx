@@ -7,7 +7,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Button, Select, KanbanBoard, Badge, ConfirmDialog, Spinner } from '@/components/ui';
+import { Button, Select, KanbanBoard, Badge, ConfirmDialog, Skeleton } from '@/components/ui';
 import { useRole } from '@/lib/auth/use-role';
 import type { KanbanColumn } from '@/components/ui/KanbanBoard';
 import { TaskFormModal } from '@/components/modules';
@@ -252,7 +252,20 @@ export function TasksPage() {
       )}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16"><Spinner /></div>
+        <div className="flex gap-4 overflow-hidden">
+          {COLUMNS.map((col) => (
+            <div key={col.id} className="flex w-72 flex-shrink-0 flex-col rounded-lg border border-t-4 border-gray-200 bg-gray-50 p-3 gap-2">
+              <Skeleton className="h-4 w-24 mb-1" />
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="rounded-md border border-gray-200 bg-white p-3 space-y-2">
+                  <Skeleton className="h-3 w-16 rounded-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       ) : fetchError ? (
         <div className="flex items-center justify-center py-16">
           <p className="text-sm text-red-500">{fetchError}</p>

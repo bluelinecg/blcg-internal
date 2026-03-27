@@ -8,7 +8,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Button, Card, Input, Select, Badge, Spinner, ConfirmDialog, Pagination, SortableHeader } from '@/components/ui';
+import { Button, Card, Input, Select, Badge, Skeleton, TableSkeleton, ConfirmDialog, Pagination, SortableHeader } from '@/components/ui';
 import { useRole } from '@/lib/auth/use-role';
 import { useListState } from '@/lib/hooks/use-list-state';
 import { ProjectFormModal } from '@/components/modules';
@@ -189,18 +189,29 @@ export function ProjectsPage() {
 
       {/* Summary row (current page) */}
       <div className="flex gap-4 mb-5">
-        {(['active', 'on_hold', 'completed'] as ProjectStatus[]).map((status) => (
-          <div key={status} className="flex flex-col rounded-md border border-gray-200 bg-white px-4 py-3 min-w-28">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">{STATUS_BADGE[status].label}</span>
-            <span className="mt-1 text-xl font-bold text-gray-900">{projects.filter((p) => p.status === status).length}</span>
-          </div>
-        ))}
-        <div className="flex flex-col rounded-md border border-gray-200 bg-white px-4 py-3 min-w-28">
-          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Active Budget</span>
-          <span className="mt-1 text-xl font-bold text-gray-900">
-            {formatCurrency(projects.filter((p) => p.status === 'active').reduce((s, p) => s + p.budget, 0))}
-          </span>
-        </div>
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex flex-col rounded-md border border-gray-200 bg-white px-4 py-3 min-w-28">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="mt-2 h-6 w-10" />
+            </div>
+          ))
+        ) : (
+          <>
+            {(['active', 'on_hold', 'completed'] as ProjectStatus[]).map((status) => (
+              <div key={status} className="flex flex-col rounded-md border border-gray-200 bg-white px-4 py-3 min-w-28">
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">{STATUS_BADGE[status].label}</span>
+                <span className="mt-1 text-xl font-bold text-gray-900">{projects.filter((p) => p.status === status).length}</span>
+              </div>
+            ))}
+            <div className="flex flex-col rounded-md border border-gray-200 bg-white px-4 py-3 min-w-28">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Active Budget</span>
+              <span className="mt-1 text-xl font-bold text-gray-900">
+                {formatCurrency(projects.filter((p) => p.status === 'active').reduce((s, p) => s + p.budget, 0))}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="flex items-center gap-3 mb-4">
@@ -210,7 +221,17 @@ export function ProjectsPage() {
 
       <Card>
         {isLoading ? (
-          <div className="flex items-center justify-center py-16"><Spinner /></div>
+          <TableSkeleton
+            columns={[
+              { width: 'w-40' },
+              { width: 'w-32' },
+              { width: 'w-20' },
+              { width: 'w-28' },
+              { width: 'w-24' },
+              { width: 'w-24' },
+              { width: 'w-16' },
+            ]}
+          />
         ) : fetchError ? (
           <div className="flex items-center justify-center py-16">
             <p className="text-sm text-red-500">{fetchError}</p>

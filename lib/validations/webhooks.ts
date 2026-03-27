@@ -23,7 +23,7 @@ export const WebhookEndpointUpdateSchema = z.object({
   events:      z.array(WebhookEventTypeSchema).min(1, 'Select at least one event').optional(),
   isActive:    z.boolean().optional(),
 }).refine(
-  (data) => Object.keys(data).length > 0,
+  (data) => Object.values(data).some((v) => v !== undefined),
   { message: 'At least one field must be provided' },
 );
 

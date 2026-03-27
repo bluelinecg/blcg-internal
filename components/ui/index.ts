@@ -14,3 +14,4 @@ export { Modal } from './Modal';
 export { ConfirmDialog } from './ConfirmDialog';
 export { Pagination } from './Pagination';
 export { SortableHeader } from './SortableHeader';
+export { Skeleton, TableSkeleton } from './Skeleton';
