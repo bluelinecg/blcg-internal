@@ -10,7 +10,10 @@ import { getInvoiceById, updateInvoice, deleteInvoice } from '@/lib/db/finances'
 import { UpdateInvoiceSchema } from '@/lib/validations/finances';
 import { guardAdmin } from '@/lib/auth/roles';
 import { logAction } from '@/lib/utils/audit';
+import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
+import { runAutomations } from '@/lib/automations/engine';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
+import { notifyIfEnabled } from '@/lib/utils/notify-user';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -43,6 +46,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -60,7 +64,26 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (!data) return apiError('Invoice not found', 404);
 
     if (parsed.data.status !== undefined) {
+      void dispatchWebhookEvent('invoice.status_changed', data as unknown as Record<string, unknown>);
+      void runAutomations('invoice.status_changed', data as unknown as Record<string, unknown>);
       void logAction({ entityType: 'invoice', entityId: id, entityLabel: data.invoiceNumber, action: 'status_changed', metadata: { to: data.status } });
+      if (data.status === 'paid') {
+        void notifyIfEnabled(userId, 'invoicePaid', {
+          type: 'invoice_paid',
+          title: 'Invoice Paid',
+          body: `Invoice ${data.invoiceNumber} has been marked as paid.`,
+          entityType: 'invoice',
+          entityId: id,
+        });
+      } else if (data.status === 'overdue') {
+        void notifyIfEnabled(userId, 'invoiceOverdue', {
+          type: 'invoice_overdue',
+          title: 'Invoice Overdue',
+          body: `Invoice ${data.invoiceNumber} is now overdue.`,
+          entityType: 'invoice',
+          entityId: id,
+        });
+      }
     } else {
       void logAction({ entityType: 'invoice', entityId: id, entityLabel: data.invoiceNumber, action: 'updated' });
     }
