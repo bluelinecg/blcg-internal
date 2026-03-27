@@ -16,3 +16,15 @@ export const WebhookEndpointSchema = z.object({
 });
 
 export type WebhookEndpointInput = z.infer<typeof WebhookEndpointSchema>;
+
+export const WebhookEndpointUpdateSchema = z.object({
+  url:         z.string().url('Must be a valid URL').optional(),
+  description: z.string().optional(),
+  events:      z.array(WebhookEventTypeSchema).min(1, 'Select at least one event').optional(),
+  isActive:    z.boolean().optional(),
+}).refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one field must be provided' },
+);
+
+export type WebhookEndpointUpdateInput = z.infer<typeof WebhookEndpointUpdateSchema>;
