@@ -18,6 +18,7 @@ import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
 import { logAction } from '@/lib/utils/audit';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 import { runAutomations } from '@/lib/automations/engine';
+import { notifyIfEnabled } from '@/lib/utils/notify-user';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -46,6 +47,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -66,6 +68,15 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       void dispatchWebhookEvent('proposal.status_changed', data as unknown as Record<string, unknown>);
       void runAutomations('proposal.status_changed', data as unknown as Record<string, unknown>);
       void logAction({ entityType: 'proposal', entityId: id, entityLabel: data.title, action: 'status_changed', metadata: { to: data.status } });
+      if (data.status === 'accepted') {
+        void notifyIfEnabled(userId, 'proposalAccepted', {
+          type: 'proposal_accepted',
+          title: 'Proposal Accepted',
+          body: `Proposal "${data.title}" has been accepted.`,
+          entityType: 'proposal',
+          entityId: id,
+        });
+      }
     } else if (data) {
       void logAction({ entityType: 'proposal', entityId: id, entityLabel: data.title, action: 'updated' });
     }

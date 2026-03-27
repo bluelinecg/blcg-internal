@@ -10,7 +10,10 @@ import { ProposalSchema } from '@/lib/validations/proposals';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 import { logAction } from '@/lib/utils/audit';
+import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
+import { runAutomations } from '@/lib/automations/engine';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
+import { notifyIfEnabled } from '@/lib/utils/notify-user';
 
 // GET /api/proposals
 export async function GET(request: Request) {
@@ -34,6 +37,7 @@ export async function POST(request: Request) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -51,7 +55,18 @@ export async function POST(request: Request) {
     const { data, error } = await createProposal({ ...parsed.data, proposalNumber });
     if (error) return apiError(error, 500);
 
-    if (data) void logAction({ entityType: 'proposal', entityId: data.id, entityLabel: data.title, action: 'created' });
+    if (data) {
+      void dispatchWebhookEvent('proposal.created', data as unknown as Record<string, unknown>);
+      void runAutomations('proposal.created', data as unknown as Record<string, unknown>);
+      void logAction({ entityType: 'proposal', entityId: data.id, entityLabel: data.title, action: 'created' });
+      void notifyIfEnabled(userId, 'newProposal', {
+        type: 'new_proposal',
+        title: 'New Proposal Created',
+        body: `Proposal "${data.title}" has been created.`,
+        entityType: 'proposal',
+        entityId: data.id,
+      });
+    }
 
     return apiOk(data, 201);
   } catch (err) {

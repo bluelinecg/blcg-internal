@@ -5,6 +5,8 @@ import {
   listWebhookEndpoints,
   listActiveEndpointsForEvent,
   createWebhookEndpoint,
+  getWebhookEndpoint,
+  updateWebhookEndpoint,
   deleteWebhookEndpoint,
   listWebhookDeliveries,
   createWebhookDelivery,
@@ -18,6 +20,7 @@ function makeChain(result: { data: unknown; count?: number | null; error: unknow
   const chain = {
     select:   jest.fn().mockReturnThis(),
     insert:   jest.fn().mockReturnThis(),
+    update:   jest.fn().mockReturnThis(),
     delete:   jest.fn().mockReturnThis(),
     order:    jest.fn().mockReturnThis(),
     limit:    jest.fn().mockReturnThis(),
@@ -185,6 +188,88 @@ describe('deleteWebhookEndpoint', () => {
 
     const result = await deleteWebhookEndpoint('ep-1');
     expect(result.error).toBe('delete failed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getWebhookEndpoint
+// ---------------------------------------------------------------------------
+
+describe('getWebhookEndpoint', () => {
+  it('returns the endpoint on success', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: ENDPOINT_ROW, error: null });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const result = await getWebhookEndpoint('ep-1');
+
+    expect(result.error).toBeNull();
+    expect(result.data?.id).toBe('ep-1');
+    expect(chain.eq).toHaveBeenCalledWith('id', 'ep-1');
+  });
+
+  it('returns null data (not found) when PGRST116 is returned', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: null, error: { code: 'PGRST116', message: 'no rows' } });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const result = await getWebhookEndpoint('missing');
+    expect(result.data).toBeNull();
+    expect(result.error).toBeNull();
+  });
+
+  it('returns error string on other DB failure', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: null, error: { code: '42P01', message: 'table missing' } });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const result = await getWebhookEndpoint('ep-1');
+    expect(result.error).toBe('table missing');
+    expect(result.data).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateWebhookEndpoint
+// ---------------------------------------------------------------------------
+
+describe('updateWebhookEndpoint', () => {
+  it('returns the updated endpoint on success', async () => {
+    const updated = { ...ENDPOINT_ROW, is_active: false };
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: updated, error: null });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const result = await updateWebhookEndpoint('ep-1', { isActive: false });
+
+    expect(result.error).toBeNull();
+    expect(result.data?.isActive).toBe(false);
+  });
+
+  it('returns null data (not found) when PGRST116 is returned', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: null, error: { code: 'PGRST116', message: 'no rows' } });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const result = await updateWebhookEndpoint('missing', { isActive: true });
+    expect(result.data).toBeNull();
+    expect(result.error).toBeNull();
+  });
+
+  it('returns error string on DB failure', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: null, error: { code: '23505', message: 'update failed' } });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const result = await updateWebhookEndpoint('ep-1', { url: 'https://new.example.com' });
+    expect(result.error).toBe('update failed');
+    expect(result.data).toBeNull();
   });
 });
 

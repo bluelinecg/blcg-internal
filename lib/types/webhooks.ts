@@ -8,7 +8,10 @@ export type WebhookEventType =
   | 'organization.created'
   | 'task.created'
   | 'task.status_changed'
+  | 'proposal.created'
   | 'proposal.status_changed'
+  | 'invoice.created'
+  | 'invoice.status_changed'
   | 'pipeline.item_stage_changed';
 
 export interface WebhookEndpoint {

@@ -10,6 +10,7 @@ import { InvoiceSchema } from '@/lib/validations/finances';
 import { guardAdmin } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 import { logAction } from '@/lib/utils/audit';
+import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 export async function GET(request: Request) {
@@ -48,7 +49,10 @@ export async function POST(request: Request) {
     const { data, error } = await createInvoice(parsed.data);
     if (error) return apiError(error, 500);
 
-    if (data) void logAction({ entityType: 'invoice', entityId: data.id, entityLabel: data.invoiceNumber, action: 'created' });
+    if (data) {
+      void dispatchWebhookEvent('invoice.created', data as unknown as Record<string, unknown>);
+      void logAction({ entityType: 'invoice', entityId: data.id, entityLabel: data.invoiceNumber, action: 'created' });
+    }
 
     return apiOk(data, 201);
   } catch (err) {

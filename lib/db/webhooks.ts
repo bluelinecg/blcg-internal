@@ -4,7 +4,7 @@
 
 import { serverClient } from '@/lib/db/supabase';
 import type { WebhookEndpoint, WebhookDelivery, WebhookDeliveryStatus, WebhookEventType, WebhookEventPayload } from '@/lib/types/webhooks';
-import type { WebhookEndpointInput } from '@/lib/validations/webhooks';
+import type { WebhookEndpointInput, WebhookEndpointUpdateInput } from '@/lib/validations/webhooks';
 
 // ---------------------------------------------------------------------------
 // Row types (mirror DB columns)
@@ -126,6 +126,64 @@ export async function createWebhookEndpoint(
   } catch (err) {
     console.error('[createWebhookEndpoint]', err);
     return { data: null, error: 'Failed to create webhook endpoint' };
+  }
+}
+
+/** Returns a single webhook endpoint by id, or null if not found. */
+export async function getWebhookEndpoint(
+  id: string,
+): Promise<{ data: WebhookEndpoint | null; error: string | null }> {
+  try {
+    const { data, error } = await serverClient()
+      .from('webhook_endpoints')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return { data: null, error: null };
+      return { data: null, error: error.message };
+    }
+    return { data: endpointFromRow(data as EndpointRow), error: null };
+  } catch (err) {
+    console.error('[getWebhookEndpoint]', err);
+    return { data: null, error: 'Failed to load webhook endpoint' };
+  }
+}
+
+/** Updates a webhook endpoint. Only provided fields are changed. */
+export async function updateWebhookEndpoint(
+  id: string,
+  input: WebhookEndpointUpdateInput,
+): Promise<{ data: WebhookEndpoint | null; error: string | null }> {
+  try {
+    const patch: Partial<{
+      url:         string;
+      description: string | null;
+      events:      string[];
+      is_active:   boolean;
+    }> = {};
+
+    if (input.url        !== undefined) patch.url         = input.url;
+    if (input.description !== undefined) patch.description = input.description ?? null;
+    if (input.events     !== undefined) patch.events      = input.events;
+    if (input.isActive   !== undefined) patch.is_active   = input.isActive;
+
+    const { data, error } = await serverClient()
+      .from('webhook_endpoints')
+      .update(patch)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return { data: null, error: null };
+      return { data: null, error: error.message };
+    }
+    return { data: endpointFromRow(data as EndpointRow), error: null };
+  } catch (err) {
+    console.error('[updateWebhookEndpoint]', err);
+    return { data: null, error: 'Failed to update webhook endpoint' };
   }
 }
 

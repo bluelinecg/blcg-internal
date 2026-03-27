@@ -7,7 +7,9 @@ export type AutomationTriggerType =
   | 'pipeline.item_stage_changed'
   | 'task.status_changed'
   | 'task.completed'
+  | 'proposal.created'
   | 'proposal.status_changed'
+  | 'invoice.status_changed'
   // Time-based / SLA
   | 'sla.stage_time_exceeded'
   | 'sla.task_overdue'

@@ -1,6 +1,6 @@
 /** @jest-environment node */
-// Unit tests for app/api/proposals/[id]/route.ts
-// Tests GET, PATCH, DELETE handlers with automation engine and webhook dispatch.
+// Unit tests for app/api/invoices/[id]/route.ts
+// Tests PATCH handler — verifies invoice.status_changed webhook and automation are fired.
 // All dependencies are mocked — no real DB, Clerk, or network calls.
 
 import { GET, PATCH, DELETE } from './route';
@@ -10,11 +10,10 @@ import { NextResponse } from 'next/server';
 // Mocks
 // ---------------------------------------------------------------------------
 
-jest.mock('@/lib/db/proposals', () => ({
-  getProposalById: jest.fn(),
-  updateProposal: jest.fn(),
-  deleteProposal: jest.fn(),
-  getProposalDependencyCounts: jest.fn(),
+jest.mock('@/lib/db/finances', () => ({
+  getInvoiceById: jest.fn(),
+  updateInvoice:  jest.fn(),
+  deleteInvoice:  jest.fn(),
 }));
 
 jest.mock('@/lib/api/utils', () => ({
@@ -29,7 +28,6 @@ jest.mock('@/lib/api/utils', () => ({
 
 jest.mock('@/lib/auth/roles', () => ({
   guardAdmin: jest.fn(),
-  guardMember: jest.fn(),
 }));
 
 jest.mock('@/lib/utils/webhook-delivery', () => ({
@@ -48,21 +46,19 @@ jest.mock('@/lib/utils/notify-user', () => ({
   notifyIfEnabled: jest.fn(),
 }));
 
-import { getProposalById, updateProposal, deleteProposal, getProposalDependencyCounts } from '@/lib/db/proposals';
+import { getInvoiceById, updateInvoice, deleteInvoice } from '@/lib/db/finances';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
-import { guardAdmin, guardMember } from '@/lib/auth/roles';
+import { guardAdmin } from '@/lib/auth/roles';
 import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
 import { runAutomations } from '@/lib/automations/engine';
 import { logAction } from '@/lib/utils/audit';
 import { notifyIfEnabled } from '@/lib/utils/notify-user';
 
-const mockGetProposal     = getProposalById as jest.Mock;
-const mockUpdateProposal  = updateProposal as jest.Mock;
-const mockDeleteProposal  = deleteProposal as jest.Mock;
-const mockGetDependencies = getProposalDependencyCounts as jest.Mock;
+const mockGetInvoice      = getInvoiceById as jest.Mock;
+const mockUpdateInvoice   = updateInvoice as jest.Mock;
+const mockDeleteInvoice   = deleteInvoice as jest.Mock;
 const mockAuth            = requireAuth as jest.Mock;
 const mockGuardAdmin      = guardAdmin as jest.Mock;
-const mockGuardMember     = guardMember as jest.Mock;
 const mockDispatchWebhook = dispatchWebhookEvent as jest.Mock;
 const mockRunAutomations  = runAutomations as jest.Mock;
 const mockLogAction       = logAction as jest.Mock;
@@ -72,50 +68,20 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockAuth.mockResolvedValue({ userId: 'user-1' });
   mockGuardAdmin.mockResolvedValue(null);
-  mockGuardMember.mockResolvedValue(null);
   mockNotifyIfEnabled.mockResolvedValue(undefined);
 });
 
-const MOCK_PROPOSAL = {
-  id: 'proposal-1',
-  title: 'Website Redesign',
-  description: 'Complete website overhaul',
+const MOCK_INVOICE = {
+  id: 'invoice-1',
+  invoiceNumber: 'BL-2026-001',
   status: 'draft',
-  amount: 5000,
   organizationId: 'org-1',
+  totalValue: 5000,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };
 
-const PARAMS = Promise.resolve({ id: 'proposal-1' });
-
-// ---------------------------------------------------------------------------
-// GET Tests
-// ---------------------------------------------------------------------------
-
-describe('GET /api/proposals/[id]', () => {
-  it('returns 200 with proposal data on success', async () => {
-    mockGetProposal.mockResolvedValue({ data: MOCK_PROPOSAL, error: null });
-    mockApiOk();
-
-    await GET(new Request('http://localhost'), { params: PARAMS });
-
-    expect(apiOk).toHaveBeenCalledWith(MOCK_PROPOSAL);
-  });
-
-  it('returns 404 when proposal not found', async () => {
-    mockGetProposal.mockResolvedValue({ data: null, error: null });
-    mockApiError();
-
-    await GET(new Request('http://localhost'), { params: PARAMS });
-
-    expect(apiError).toHaveBeenCalledWith('Proposal not found', 404);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// PATCH Tests
-// ---------------------------------------------------------------------------
+const PARAMS = Promise.resolve({ id: 'invoice-1' });
 
 function makePatchRequest(body: unknown): Request {
   return new Request('http://localhost', {
@@ -125,60 +91,93 @@ function makePatchRequest(body: unknown): Request {
   });
 }
 
-describe('PATCH /api/proposals/[id] — status change', () => {
-  it('dispatches webhook and automation engine when status changes', async () => {
-    const proposalUpdated = { ...MOCK_PROPOSAL, status: 'sent' };
+// ---------------------------------------------------------------------------
+// GET Tests
+// ---------------------------------------------------------------------------
 
-    mockGetProposal.mockResolvedValue({ data: MOCK_PROPOSAL, error: null });
-    mockUpdateProposal.mockResolvedValue({ data: proposalUpdated, error: null });
+describe('GET /api/invoices/[id]', () => {
+  it('returns 200 with invoice data on success', async () => {
+    mockGetInvoice.mockResolvedValue({ data: MOCK_INVOICE, error: null });
     mockApiOk();
 
-    const req = makePatchRequest({ status: 'sent' });
-    await PATCH(req, { params: PARAMS });
+    await GET(new Request('http://localhost'), { params: PARAMS });
 
-    // Verify webhook dispatch
+    expect(apiOk).toHaveBeenCalledWith(MOCK_INVOICE);
+  });
+
+  it('returns 404 when invoice not found', async () => {
+    mockGetInvoice.mockResolvedValue({ data: null, error: null });
+    mockApiError();
+
+    await GET(new Request('http://localhost'), { params: PARAMS });
+
+    expect(apiError).toHaveBeenCalledWith('Invoice not found', 404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH Tests
+// ---------------------------------------------------------------------------
+
+describe('PATCH /api/invoices/[id] — status change', () => {
+  it('fires invoice.status_changed webhook and automation when status changes', async () => {
+    const invoiceUpdated = { ...MOCK_INVOICE, status: 'sent' };
+    mockUpdateInvoice.mockResolvedValue({ data: invoiceUpdated, error: null });
+    mockApiOk();
+
+    await PATCH(makePatchRequest({ status: 'sent' }), { params: PARAMS });
+
     expect(mockDispatchWebhook).toHaveBeenCalledWith(
-      'proposal.status_changed',
-      expect.objectContaining({ status: 'sent', title: 'Website Redesign' }),
+      'invoice.status_changed',
+      expect.objectContaining({ status: 'sent', invoiceNumber: 'BL-2026-001' }),
     );
 
-    // Verify automation engine dispatch
     expect(mockRunAutomations).toHaveBeenCalledWith(
-      'proposal.status_changed',
+      'invoice.status_changed',
       expect.objectContaining({ status: 'sent' }),
     );
 
-    // Verify audit log
     expect(mockLogAction).toHaveBeenCalledWith(
       expect.objectContaining({
-        entityType: 'proposal',
-        entityId: 'proposal-1',
-        entityLabel: 'Website Redesign',
+        entityType: 'invoice',
+        entityId: 'invoice-1',
         action: 'status_changed',
         metadata: { to: 'sent' },
       }),
     );
   });
 
-  it('fires proposalAccepted notification when status changes to accepted', async () => {
-    const proposalAccepted = { ...MOCK_PROPOSAL, status: 'accepted' };
-    mockGetProposal.mockResolvedValue({ data: MOCK_PROPOSAL, error: null });
-    mockUpdateProposal.mockResolvedValue({ data: proposalAccepted, error: null });
+  it('fires invoicePaid notification when status changes to paid', async () => {
+    const invoicePaid = { ...MOCK_INVOICE, status: 'paid' };
+    mockUpdateInvoice.mockResolvedValue({ data: invoicePaid, error: null });
     mockApiOk();
 
-    await PATCH(makePatchRequest({ status: 'accepted' }), { params: PARAMS });
+    await PATCH(makePatchRequest({ status: 'paid' }), { params: PARAMS });
 
     expect(mockNotifyIfEnabled).toHaveBeenCalledWith(
       'user-1',
-      'proposalAccepted',
-      expect.objectContaining({ type: 'proposal_accepted', entityType: 'proposal', entityId: 'proposal-1' }),
+      'invoicePaid',
+      expect.objectContaining({ type: 'invoice_paid', entityType: 'invoice', entityId: 'invoice-1' }),
     );
   });
 
-  it('skips notification when status changes to non-accepted value', async () => {
-    const proposalSent = { ...MOCK_PROPOSAL, status: 'sent' };
-    mockGetProposal.mockResolvedValue({ data: MOCK_PROPOSAL, error: null });
-    mockUpdateProposal.mockResolvedValue({ data: proposalSent, error: null });
+  it('fires invoiceOverdue notification when status changes to overdue', async () => {
+    const invoiceOverdue = { ...MOCK_INVOICE, status: 'overdue' };
+    mockUpdateInvoice.mockResolvedValue({ data: invoiceOverdue, error: null });
+    mockApiOk();
+
+    await PATCH(makePatchRequest({ status: 'overdue' }), { params: PARAMS });
+
+    expect(mockNotifyIfEnabled).toHaveBeenCalledWith(
+      'user-1',
+      'invoiceOverdue',
+      expect.objectContaining({ type: 'invoice_overdue', entityType: 'invoice', entityId: 'invoice-1' }),
+    );
+  });
+
+  it('skips notification when status changes to non-notifiable value', async () => {
+    const invoiceSent = { ...MOCK_INVOICE, status: 'sent' };
+    mockUpdateInvoice.mockResolvedValue({ data: invoiceSent, error: null });
     mockApiOk();
 
     await PATCH(makePatchRequest({ status: 'sent' }), { params: PARAMS });
@@ -186,13 +185,11 @@ describe('PATCH /api/proposals/[id] — status change', () => {
     expect(mockNotifyIfEnabled).not.toHaveBeenCalled();
   });
 
-  it('skips automations when status does not change', async () => {
-    mockGetProposal.mockResolvedValue({ data: MOCK_PROPOSAL, error: null });
-    mockUpdateProposal.mockResolvedValue({ data: MOCK_PROPOSAL, error: null });
+  it('skips webhook and automation when status does not change', async () => {
+    mockUpdateInvoice.mockResolvedValue({ data: MOCK_INVOICE, error: null });
     mockApiOk();
 
-    const req = makePatchRequest({ amount: 6000 }); // No status change
-    await PATCH(req, { params: PARAMS });
+    await PATCH(makePatchRequest({ totalValue: 6000 }), { params: PARAMS });
 
     expect(mockDispatchWebhook).not.toHaveBeenCalled();
     expect(mockRunAutomations).not.toHaveBeenCalled();
@@ -204,22 +201,22 @@ describe('PATCH /api/proposals/[id] — status change', () => {
 
   it('returns 400 on invalid request body', async () => {
     mockApiError();
-    const req = makePatchRequest({ status: 'not-a-valid-status' });
 
-    await PATCH(req, { params: PARAMS });
+    await PATCH(makePatchRequest({ status: 'not-a-valid-status' }), { params: PARAMS });
 
     expect(apiError).toHaveBeenCalledWith(expect.any(String), 400);
+    expect(mockDispatchWebhook).not.toHaveBeenCalled();
+    expect(mockRunAutomations).not.toHaveBeenCalled();
   });
 
-  it('returns 403 when user lacks member permission', async () => {
+  it('returns 403 when user lacks admin permission', async () => {
     const errorResponse = new NextResponse(
       JSON.stringify({ data: null, error: 'Forbidden' }),
       { status: 403 },
     );
-    mockGuardMember.mockResolvedValue(errorResponse);
+    mockGuardAdmin.mockResolvedValue(errorResponse);
 
-    const req = makePatchRequest({ status: 'sent' });
-    const result = await PATCH(req, { params: PARAMS });
+    const result = await PATCH(makePatchRequest({ status: 'sent' }), { params: PARAMS });
 
     expect(result.status).toBe(403);
     expect(mockDispatchWebhook).not.toHaveBeenCalled();
@@ -231,31 +228,31 @@ describe('PATCH /api/proposals/[id] — status change', () => {
 // DELETE Tests
 // ---------------------------------------------------------------------------
 
-describe('DELETE /api/proposals/[id]', () => {
-  it('returns 200 with id on success when no linked projects', async () => {
-    mockGetProposal.mockResolvedValue({ data: MOCK_PROPOSAL, error: null });
-    mockGetDependencies.mockResolvedValue({ linkedProjects: 0, error: null });
-    mockDeleteProposal.mockResolvedValue({ error: null });
+describe('DELETE /api/invoices/[id]', () => {
+  it('returns 200 with id on success when invoice is deletable', async () => {
+    const draftInvoice = { ...MOCK_INVOICE, status: 'draft' };
+    mockGetInvoice.mockResolvedValue({ data: draftInvoice, error: null });
+    mockDeleteInvoice.mockResolvedValue({ error: null });
     mockApiOk();
 
     await DELETE(new Request('http://localhost'), { params: PARAMS });
 
-    expect(mockDeleteProposal).toHaveBeenCalled();
-    expect(apiOk).toHaveBeenCalledWith({ id: 'proposal-1' });
+    expect(mockDeleteInvoice).toHaveBeenCalled();
+    expect(apiOk).toHaveBeenCalledWith({ id: 'invoice-1' });
     expect(mockLogAction).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'deleted' }),
     );
   });
 
-  it('returns 409 when proposal has linked projects', async () => {
-    mockGetProposal.mockResolvedValue({ data: MOCK_PROPOSAL, error: null });
-    mockGetDependencies.mockResolvedValue({ linkedProjects: 1, error: null });
+  it('returns 409 when invoice status blocks deletion', async () => {
+    const sentInvoice = { ...MOCK_INVOICE, status: 'sent' };
+    mockGetInvoice.mockResolvedValue({ data: sentInvoice, error: null });
     mockApiError();
 
     await DELETE(new Request('http://localhost'), { params: PARAMS });
 
-    expect(mockDeleteProposal).not.toHaveBeenCalled();
-    expect(apiError).toHaveBeenCalledWith(expect.stringContaining('Cannot delete proposal'), 409);
+    expect(mockDeleteInvoice).not.toHaveBeenCalled();
+    expect(apiError).toHaveBeenCalledWith(expect.stringContaining('Cannot delete invoice'), 409);
   });
 
   it('returns 403 when user lacks admin permission', async () => {
@@ -268,12 +265,12 @@ describe('DELETE /api/proposals/[id]', () => {
     const result = await DELETE(new Request('http://localhost'), { params: PARAMS });
 
     expect(result.status).toBe(403);
-    expect(mockDeleteProposal).not.toHaveBeenCalled();
+    expect(mockDeleteInvoice).not.toHaveBeenCalled();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Helper functions
+// Helpers
 // ---------------------------------------------------------------------------
 
 function mockApiOk() {
