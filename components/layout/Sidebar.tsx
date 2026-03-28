@@ -140,6 +140,15 @@ function IconOrganizations() {
   );
 }
 
+function IconTimeTracking() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
 function IconSettings() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -175,6 +184,7 @@ const MAIN_NAV_ITEMS: NavItem[] = [
   { label: 'Projects',      href: '/projects',      icon: <IconProjects /> },
   { label: 'Proposals',     href: '/proposals',     icon: <IconProposals /> },
   { label: 'Tasks',         href: '/tasks',         icon: <IconTasks /> },
+  { label: 'Time Tracking', href: '/time-tracking', icon: <IconTimeTracking /> },
   { label: 'Users',         href: '/users',         icon: <IconUsers /> },
 ];
 
