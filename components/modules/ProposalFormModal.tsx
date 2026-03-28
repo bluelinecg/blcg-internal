@@ -12,8 +12,10 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
+import { CatalogItemPickerModal } from '@/components/modules/CatalogItemPickerModal';
 import type { Proposal, ProposalLineItem, ProposalStatus } from '@/lib/types/proposals';
 import type { Contact, Organization } from '@/lib/types/crm';
+import type { CatalogItem } from '@/lib/types/catalog';
 
 type ProposalFormData = Omit<Proposal, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -23,6 +25,7 @@ interface ProposalFormModalProps {
   onSave: (data: ProposalFormData) => void;
   initial?: Partial<ProposalFormData>;
   organizations: Organization[];
+  catalogItems?: CatalogItem[];
   isSaving?: boolean;
   saveError?: string | null;
 }
@@ -53,10 +56,11 @@ const DEFAULTS: ProposalFormData = {
   contactId: undefined,
 };
 
-export function ProposalFormModal({ isOpen, onClose, onSave, initial, organizations, isSaving, saveError }: ProposalFormModalProps) {
+export function ProposalFormModal({ isOpen, onClose, onSave, initial, organizations, catalogItems, isSaving, saveError }: ProposalFormModalProps) {
   const [form, setForm] = useState<ProposalFormData>({ ...DEFAULTS, ...initial });
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [orgContacts, setOrgContacts] = useState<Contact[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -119,6 +123,23 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, organizati
       const items = prev.lineItems.filter((_, i) => i !== index);
       const totalValue = items.reduce((s, it) => s + it.total, 0);
       return { ...prev, lineItems: items, totalValue };
+    });
+  }
+
+  function addLineItemFromCatalog(item: Pick<CatalogItem, 'name' | 'description' | 'unitPrice'>) {
+    setForm((prev) => {
+      const newItem: ProposalLineItem = {
+        id:          `li_${Date.now()}`,
+        proposalId:  '',
+        description: item.name + (item.description ? ` — ${item.description}` : ''),
+        quantity:    1,
+        unitPrice:   item.unitPrice,
+        total:       item.unitPrice,
+        sortOrder:   prev.lineItems.length,
+      };
+      const lineItems  = [...prev.lineItems, newItem];
+      const totalValue = lineItems.reduce((s, it) => s + it.total, 0);
+      return { ...prev, lineItems, totalValue };
     });
   }
 
@@ -275,12 +296,22 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, organizati
             ))}
             {/* Footer: total + add row */}
             <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-t border-gray-200">
-              <button
-                onClick={addLineItem}
-                className="text-xs font-medium text-brand-blue hover:underline"
-              >
-                + Add line item
-              </button>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={addLineItem}
+                  className="text-xs font-medium text-brand-blue hover:underline"
+                >
+                  + Add line item
+                </button>
+                {catalogItems && catalogItems.length > 0 && (
+                  <button
+                    onClick={() => setPickerOpen(true)}
+                    className="text-xs font-medium text-gray-500 hover:text-brand-blue hover:underline"
+                  >
+                    Add from Catalog
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</span>
                 <span className="text-sm font-bold text-gray-900 w-24 text-right">{formatCurrency(form.totalValue)}</span>
@@ -308,6 +339,15 @@ export function ProposalFormModal({ isOpen, onClose, onSave, initial, organizati
           </Button>
         </div>
       </div>
+
+      {catalogItems && (
+        <CatalogItemPickerModal
+          isOpen={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          onSelect={addLineItemFromCatalog}
+          items={catalogItems.filter((i) => i.isActive)}
+        />
+      )}
     </Modal>
   );
 }

@@ -14,6 +14,7 @@ import type { TableColumn } from '@/components/ui/ExpandableTable';
 import { ProposalStatusBadge, ProposalFormModal } from '@/components/modules';
 import type { Proposal, ProposalStatus } from '@/lib/types/proposals';
 import type { Organization } from '@/lib/types/crm';
+import type { CatalogItem } from '@/lib/types/catalog';
 
 type StatusFilter = ProposalStatus | 'all';
 
@@ -45,6 +46,15 @@ export function ProposalsPage() {
       .then((r) => r.json())
       .then((j: { data: Organization[] | null }) => setOrganizations(j.data ?? []))
       .catch(() => setOrganizations([]));
+  }, []);
+
+  // Active catalog items for the line item picker
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  useEffect(() => {
+    fetch('/api/catalog?activeOnly=true&pageSize=200&sort=name')
+      .then((r) => r.json())
+      .then((j: { data: CatalogItem[] | null }) => setCatalogItems(j.data ?? []))
+      .catch(() => setCatalogItems([]));
   }, []);
 
   const [search, setSearch] = useState('');
@@ -303,6 +313,7 @@ export function ProposalsPage() {
         onSave={editing ? handleEdit : handleCreate}
         initial={editing ?? undefined}
         organizations={organizations}
+        catalogItems={catalogItems}
         isSaving={isSaving}
         saveError={saveError}
       />

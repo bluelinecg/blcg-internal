@@ -112,6 +112,16 @@ function IconUsers() {
   );
 }
 
+function IconCatalog() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="3" width="20" height="5" rx="1" />
+      <rect x="2" y="10" width="20" height="5" rx="1" />
+      <rect x="2" y="17" width="20" height="5" rx="1" />
+    </svg>
+  );
+}
+
 function IconContacts() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -155,6 +165,7 @@ function IconAutomations() {
 // Main nav — Dashboard first, then alphabetical. Settings is pinned to the bottom separately.
 const MAIN_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard /> },
+  { label: 'Catalog',       href: '/catalog',       icon: <IconCatalog /> },
   { label: 'Clients',       href: '/clients',       icon: <IconClients /> },
   { label: 'Contacts',      href: '/contacts',      icon: <IconContacts /> },
   { label: 'Emails',        href: '/emails',        icon: <IconEmails /> },
