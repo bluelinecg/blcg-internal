@@ -13,6 +13,7 @@ import type { KanbanColumn } from '@/components/ui/KanbanBoard';
 import { TaskFormModal } from '@/components/modules';
 import type { Task, TaskStatus, TaskPriority, ChecklistItem } from '@/lib/types/tasks';
 import type { Project } from '@/lib/types/projects';
+import type { Client } from '@/lib/types/clients';
 
 const COLUMNS: KanbanColumn[] = [
   { id: 'backlog',      label: 'Backlog' },
@@ -43,6 +44,23 @@ const ASSIGNEE_OPTIONS = [
   { value: 'Nick', label: 'Nick' },
 ];
 
+const MODULE_FILTER_OPTIONS = [
+  { value: 'all',            label: 'All Modules' },
+  { value: 'none',           label: 'No Module' },
+  { value: 'core',           label: 'Core' },
+  { value: 'finance',        label: 'Finance' },
+  { value: 'integrations',   label: 'Integrations' },
+  { value: 'automation',     label: 'Automation' },
+  { value: 'pipelines',      label: 'Pipelines' },
+  { value: 'crm',            label: 'CRM' },
+  { value: 'tasks',          label: 'Tasks' },
+  { value: 'client-portal',  label: 'Client Portal' },
+  { value: 'notifications',  label: 'Notifications' },
+  { value: 'operations',     label: 'Operations' },
+  { value: 'documents',      label: 'Documents' },
+  { value: 'ai',             label: 'AI' },
+];
+
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;
 
 export function TasksPage() {
@@ -51,11 +69,13 @@ export function TasksPage() {
   const canEdit = role !== 'viewer';
   const [tasks, setTasks]       = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients]   = useState<Client[]>([]);
   const [isLoading, setIsLoading]   = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [projectFilter, setProjectFilter]   = useState('all');
   const [assigneeFilter, setAssigneeFilter] = useState('all');
+  const [moduleFilter, setModuleFilter]     = useState('all');
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing]   = useState<Task | null>(null);
@@ -72,13 +92,15 @@ export function TasksPage() {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const [tasksRes, projectsRes] = await Promise.all([
+      const [tasksRes, projectsRes, clientsRes] = await Promise.all([
         fetch('/api/tasks?pageSize=500'),
         fetch('/api/projects'),
+        fetch('/api/clients?pageSize=200'),
       ]);
-      const [tasksJson, projectsJson] = await Promise.all([
+      const [tasksJson, projectsJson, clientsJson] = await Promise.all([
         tasksRes.json() as Promise<{ data: Task[] | null; error: string | null }>,
         projectsRes.json() as Promise<{ data: Project[] | null; error: string | null }>,
+        clientsRes.json() as Promise<{ data: Client[] | null; error: string | null }>,
       ]);
       if (!tasksRes.ok || tasksJson.error) {
         setFetchError(tasksJson.error ?? 'Failed to load tasks');
@@ -86,6 +108,7 @@ export function TasksPage() {
       }
       setTasks(tasksJson.data ?? []);
       setProjects(projectsJson.data ?? []);
+      setClients(clientsJson.data ?? []);
     } catch {
       setFetchError('Failed to load tasks');
     } finally {
@@ -96,6 +119,11 @@ export function TasksPage() {
   const projectMap = useMemo(
     () => Object.fromEntries(projects.map((p) => [p.id, p])),
     [projects],
+  );
+
+  const clientMap = useMemo(
+    () => Object.fromEntries(clients.map((c) => [c.id, c])),
+    [clients],
   );
 
   const tasksById = useMemo(
@@ -116,10 +144,13 @@ export function TasksPage() {
           projectFilter === 'all' ||
           (projectFilter === 'none' ? !t.projectId : t.projectId === projectFilter);
         const matchesAssignee = assigneeFilter === 'all' || t.assignee === assigneeFilter;
-        return matchesProject && matchesAssignee;
+        const matchesModule =
+          moduleFilter === 'all' ||
+          (moduleFilter === 'none' ? !t.module : t.module === moduleFilter);
+        return matchesProject && matchesAssignee && matchesModule;
       })
       .sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [tasks, projectFilter, assigneeFilter]);
+  }, [tasks, projectFilter, assigneeFilter, moduleFilter]);
 
   // --- CRUD handlers ---
 
@@ -292,9 +323,10 @@ export function TasksPage() {
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5 flex-wrap">
             <Select options={projectFilterOptions} value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="w-full sm:w-56" />
             <Select options={ASSIGNEE_OPTIONS} value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="w-full sm:w-40" />
+            <Select options={MODULE_FILTER_OPTIONS} value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} className="w-full sm:w-44" />
             <span className="text-xs text-gray-400">{filtered.length} tasks shown</span>
           </div>
 
@@ -311,6 +343,7 @@ export function TasksPage() {
                 <TaskCard
                   task={task}
                   projectMap={projectMap}
+                  clientMap={clientMap}
                   tasksById={tasksById}
                   onEdit={canEdit ? (t) => { setEditing(t); setSaveError(null); setFormOpen(true); } : undefined}
                   onDelete={isAdmin ? (t) => setDeleteTarget(t) : undefined}
@@ -328,6 +361,7 @@ export function TasksPage() {
         onSave={editing ? handleEdit : handleCreate}
         initial={editing ?? undefined}
         projects={projects}
+        clients={clients}
         allTasks={tasks}
         isSaving={isSaving}
         saveError={saveError}
@@ -349,17 +383,19 @@ export default TasksPage;
 // --- Task card ---
 
 interface TaskCardProps {
-  task:              Task;
-  projectMap:        Record<string, Project>;
-  tasksById:         Record<string, Task>;
-  onEdit?:           (task: Task) => void;
-  onDelete?:         (task: Task) => void;
+  task:               Task;
+  projectMap:         Record<string, Project>;
+  clientMap:          Record<string, Client>;
+  tasksById:          Record<string, Task>;
+  onEdit?:            (task: Task) => void;
+  onDelete?:          (task: Task) => void;
   onChecklistToggle?: (taskId: string, itemId: string) => void;
 }
 
-function TaskCard({ task, projectMap, tasksById, onEdit, onDelete, onChecklistToggle }: TaskCardProps) {
+function TaskCard({ task, projectMap, clientMap, tasksById, onEdit, onDelete, onChecklistToggle }: TaskCardProps) {
   const priorityCfg = PRIORITY_CONFIG[task.priority];
   const project     = task.projectId ? projectMap[task.projectId] : undefined;
+  const client      = task.clientId  ? clientMap[task.clientId]   : undefined;
 
   const blockers = task.blockedBy
     .map((id) => tasksById[id])
@@ -374,9 +410,24 @@ function TaskCard({ task, projectMap, tasksById, onEdit, onDelete, onChecklistTo
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 flex-wrap">
           <Badge variant={priorityCfg.variant}>{priorityCfg.label}</Badge>
+          {task.taskType && (
+            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 font-medium">
+              {task.taskType}
+            </span>
+          )}
           {project && (
             <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-brand-navy/10 text-brand-navy font-medium truncate max-w-28" title={project.name}>
               {project.name.split('—')[0].trim()}
+            </span>
+          )}
+          {client && (
+            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-green-50 text-green-700 font-medium truncate max-w-28" title={client.name}>
+              {client.name}
+            </span>
+          )}
+          {task.module && (
+            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-purple-50 text-purple-700 font-medium">
+              {task.module}
             </span>
           )}
           {task.recurrence !== 'none' && (
@@ -389,6 +440,9 @@ function TaskCard({ task, projectMap, tasksById, onEdit, onDelete, onChecklistTo
           <span className="text-xs text-gray-300 font-mono tabular-nums flex-shrink-0">#{task.sortOrder}</span>
         )}
       </div>
+      {task.epic && (
+        <p className="text-xs text-gray-400 italic">{task.epic}</p>
+      )}
 
       <p className="text-sm font-medium text-gray-900 leading-snug">{task.title}</p>
 
@@ -447,6 +501,11 @@ function TaskCard({ task, projectMap, tasksById, onEdit, onDelete, onChecklistTo
           )}
         </div>
         <div className="flex items-center gap-1">
+          {task.estimatedHours !== undefined && (
+            <span className="text-xs text-gray-400" title="Estimated hours">
+              {task.estimatedHours}h
+            </span>
+          )}
           {task.dueDate && (
             <span className={`text-xs ${isDueSoon(task.dueDate) ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
               {formatDate(task.dueDate)}

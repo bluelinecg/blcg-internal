@@ -15,8 +15,9 @@ import { useState, useEffect } from 'react';
 import { useFormState } from '@/lib/hooks/use-form-state';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
-import type { Task, TaskStatus, TaskPriority, TaskRecurrence, ChecklistItem } from '@/lib/types/tasks';
+import type { Task, TaskStatus, TaskPriority, TaskRecurrence, TaskType, TaskModule, ChecklistItem } from '@/lib/types/tasks';
 import type { Project } from '@/lib/types/projects';
+import type { Client } from '@/lib/types/clients';
 
 type TaskFormData = Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -26,6 +27,7 @@ interface TaskFormModalProps {
   onSave:     (data: TaskFormData) => void;
   initial?:   Partial<TaskFormData>;
   projects:   Project[];
+  clients?:   Client[];
   allTasks?:  Task[];
   isSaving?:  boolean;
   saveError?: string | null;
@@ -60,22 +62,57 @@ const RECURRENCE_OPTIONS: { value: TaskRecurrence; label: string }[] = [
   { value: 'monthly',   label: 'Monthly' },
 ];
 
+const TASK_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: '',              label: 'No type' },
+  { value: 'feature',       label: 'Feature' },
+  { value: 'bug',           label: 'Bug' },
+  { value: 'refactor',      label: 'Refactor' },
+  { value: 'architecture',  label: 'Architecture' },
+  { value: 'automation',    label: 'Automation' },
+  { value: 'ai',            label: 'AI' },
+  { value: 'infra',         label: 'Infra' },
+  { value: 'data-integrity', label: 'Data Integrity' },
+  { value: 'validation',    label: 'Validation' },
+  { value: 'chore',         label: 'Chore' },
+];
+
+const MODULE_OPTIONS: { value: string; label: string }[] = [
+  { value: '',               label: 'No module' },
+  { value: 'core',           label: 'Core' },
+  { value: 'finance',        label: 'Finance' },
+  { value: 'integrations',   label: 'Integrations' },
+  { value: 'automation',     label: 'Automation' },
+  { value: 'pipelines',      label: 'Pipelines' },
+  { value: 'crm',            label: 'CRM' },
+  { value: 'tasks',          label: 'Tasks' },
+  { value: 'client-portal',  label: 'Client Portal' },
+  { value: 'notifications',  label: 'Notifications' },
+  { value: 'operations',     label: 'Operations' },
+  { value: 'documents',      label: 'Documents' },
+  { value: 'ai',             label: 'AI' },
+];
+
 const DEFAULTS: TaskFormData = {
-  title:       '',
-  description: '',
-  status:      'todo',
-  priority:    'medium',
-  sortOrder:   0,
-  projectId:   undefined,
-  assignee:    undefined,
-  dueDate:     undefined,
-  recurrence:  'none',
-  checklist:   [],
-  blockedBy:   [],
+  title:          '',
+  description:    '',
+  status:         'todo',
+  priority:       'medium',
+  sortOrder:      0,
+  projectId:      undefined,
+  clientId:       undefined,
+  assignee:       undefined,
+  dueDate:        undefined,
+  recurrence:     'none',
+  checklist:      [],
+  blockedBy:      [],
+  taskType:       undefined,
+  module:         undefined,
+  epic:           undefined,
+  estimatedHours: undefined,
 };
 
 export function TaskFormModal({
-  isOpen, onClose, onSave, initial, projects, allTasks = [], isSaving, saveError,
+  isOpen, onClose, onSave, initial, projects, clients = [], allTasks = [], isSaving, saveError,
 }: TaskFormModalProps) {
   const { form, errors, setField, reset, setErrors } = useFormState(DEFAULTS, initial);
   const [checklistInput, setChecklistInput] = useState('');
@@ -133,6 +170,11 @@ export function TaskFormModal({
     ...projects.map((p) => ({ value: p.id, label: p.name })),
   ];
 
+  const clientOptions = [
+    { value: '', label: 'No client' },
+    ...clients.map((c) => ({ value: c.id, label: c.name })),
+  ];
+
   const isEdit = !!initial?.title;
 
   return (
@@ -181,10 +223,49 @@ export function TaskFormModal({
             onChange={(e) => setField('projectId', e.target.value)}
           />
           <Select
+            label="Client"
+            options={clientOptions}
+            value={form.clientId ?? ''}
+            onChange={(e) => setField('clientId', e.target.value)}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Select
             label="Assignee"
             options={ASSIGNEE_OPTIONS}
             value={form.assignee ?? ''}
             onChange={(e) => setField('assignee', e.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Select
+              label="Type"
+              options={TASK_TYPE_OPTIONS}
+              value={form.taskType ?? ''}
+              onChange={(e) => setField('taskType', e.target.value as TaskType || undefined)}
+            />
+            <Select
+              label="Module"
+              options={MODULE_OPTIONS}
+              value={form.module ?? ''}
+              onChange={(e) => setField('module', e.target.value as TaskModule || undefined)}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Epic (optional)"
+            value={form.epic ?? ''}
+            onChange={(e) => setField('epic', e.target.value || undefined)}
+            placeholder="e.g. Integration Framework"
+          />
+          <Input
+            label="Est. Hours (optional)"
+            type="number"
+            min="0"
+            step="0.5"
+            value={form.estimatedHours !== undefined ? String(form.estimatedHours) : ''}
+            onChange={(e) => setField('estimatedHours', e.target.value ? parseFloat(e.target.value) : undefined)}
+            placeholder="e.g. 4"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">

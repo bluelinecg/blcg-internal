@@ -5,7 +5,7 @@
 // Tasks have no dependency blockers — they are always deletable.
 
 import { serverClient } from '@/lib/db/supabase';
-import type { Task, TaskStatus, TaskPriority, TaskRecurrence, ChecklistItem } from '@/lib/types/tasks';
+import type { Task, TaskStatus, TaskPriority, TaskRecurrence, TaskType, TaskModule, ChecklistItem } from '@/lib/types/tasks';
 import type { TaskInput, UpdateTaskInput } from '@/lib/validations/tasks';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants/pagination';
 import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
@@ -15,20 +15,25 @@ import type { ListOptions, PaginatedResult } from '@/lib/types/pagination';
 // ---------------------------------------------------------------------------
 
 interface TaskRow {
-  id:          string;
-  title:       string;
-  description: string | null;
-  status:      TaskStatus;
-  priority:    TaskPriority;
-  sort_order:  number;
-  project_id:  string | null;
-  assignee_id: string | null;
-  due_date:    string | null;
-  recurrence:  TaskRecurrence;
-  checklist:   ChecklistItem[];
-  blocked_by:  string[];
-  created_at:  string;
-  updated_at:  string;
+  id:              string;
+  title:           string;
+  description:     string | null;
+  status:          TaskStatus;
+  priority:        TaskPriority;
+  sort_order:      number;
+  project_id:      string | null;
+  client_id:       string | null;
+  assignee_id:     string | null;
+  due_date:        string | null;
+  recurrence:      TaskRecurrence;
+  checklist:       ChecklistItem[];
+  blocked_by:      string[];
+  type:            string | null;
+  module:          string | null;
+  epic:            string | null;
+  estimated_hours: number | null;
+  created_at:      string;
+  updated_at:      string;
 }
 
 // ---------------------------------------------------------------------------
@@ -37,36 +42,46 @@ interface TaskRow {
 
 function fromRow(row: TaskRow): Task {
   return {
-    id:          row.id,
-    title:       row.title,
-    description: row.description ?? undefined,
-    status:      row.status,
-    priority:    row.priority,
-    sortOrder:   row.sort_order ?? 0,
-    projectId:   row.project_id ?? undefined,
-    assignee:    row.assignee_id ?? undefined,
-    dueDate:     row.due_date ? `${row.due_date}T00:00:00Z` : undefined,
-    recurrence:  row.recurrence ?? 'none',
-    checklist:   row.checklist ?? [],
-    blockedBy:   row.blocked_by ?? [],
-    createdAt:   row.created_at,
-    updatedAt:   row.updated_at,
+    id:             row.id,
+    title:          row.title,
+    description:    row.description ?? undefined,
+    status:         row.status,
+    priority:       row.priority,
+    sortOrder:      row.sort_order ?? 0,
+    projectId:      row.project_id ?? undefined,
+    clientId:       row.client_id ?? undefined,
+    assignee:       row.assignee_id ?? undefined,
+    dueDate:        row.due_date ? `${row.due_date}T00:00:00Z` : undefined,
+    recurrence:     row.recurrence ?? 'none',
+    checklist:      row.checklist ?? [],
+    blockedBy:      row.blocked_by ?? [],
+    taskType:       (row.type ?? undefined) as TaskType | undefined,
+    module:         (row.module ?? undefined) as TaskModule | undefined,
+    epic:           row.epic ?? undefined,
+    estimatedHours: row.estimated_hours ?? undefined,
+    createdAt:      row.created_at,
+    updatedAt:      row.updated_at,
   };
 }
 
 function toInsert(data: TaskInput): Omit<TaskRow, 'id' | 'created_at' | 'updated_at'> {
   return {
-    title:       data.title,
-    description: data.description ?? null,
-    status:      data.status,
-    priority:    data.priority,
-    sort_order:  data.sortOrder ?? 0,
-    project_id:  data.projectId || null,
-    assignee_id: data.assignee || null,
-    due_date:    data.dueDate ? data.dueDate.split('T')[0] : null,
-    recurrence:  data.recurrence ?? 'none',
-    checklist:   data.checklist ?? [],
-    blocked_by:  data.blockedBy ?? [],
+    title:           data.title,
+    description:     data.description ?? null,
+    status:          data.status,
+    priority:        data.priority,
+    sort_order:      data.sortOrder ?? 0,
+    project_id:      data.projectId || null,
+    client_id:       data.clientId || null,
+    assignee_id:     data.assignee || null,
+    due_date:        data.dueDate ? data.dueDate.split('T')[0] : null,
+    recurrence:      data.recurrence ?? 'none',
+    checklist:       data.checklist ?? [],
+    blocked_by:      data.blockedBy ?? [],
+    type:            data.taskType || null,
+    module:          data.module || null,
+    epic:            data.epic || null,
+    estimated_hours: data.estimatedHours ?? null,
   };
 }
 
@@ -143,17 +158,22 @@ export async function updateTask(
 ): Promise<{ data: Task | null; error: string | null }> {
   try {
     const patch: Partial<Omit<TaskRow, 'id' | 'created_at' | 'updated_at'>> = {};
-    if (input.title       !== undefined) patch.title       = input.title;
-    if (input.description !== undefined) patch.description = input.description ?? null;
-    if (input.status      !== undefined) patch.status      = input.status;
-    if (input.priority    !== undefined) patch.priority    = input.priority;
-    if (input.sortOrder   !== undefined) patch.sort_order  = input.sortOrder;
-    if (input.projectId   !== undefined) patch.project_id  = input.projectId || null;
-    if (input.assignee    !== undefined) patch.assignee_id = input.assignee || null;
-    if (input.dueDate     !== undefined) patch.due_date    = input.dueDate ? input.dueDate.split('T')[0] : null;
-    if (input.recurrence  !== undefined) patch.recurrence  = input.recurrence;
-    if (input.checklist   !== undefined) patch.checklist   = input.checklist;
-    if (input.blockedBy   !== undefined) patch.blocked_by  = input.blockedBy;
+    if (input.title          !== undefined) patch.title           = input.title;
+    if (input.description    !== undefined) patch.description     = input.description ?? null;
+    if (input.status         !== undefined) patch.status          = input.status;
+    if (input.priority       !== undefined) patch.priority        = input.priority;
+    if (input.sortOrder      !== undefined) patch.sort_order      = input.sortOrder;
+    if (input.projectId      !== undefined) patch.project_id      = input.projectId || null;
+    if (input.clientId       !== undefined) patch.client_id       = input.clientId || null;
+    if (input.assignee       !== undefined) patch.assignee_id     = input.assignee || null;
+    if (input.dueDate        !== undefined) patch.due_date        = input.dueDate ? input.dueDate.split('T')[0] : null;
+    if (input.recurrence     !== undefined) patch.recurrence      = input.recurrence;
+    if (input.checklist      !== undefined) patch.checklist       = input.checklist;
+    if (input.blockedBy      !== undefined) patch.blocked_by      = input.blockedBy;
+    if (input.taskType       !== undefined) patch.type            = input.taskType || null;
+    if (input.module         !== undefined) patch.module          = input.module || null;
+    if (input.epic           !== undefined) patch.epic            = input.epic || null;
+    if (input.estimatedHours !== undefined) patch.estimated_hours = input.estimatedHours ?? null;
 
     const { data, error } = await serverClient()
       .from('tasks')
@@ -259,16 +279,21 @@ export async function createNextRecurrence(
     const { data, error } = await serverClient()
       .from('tasks')
       .insert({
-        title:       task.title,
-        description: task.description ?? null,
-        status:      'todo' as TaskStatus,
-        priority:    task.priority,
-        project_id:  task.projectId ?? null,
-        assignee_id: task.assignee ?? null,
-        due_date:    dueDateStr,
-        recurrence:  task.recurrence,
-        checklist:   [],           // fresh checklist for each occurrence
-        blocked_by:  task.blockedBy,
+        title:           task.title,
+        description:     task.description ?? null,
+        status:          'todo' as TaskStatus,
+        priority:        task.priority,
+        project_id:      task.projectId ?? null,
+        client_id:       task.clientId ?? null,
+        assignee_id:     task.assignee ?? null,
+        due_date:        dueDateStr,
+        recurrence:      task.recurrence,
+        checklist:       [],           // fresh checklist for each occurrence
+        blocked_by:      task.blockedBy,
+        type:            task.taskType ?? null,
+        module:          task.module ?? null,
+        epic:            task.epic ?? null,
+        estimated_hours: task.estimatedHours ?? null,
       })
       .select('*')
       .single();
