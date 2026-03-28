@@ -11,6 +11,8 @@ import {
   insertRunLog,
   getRunsForRule,
   getLastRunForEntity,
+  fetchStageItemsForRule,
+  fetchOverdueTasksForRule,
 } from './automations';
 
 // ---------------------------------------------------------------------------
@@ -394,5 +396,113 @@ describe('getLastRunForEntity', () => {
 
     expect(data).toBeNull();
     expect(error).toBe('Dedup query failed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchStageItemsForRule
+// ---------------------------------------------------------------------------
+
+describe('fetchStageItemsForRule', () => {
+  it('returns stage items older than the threshold', async () => {
+    const rows = [
+      { id: 'item-1', stage_id: 'st-1', pipeline_id: 'pl-1', entered_stage_at: '2026-01-01T00:00:00Z', title: 'Stale deal' },
+    ];
+    const chain = {
+      select:  jest.fn().mockReturnThis(),
+      eq:      jest.fn().mockReturnThis(),
+      lt:      jest.fn().mockResolvedValue({ data: rows, error: null }),
+    };
+    const db = { from: jest.fn().mockReturnValue(chain) };
+    mockServerClient.mockReturnValue(db);
+
+    const result = await fetchStageItemsForRule('pl-1', 'st-1', 48);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('item-1');
+    expect(result[0].title).toBe('Stale deal');
+  });
+
+  it('returns empty array on DB error', async () => {
+    const chain = {
+      select: jest.fn().mockReturnThis(),
+      eq:     jest.fn().mockReturnThis(),
+      lt:     jest.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
+    };
+    const db = { from: jest.fn().mockReturnValue(chain) };
+    mockServerClient.mockReturnValue(db);
+
+    const result = await fetchStageItemsForRule('pl-1', 'st-1', 48);
+
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array when query throws', async () => {
+    mockServerClient.mockImplementation(() => { throw new Error('Connection refused'); });
+
+    const result = await fetchStageItemsForRule('pl-1', 'st-1', 48);
+
+    expect(result).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchOverdueTasksForRule
+// ---------------------------------------------------------------------------
+
+describe('fetchOverdueTasksForRule', () => {
+  it('returns overdue tasks matching threshold', async () => {
+    const rows = [
+      { id: 'task-1', due_date: '2026-01-01T00:00:00Z', priority: 'high', assignee_id: 'user-1' },
+    ];
+    const chain = {
+      select:  jest.fn().mockReturnThis(),
+      not:     jest.fn().mockReturnThis(),
+      lt:      jest.fn().mockReturnThis(),
+      neq:     jest.fn().mockResolvedValue({ data: rows, error: null }),
+    };
+    const db = { from: jest.fn().mockReturnValue(chain) };
+    mockServerClient.mockReturnValue(db);
+
+    const result = await fetchOverdueTasksForRule(24);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('task-1');
+    expect(result[0].priority).toBe('high');
+  });
+
+  it('applies priority filter when provided', async () => {
+    const rows = [
+      { id: 'task-2', due_date: '2026-01-01T00:00:00Z', priority: 'urgent', assignee_id: null },
+    ];
+    const chain = {
+      select:  jest.fn().mockReturnThis(),
+      not:     jest.fn().mockReturnThis(),
+      lt:      jest.fn().mockReturnThis(),
+      neq:     jest.fn().mockReturnThis(),
+      eq:      jest.fn().mockResolvedValue({ data: rows, error: null }),
+    };
+    const db = { from: jest.fn().mockReturnValue(chain) };
+    mockServerClient.mockReturnValue(db);
+
+    const result = await fetchOverdueTasksForRule(24, 'urgent');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].priority).toBe('urgent');
+  });
+
+  it('returns empty array on DB error', async () => {
+    const chain = {
+      select: jest.fn().mockReturnThis(),
+      not:    jest.fn().mockReturnThis(),
+      lt:     jest.fn().mockReturnThis(),
+      neq:    jest.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
+    };
+    const db = { from: jest.fn().mockReturnValue(chain) };
+    mockServerClient.mockReturnValue(db);
+
+    const result = await fetchOverdueTasksForRule(24);
+
+    expect(result).toEqual([]);
   });
 });
