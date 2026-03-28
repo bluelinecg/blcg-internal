@@ -18,7 +18,7 @@ export const ChecklistItemSchema = z.object({
   completed: z.boolean(),
 });
 
-export const TaskSchema = z.object({
+const TaskBaseSchema = z.object({
   title:       z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   status:      TaskStatusSchema,
@@ -33,7 +33,15 @@ export const TaskSchema = z.object({
   blockedBy:   z.array(z.string().uuid()).default([]),
 });
 
-export const UpdateTaskSchema = TaskSchema.partial();
+export const TaskSchema = TaskBaseSchema.refine(
+  (data) => data.recurrence === 'none' || !!data.dueDate,
+  { message: 'Due date is required for recurring tasks', path: ['dueDate'] },
+);
+
+// UpdateTaskSchema uses the base object without the refinement.
+// A PATCH payload may change only recurrence or only dueDate — the DB record
+// holds the other field, so the refinement cannot be evaluated here.
+export const UpdateTaskSchema = TaskBaseSchema.partial();
 
 export const ReorderTasksSchema = z.object({
   status:     TaskStatusSchema,

@@ -87,7 +87,19 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     // When a recurring task is marked done, auto-create the next occurrence.
     if (parsed.data.status === 'done' && data.recurrence !== 'none') {
-      void createNextRecurrence(data);
+      const { data: nextTask, error: recurrenceError } = await createNextRecurrence(data);
+      if (recurrenceError) {
+        console.error('[PATCH /api/tasks] createNextRecurrence failed:', recurrenceError);
+      } else if (nextTask) {
+        void bus.publish('task.created', {
+          actorId:     userId,
+          entityType:  'task',
+          entityId:    nextTask.id,
+          entityLabel: nextTask.title,
+          action:      'created',
+          data:        nextTask as unknown as Record<string, unknown>,
+        });
+      }
     }
 
     return apiOk(data);

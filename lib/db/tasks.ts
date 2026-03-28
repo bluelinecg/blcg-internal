@@ -246,8 +246,7 @@ function nextDueDate(fromDate: string, recurrence: TaskRecurrence): string {
  * Creates the next occurrence of a recurring task.
  * Called after the original task is marked done.
  * The new task starts in 'todo' status with an empty checklist.
- *
- * TODO: dispatch automation engine event here once the Automation Engine is built.
+ * The caller is responsible for publishing task.created to the event bus.
  */
 export async function createNextRecurrence(
   task: Task,

@@ -218,6 +218,49 @@ describe('PATCH /api/tasks/[id] — status change to done', () => {
     expect(mockCreateNextRecurrence).not.toHaveBeenCalled();
   });
 
+  it('dispatches task.created when createNextRecurrence succeeds', async () => {
+    const taskAfterDone = { ...MOCK_TASK, status: 'done', recurrence: 'weekly' };
+    const nextTask = { ...MOCK_TASK, id: 'task-2', status: 'todo', dueDate: '2026-02-08T00:00:00Z' };
+
+    mockGetTask.mockResolvedValue({ data: MOCK_TASK, error: null });
+    mockUpdateTask.mockResolvedValue({ data: taskAfterDone, error: null });
+    mockCreateNextRecurrence.mockResolvedValue({ data: nextTask, error: null });
+    mockApiOk();
+
+    const req = makePatchRequest({ status: 'done' });
+    await PATCH(req, { params: PARAMS });
+
+    expect(mockCreateNextRecurrence).toHaveBeenCalledWith(taskAfterDone);
+    expect(mockDispatchWebhook).toHaveBeenCalledWith(
+      'task.created',
+      expect.objectContaining({ id: 'task-2' }),
+    );
+    expect(mockLogAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: 'task',
+        entityId:   'task-2',
+        action:     'created',
+      }),
+    );
+  });
+
+  it('does not dispatch task.created when createNextRecurrence fails', async () => {
+    const taskAfterDone = { ...MOCK_TASK, status: 'done', recurrence: 'weekly' };
+
+    mockGetTask.mockResolvedValue({ data: MOCK_TASK, error: null });
+    mockUpdateTask.mockResolvedValue({ data: taskAfterDone, error: null });
+    mockCreateNextRecurrence.mockResolvedValue({ data: null, error: 'insert failed' });
+    mockApiOk();
+
+    const req = makePatchRequest({ status: 'done' });
+    const result = await PATCH(req, { params: PARAMS });
+
+    // Main response still succeeds — recurrence failure does not fail the request
+    expect(result.status).toBe(200);
+    // task.created must NOT be dispatched
+    expect(mockDispatchWebhook).not.toHaveBeenCalledWith('task.created', expect.anything());
+  });
+
   it('returns 403 when user lacks member permission', async () => {
     const errorResponse = new NextResponse(
       JSON.stringify({ data: null, error: 'Forbidden' }),
@@ -231,6 +274,51 @@ describe('PATCH /api/tasks/[id] — status change to done', () => {
     expect(result.status).toBe(403);
     expect(mockDispatchWebhook).not.toHaveBeenCalled();
     expect(mockRunAutomations).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Zod Validation Tests
+// ---------------------------------------------------------------------------
+
+describe('TaskSchema — recurrence + dueDate validation', () => {
+  // Importing TaskSchema directly to unit-test the Zod refinement
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { TaskSchema } = require('@/lib/validations/tasks');
+
+  const BASE_INPUT = {
+    title:      'Weekly standup',
+    status:     'todo',
+    priority:   'medium',
+    recurrence: 'none',
+    checklist:  [],
+    blockedBy:  [],
+  };
+
+  it('accepts a recurring task when dueDate is provided', () => {
+    const result = TaskSchema.safeParse({
+      ...BASE_INPUT,
+      recurrence: 'weekly',
+      dueDate:    '2026-04-07T00:00:00Z',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a recurring task when dueDate is absent', () => {
+    const result = TaskSchema.safeParse({
+      ...BASE_INPUT,
+      recurrence: 'weekly',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((i: { path: (string | number)[] }) => i.path.join('.'));
+      expect(paths).toContain('dueDate');
+    }
+  });
+
+  it('accepts a non-recurring task without dueDate', () => {
+    const result = TaskSchema.safeParse(BASE_INPUT);
+    expect(result.success).toBe(true);
   });
 });
 
