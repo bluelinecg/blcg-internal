@@ -445,7 +445,7 @@ export default function TimeTrackingPage() {
       {deleteEntry && (
         <ConfirmDialog
           title="Delete Time Entry"
-          message={`Delete "${deleteEntry.description}" (${deleteEntry.hours}h)? This cannot be undone.`}
+          description={`Delete "${deleteEntry.description}" (${deleteEntry.hours}h)? This cannot be undone.`}
           onConfirm={() => void handleDelete(deleteEntry)}
           onCancel={() => setDeleteEntry(null)}
         />
