@@ -7,7 +7,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
-import { Tabs, StatCard, Card, Badge, Select, Input, Button, ConfirmDialog, Spinner, Pagination, SortableHeader } from '@/components/ui';
+import { Tabs, StatCard, Card, Badge, Select, Input, Button, ConfirmDialog, Spinner, Pagination, SortableHeader, Modal } from '@/components/ui';
 import type { TabItem } from '@/components/ui/Tabs';
 import { useListState } from '@/lib/hooks/use-list-state';
 import { InvoiceFormModal, ExpenseFormModal } from '@/components/modules';
@@ -89,6 +89,12 @@ export function FinancesPage() {
   const [invoiceSaveError, setInvoiceSaveError]             = useState<string | null>(null);
   const [isInvoiceDeleting, setIsInvoiceDeleting]           = useState(false);
   const [invoiceDeleteError, setInvoiceDeleteError]         = useState<string | null>(null);
+
+  // Invoice PDF send
+  const [invoiceSendTarget, setInvoiceSendTarget]   = useState<Invoice | null>(null);
+  const [isInvoiceSending, setIsInvoiceSending]     = useState(false);
+  const [invoiceSendError, setInvoiceSendError]     = useState<string | null>(null);
+  const [invoiceSendSuccess, setInvoiceSendSuccess] = useState(false);
 
   // Expense CRUD
   const [expenseFormOpen, setExpenseFormOpen]               = useState(false);
@@ -177,6 +183,27 @@ export function FinancesPage() {
       setInvoiceDeleteError('Network error. Please try again.');
     } finally {
       setIsInvoiceDeleting(false);
+    }
+  }
+
+  async function handleSendInvoicePdf(invoiceId: string, payload: InvoiceSendPayload) {
+    setIsInvoiceSending(true);
+    setInvoiceSendError(null);
+    setInvoiceSendSuccess(false);
+    try {
+      const res  = await fetch(`/api/invoices/${invoiceId}/send`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      });
+      const json = await res.json() as { data: unknown; error: string | null };
+      if (!res.ok || json.error) { setInvoiceSendError(json.error ?? 'Failed to send'); return; }
+      setInvoiceSendSuccess(true);
+      setTimeout(() => { setInvoiceSendTarget(null); setInvoiceSendSuccess(false); }, 1500);
+    } catch {
+      setInvoiceSendError('Network error. Please try again.');
+    } finally {
+      setIsInvoiceSending(false);
     }
   }
 
@@ -378,7 +405,11 @@ export function FinancesPage() {
                         <td className="px-6 py-4 text-sm text-gray-500">{inv.paidDate ? formatDate(inv.paidDate) : '—'}</td>
                         <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900">{formatCurrency(inv.total)}</td>
                         <td className="px-6 py-4 text-right">
-                          <Button variant="ghost" size="sm" onClick={() => openInvoiceDelete(inv)} disabled={isCheckingInvDeps} className="text-red-500 hover:text-red-600 hover:bg-red-50">Delete</Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => window.open(`/api/invoices/${inv.id}/pdf`, '_blank')}>PDF</Button>
+                            <Button variant="ghost" size="sm" onClick={() => { setInvoiceSendTarget(inv); setInvoiceSendError(null); setInvoiceSendSuccess(false); }}>Send</Button>
+                            <Button variant="ghost" size="sm" onClick={() => openInvoiceDelete(inv)} disabled={isCheckingInvDeps} className="text-red-500 hover:text-red-600 hover:bg-red-50">Delete</Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -458,6 +489,19 @@ export function FinancesPage() {
         saveError={expenseSaveError}
       />
 
+      {/* Invoice send PDF modal */}
+      {invoiceSendTarget && (
+        <SendInvoicePdfModal
+          invoice={invoiceSendTarget}
+          isOpen={!!invoiceSendTarget}
+          onClose={() => { setInvoiceSendTarget(null); setInvoiceSendError(null); setInvoiceSendSuccess(false); }}
+          onSend={(payload) => handleSendInvoicePdf(invoiceSendTarget.id, payload)}
+          isSending={isInvoiceSending}
+          sendError={invoiceSendError}
+          sendSuccess={invoiceSendSuccess}
+        />
+      )}
+
       {/* Delete confirms */}
       <ConfirmDialog
         isOpen={!!invoiceDeleteTarget}
@@ -479,6 +523,99 @@ export function FinancesPage() {
 }
 
 export default FinancesPage;
+
+// --- Send invoice PDF modal ---
+
+interface InvoiceSendPayload {
+  to:      string;
+  cc?:     string;
+  subject: string;
+  body:    string;
+  from:    'ryan@bluelinecg.com' | 'bluelinecgllc@gmail.com';
+}
+
+const FROM_OPTIONS = [
+  { value: 'ryan@bluelinecg.com',     label: 'ryan@bluelinecg.com' },
+  { value: 'bluelinecgllc@gmail.com', label: 'bluelinecgllc@gmail.com' },
+];
+
+function SendInvoicePdfModal({
+  invoice,
+  isOpen,
+  onClose,
+  onSend,
+  isSending,
+  sendError,
+  sendSuccess,
+}: {
+  invoice:     Invoice;
+  isOpen:      boolean;
+  onClose:     () => void;
+  onSend:      (payload: InvoiceSendPayload) => void;
+  isSending:   boolean;
+  sendError:   string | null;
+  sendSuccess: boolean;
+}) {
+  const [to,      setTo]      = useState('');
+  const [cc,      setCc]      = useState('');
+  const [subject, setSubject] = useState(`Invoice ${invoice.invoiceNumber}`);
+  const [body,    setBody]    = useState(
+    `${invoice.organization?.name ? `Hi ${invoice.organization.name},` : 'Hi,'}\n\nPlease find attached Invoice ${invoice.invoiceNumber}.\n\nPayment is due per the terms listed on the invoice. Reach out with any questions.\n\n— Blue Line Consulting Group`
+  );
+  const [from, setFrom] = useState<InvoiceSendPayload['from']>('ryan@bluelinecg.com');
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onSend({ to, cc: cc || undefined, subject, body, from });
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Send Invoice PDF" size="lg">
+      {sendSuccess ? (
+        <div className="py-8 text-center">
+          <p className="text-green-600 font-medium">Invoice sent successfully.</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">From</label>
+            <Select options={FROM_OPTIONS} value={from} onChange={(e) => setFrom(e.target.value as InvoiceSendPayload['from'])} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">To *</label>
+            <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="recipient@example.com" required type="email" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">CC</label>
+            <Input value={cc} onChange={(e) => setCc(e.target.value)} placeholder="optional" type="email" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Subject *</label>
+            <Input value={subject} onChange={(e) => setSubject(e.target.value)} required />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Message</label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={5}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+            />
+          </div>
+          {sendError && (
+            <p className="text-sm text-red-600">{sendError}</p>
+          )}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" type="button" onClick={onClose} disabled={isSending}>Cancel</Button>
+            <Button type="submit" disabled={isSending}>
+              {isSending ? 'Sending…' : 'Send PDF'}
+            </Button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  );
+}
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);

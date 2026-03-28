@@ -12,6 +12,7 @@ import { useRole } from '@/lib/auth/use-role';
 import { useListState } from '@/lib/hooks/use-list-state';
 import type { TableColumn } from '@/components/ui/ExpandableTable';
 import { ProposalStatusBadge, ProposalFormModal } from '@/components/modules';
+import { Modal } from '@/components/ui';
 import type { Proposal, ProposalStatus } from '@/lib/types/proposals';
 import type { Organization } from '@/lib/types/crm';
 
@@ -55,6 +56,12 @@ export function ProposalsPage() {
   const [editing, setEditing]     = useState<Proposal | null>(null);
   const [isSaving, setIsSaving]   = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // PDF send modal
+  const [sendTarget, setSendTarget]   = useState<Proposal | null>(null);
+  const [isSending, setIsSending]     = useState(false);
+  const [sendError, setSendError]     = useState<string | null>(null);
+  const [sendSuccess, setSendSuccess] = useState(false);
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget]     = useState<Proposal | null>(null);
@@ -157,6 +164,27 @@ export function ProposalsPage() {
     }
   }
 
+  async function handleSendPdf(proposalId: string, payload: SendPdfPayload) {
+    setIsSending(true);
+    setSendError(null);
+    setSendSuccess(false);
+    try {
+      const res  = await fetch(`/api/proposals/${proposalId}/send`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      });
+      const json = await res.json() as { data: unknown; error: string | null };
+      if (!res.ok || json.error) { setSendError(json.error ?? 'Failed to send'); return; }
+      setSendSuccess(true);
+      setTimeout(() => { setSendTarget(null); setSendSuccess(false); }, 1500);
+    } catch {
+      setSendError('Network error. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
+  }
+
   function closeForm() {
     setFormOpen(false);
     setEditing(null);
@@ -208,6 +236,20 @@ export function ProposalsPage() {
       align: 'right',
       render: (p) => (
         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => window.open(`/api/proposals/${p.id}/pdf`, '_blank')}
+          >
+            PDF
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setSendTarget(p); setSendError(null); setSendSuccess(false); }}
+          >
+            Send
+          </Button>
           {canEdit && <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>Edit</Button>}
           {isAdmin && (
             <Button
@@ -222,7 +264,7 @@ export function ProposalsPage() {
           )}
         </div>
       ),
-      width: '140px',
+      width: '220px',
     },
   ];
 
@@ -307,6 +349,19 @@ export function ProposalsPage() {
         saveError={saveError}
       />
 
+      {/* Send PDF modal */}
+      {sendTarget && (
+        <SendPdfModal
+          proposal={sendTarget}
+          isOpen={!!sendTarget}
+          onClose={() => { setSendTarget(null); setSendError(null); setSendSuccess(false); }}
+          onSend={(payload) => handleSendPdf(sendTarget.id, payload)}
+          isSending={isSending}
+          sendError={sendError}
+          sendSuccess={sendSuccess}
+        />
+      )}
+
       {/* Delete confirm */}
       <ConfirmDialog
         isOpen={!!deleteTarget}
@@ -321,6 +376,99 @@ export function ProposalsPage() {
 }
 
 export default ProposalsPage;
+
+// --- Send PDF modal ---
+
+export interface SendPdfPayload {
+  to:      string;
+  cc?:     string;
+  subject: string;
+  body:    string;
+  from:    'ryan@bluelinecg.com' | 'bluelinecgllc@gmail.com';
+}
+
+const FROM_OPTIONS = [
+  { value: 'ryan@bluelinecg.com',      label: 'ryan@bluelinecg.com' },
+  { value: 'bluelinecgllc@gmail.com',  label: 'bluelinecgllc@gmail.com' },
+];
+
+function SendPdfModal({
+  proposal,
+  isOpen,
+  onClose,
+  onSend,
+  isSending,
+  sendError,
+  sendSuccess,
+}: {
+  proposal:    Proposal;
+  isOpen:      boolean;
+  onClose:     () => void;
+  onSend:      (payload: SendPdfPayload) => void;
+  isSending:   boolean;
+  sendError:   string | null;
+  sendSuccess: boolean;
+}) {
+  const [to,      setTo]      = useState('');
+  const [cc,      setCc]      = useState('');
+  const [subject, setSubject] = useState(`Proposal ${proposal.proposalNumber} — ${proposal.title}`);
+  const [body,    setBody]    = useState(
+    `Please find attached Proposal ${proposal.proposalNumber}: ${proposal.title}.\n\nLet us know if you have any questions.\n\n— Blue Line Consulting Group`
+  );
+  const [from, setFrom] = useState<SendPdfPayload['from']>('ryan@bluelinecg.com');
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onSend({ to, cc: cc || undefined, subject, body, from });
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={`Send Proposal PDF`} size="lg">
+      {sendSuccess ? (
+        <div className="py-8 text-center">
+          <p className="text-green-600 font-medium">Proposal sent successfully.</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">From</label>
+            <Select options={FROM_OPTIONS} value={from} onChange={(e) => setFrom(e.target.value as SendPdfPayload['from'])} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">To *</label>
+            <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="recipient@example.com" required type="email" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">CC</label>
+            <Input value={cc} onChange={(e) => setCc(e.target.value)} placeholder="optional" type="email" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Subject *</label>
+            <Input value={subject} onChange={(e) => setSubject(e.target.value)} required />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Message</label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={5}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+            />
+          </div>
+          {sendError && (
+            <p className="text-sm text-red-600">{sendError}</p>
+          )}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" type="button" onClick={onClose} disabled={isSending}>Cancel</Button>
+            <Button type="submit" disabled={isSending}>
+              {isSending ? 'Sending…' : 'Send PDF'}
+            </Button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  );
+}
 
 // --- Line items expanded panel ---
 
