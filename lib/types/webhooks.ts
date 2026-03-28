@@ -12,7 +12,9 @@ export type WebhookEventType =
   | 'proposal.status_changed'
   | 'invoice.created'
   | 'invoice.status_changed'
-  | 'pipeline.item_stage_changed';
+  | 'pipeline.item_stage_changed'
+  | 'time_entry.created'
+  | 'time_entry.updated';
 
 export interface WebhookEndpoint {
   id:          string;
