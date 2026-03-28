@@ -9,8 +9,7 @@ import { listTimeEntries, createTimeEntry } from '@/lib/db/time-entries';
 import { TimeEntrySchema } from '@/lib/validations/time-tracking';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
-import { logAction } from '@/lib/utils/audit';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 export async function GET(request: Request) {
@@ -52,12 +51,13 @@ export async function POST(request: Request) {
     if (error) return apiError(error, 500);
 
     if (data) {
-      void dispatchWebhookEvent('time_entry.created', data as unknown as Record<string, unknown>);
-      void logAction({
-        entityType: 'time_entry',
-        entityId:   data.id,
+      void bus.publish('time_entry.created', {
+        actorId:     authResult.userId,
+        entityType:  'time_entry',
+        entityId:    data.id,
         entityLabel: data.description,
-        action:     'created',
+        action:      'created',
+        data:        data as unknown as Record<string, unknown>,
       });
     }
 

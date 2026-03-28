@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server';
 import { getOrganizationById, updateOrganization, deleteOrganization, getOrganizationContactCount } from '@/lib/db/organizations';
 import { UpdateOrganizationSchema } from '@/lib/validations/organizations';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
-import { logAction } from '@/lib/utils/audit';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
@@ -38,6 +38,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -54,7 +55,14 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error) return apiError(error, 500);
     if (!data) return apiError('Organization not found', 404);
 
-    void logAction({ entityType: 'organization', entityId: id, entityLabel: data.name, action: 'updated' });
+    void bus.publish('organization.updated', {
+      actorId:     userId,
+      entityType:  'organization',
+      entityId:    id,
+      entityLabel: data.name,
+      action:      'updated',
+      data:        data as unknown as Record<string, unknown>,
+    });
 
     return apiOk(data);
   } catch (err) {
@@ -67,6 +75,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -86,7 +95,14 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { error } = await deleteOrganization(id);
     if (error) return apiError(error, 500);
 
-    void logAction({ entityType: 'organization', entityId: id, entityLabel: org?.name ?? id, action: 'deleted' });
+    void bus.publish('organization.deleted', {
+      actorId:     userId,
+      entityType:  'organization',
+      entityId:    id,
+      entityLabel: org?.name ?? id,
+      action:      'deleted',
+      data:        org as unknown as Record<string, unknown> ?? { id },
+    });
 
     return apiOk({ id });
   } catch (err) {

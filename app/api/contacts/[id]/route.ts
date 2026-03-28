@@ -9,8 +9,7 @@ import { NextResponse } from 'next/server';
 import { getContactById, updateContact, deleteContact } from '@/lib/db/contacts';
 import { UpdateContactSchema } from '@/lib/validations/contacts';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
-import { logAction } from '@/lib/utils/audit';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
@@ -39,6 +38,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -55,14 +55,15 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error) return apiError(error, 500);
     if (!data) return apiError('Contact not found', 404);
 
-    const contactLabel = `${data.firstName} ${data.lastName}`;
-    void dispatchWebhookEvent('contact.updated', data as unknown as Record<string, unknown>);
-    void logAction({
-      entityType: 'contact',
-      entityId: id,
-      entityLabel: contactLabel,
-      action: parsed.data.status !== undefined ? 'status_changed' : 'updated',
-      metadata: parsed.data.status !== undefined ? { to: data.status } : undefined,
+    const isStatusChange = parsed.data.status !== undefined;
+    void bus.publish('contact.updated', {
+      actorId:     userId,
+      entityType:  'contact',
+      entityId:    id,
+      entityLabel: `${data.firstName} ${data.lastName}`,
+      action:      isStatusChange ? 'status_changed' : 'updated',
+      data:        data as unknown as Record<string, unknown>,
+      metadata:    isStatusChange ? { to: data.status } : undefined,
     });
 
     return apiOk(data);
@@ -76,6 +77,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -88,8 +90,14 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { error } = await deleteContact(id);
     if (error) return apiError(error, 500);
 
-    const contactLabel = contact ? `${contact.firstName} ${contact.lastName}` : id;
-    void logAction({ entityType: 'contact', entityId: id, entityLabel: contactLabel, action: 'deleted' });
+    void bus.publish('contact.deleted', {
+      actorId:     userId,
+      entityType:  'contact',
+      entityId:    id,
+      entityLabel: contact ? `${contact.firstName} ${contact.lastName}` : id,
+      action:      'deleted',
+      data:        contact as unknown as Record<string, unknown> ?? { id },
+    });
 
     return apiOk({ id });
   } catch (err) {

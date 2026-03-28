@@ -14,11 +14,8 @@ import {
 } from '@/lib/db/proposals';
 import { UpdateProposalSchema } from '@/lib/validations/proposals';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
-import { logAction } from '@/lib/utils/audit';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
-import { runAutomations } from '@/lib/automations/engine';
-import { notifyIfEnabled } from '@/lib/utils/notify-user';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -64,21 +61,25 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error) return apiError(error, 500);
     if (!data) return apiError('Proposal not found', 404);
 
-    if (data && parsed.data.status !== undefined) {
-      void dispatchWebhookEvent('proposal.status_changed', data as unknown as Record<string, unknown>);
-      void runAutomations('proposal.status_changed', data as unknown as Record<string, unknown>);
-      void logAction({ entityType: 'proposal', entityId: id, entityLabel: data.title, action: 'status_changed', metadata: { to: data.status } });
-      if (data.status === 'accepted') {
-        void notifyIfEnabled(userId, 'proposalAccepted', {
-          type: 'proposal_accepted',
-          title: 'Proposal Accepted',
-          body: `Proposal "${data.title}" has been accepted.`,
-          entityType: 'proposal',
-          entityId: id,
-        });
-      }
-    } else if (data) {
-      void logAction({ entityType: 'proposal', entityId: id, entityLabel: data.title, action: 'updated' });
+    if (parsed.data.status !== undefined) {
+      void bus.publish('proposal.status_changed', {
+        actorId:     userId,
+        entityType:  'proposal',
+        entityId:    id,
+        entityLabel: data.title,
+        action:      'status_changed',
+        data:        data as unknown as Record<string, unknown>,
+        metadata:    { to: data.status, newStatus: data.status },
+      });
+    } else {
+      void bus.publish('proposal.updated', {
+        actorId:     userId,
+        entityType:  'proposal',
+        entityId:    id,
+        entityLabel: data.title,
+        action:      'updated',
+        data:        data as unknown as Record<string, unknown>,
+      });
     }
 
     return apiOk(data);
@@ -92,6 +93,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -111,7 +113,14 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { error } = await deleteProposal(id);
     if (error) return apiError(error, 500);
 
-    void logAction({ entityType: 'proposal', entityId: id, entityLabel: proposal?.title ?? id, action: 'deleted' });
+    void bus.publish('proposal.deleted', {
+      actorId:     userId,
+      entityType:  'proposal',
+      entityId:    id,
+      entityLabel: proposal?.title ?? id,
+      action:      'deleted',
+      data:        proposal as unknown as Record<string, unknown> ?? { id },
+    });
 
     return apiOk({ id });
   } catch (err) {

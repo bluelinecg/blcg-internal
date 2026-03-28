@@ -9,10 +9,8 @@ import { NextResponse } from 'next/server';
 import { getTaskById, updateTask, deleteTask, createNextRecurrence } from '@/lib/db/tasks';
 import { UpdateTaskSchema } from '@/lib/validations/tasks';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
-import { logAction } from '@/lib/utils/audit';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
-import { runAutomations } from '@/lib/automations/engine';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -39,6 +37,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -55,19 +54,39 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error) return apiError(error, 500);
     if (!data) return apiError('Task not found', 404);
 
-    if (data && parsed.data.status !== undefined) {
-      void dispatchWebhookEvent('task.status_changed', data as unknown as Record<string, unknown>);
-      void runAutomations('task.status_changed', data as unknown as Record<string, unknown>);
-      void logAction({ entityType: 'task', entityId: id, entityLabel: data.title, action: 'status_changed', metadata: { to: data.status } });
+    if (parsed.data.status !== undefined) {
+      void bus.publish('task.status_changed', {
+        actorId:     userId,
+        entityType:  'task',
+        entityId:    id,
+        entityLabel: data.title,
+        action:      'status_changed',
+        data:        data as unknown as Record<string, unknown>,
+        metadata:    { to: data.status },
+      });
       if (parsed.data.status === 'done') {
-        void runAutomations('task.completed', data as unknown as Record<string, unknown>);
+        void bus.publish('task.completed', {
+          actorId:     userId,
+          entityType:  'task',
+          entityId:    id,
+          entityLabel: data.title,
+          action:      'updated',
+          data:        data as unknown as Record<string, unknown>,
+        });
       }
-    } else if (data) {
-      void logAction({ entityType: 'task', entityId: id, entityLabel: data.title, action: 'updated' });
+    } else {
+      void bus.publish('task.updated', {
+        actorId:     userId,
+        entityType:  'task',
+        entityId:    id,
+        entityLabel: data.title,
+        action:      'updated',
+        data:        data as unknown as Record<string, unknown>,
+      });
     }
 
     // When a recurring task is marked done, auto-create the next occurrence.
-    if (data && parsed.data.status === 'done' && data.recurrence !== 'none') {
+    if (parsed.data.status === 'done' && data.recurrence !== 'none') {
       void createNextRecurrence(data);
     }
 
@@ -81,6 +100,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -93,7 +113,14 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { error } = await deleteTask(id);
     if (error) return apiError(error, 500);
 
-    void logAction({ entityType: 'task', entityId: id, entityLabel: task?.title ?? id, action: 'deleted' });
+    void bus.publish('task.deleted', {
+      actorId:     userId,
+      entityType:  'task',
+      entityId:    id,
+      entityLabel: task?.title ?? id,
+      action:      'deleted',
+      data:        task as unknown as Record<string, unknown> ?? { id },
+    });
 
     return apiOk({ id });
   } catch (err) {

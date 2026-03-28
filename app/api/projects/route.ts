@@ -9,7 +9,7 @@ import { listProjects, createProject } from '@/lib/db/projects';
 import { ProjectSchema } from '@/lib/validations/projects';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
-import { logAction } from '@/lib/utils/audit';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 export async function GET(request: Request) {
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -45,7 +46,16 @@ export async function POST(request: Request) {
     const { data, error } = await createProject(parsed.data);
     if (error) return apiError(error, 500);
 
-    if (data) void logAction({ entityType: 'project', entityId: data.id, entityLabel: data.name, action: 'created' });
+    if (data) {
+      void bus.publish('project.created', {
+        actorId:     userId,
+        entityType:  'project',
+        entityId:    data.id,
+        entityLabel: data.name,
+        action:      'created',
+        data:        data as unknown as Record<string, unknown>,
+      });
+    }
 
     return apiOk(data, 201);
   } catch (err) {
