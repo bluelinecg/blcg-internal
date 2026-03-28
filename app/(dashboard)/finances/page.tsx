@@ -11,7 +11,7 @@ import { Tabs, StatCard, Card, Badge, Select, Input, Button, ConfirmDialog, Skel
 import type { TabItem } from '@/components/ui/Tabs';
 import { useListState } from '@/lib/hooks/use-list-state';
 import { InvoiceFormModal, ExpenseFormModal } from '@/components/modules';
-import type { Invoice, Expense, InvoiceStatus, ExpenseCategory } from '@/lib/types/finances';
+import type { Invoice, Expense, InvoiceStatus, ExpenseCategory, FinancesOverview } from '@/lib/types/finances';
 import type { Organization } from '@/lib/types/crm';
 import type { Project } from '@/lib/types/projects';
 
@@ -79,6 +79,37 @@ export function FinancesPage() {
   const [invoiceStatusFilter, setInvoiceStatusFilter]       = useState('all');
   const [invoiceSearch, setInvoiceSearch]                   = useState('');
   const [expenseCategoryFilter, setExpenseCategoryFilter]   = useState('all');
+
+  // Overview KPI state — fetched from /api/finances/overview (all records, date-filtered)
+  const [overviewFrom, setOverviewFrom]   = useState('');
+  const [overviewTo, setOverviewTo]       = useState('');
+  const [overview, setOverview]           = useState<FinancesOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchOverview() {
+      setOverviewLoading(true);
+      setOverviewError(null);
+      try {
+        const params = new URLSearchParams();
+        if (overviewFrom) params.set('from', overviewFrom);
+        if (overviewTo)   params.set('to', overviewTo);
+        const res  = await fetch(`/api/finances/overview?${params.toString()}`);
+        const json = await res.json() as { data: FinancesOverview | null; error: string | null };
+        if (cancelled) return;
+        if (!res.ok || json.error) { setOverviewError(json.error ?? 'Failed to load overview'); return; }
+        setOverview(json.data);
+      } catch {
+        if (!cancelled) setOverviewError('Network error. Please try again.');
+      } finally {
+        if (!cancelled) setOverviewLoading(false);
+      }
+    }
+    fetchOverview();
+    return () => { cancelled = true; };
+  }, [overviewFrom, overviewTo]);
 
   // Invoice CRUD
   const [invoiceFormOpen, setInvoiceFormOpen]               = useState(false);
@@ -241,12 +272,6 @@ export function FinancesPage() {
     setExpenseSaveError(null);
   }
 
-  // Derived totals (current page)
-  const totalRevenue     = invoices.data.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0);
-  const totalOutstanding = invoices.data.filter((i) => ['sent', 'viewed', 'overdue'].includes(i.status)).reduce((s, i) => s + i.total, 0);
-  const totalExpensesAmt = expenses.data.reduce((s, e) => s + e.amount, 0);
-  const netPL            = totalRevenue - totalExpensesAmt;
-  const overdueCount     = invoices.data.filter((i) => i.status === 'overdue').length;
 
   if (isLoading) {
     return (
@@ -321,11 +346,55 @@ export function FinancesPage() {
 
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* Date range filter */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500">Date range:</span>
+            <Input
+              type="date"
+              value={overviewFrom}
+              onChange={(e) => setOverviewFrom(e.target.value)}
+              className="w-40"
+            />
+            <span className="text-sm text-gray-400">to</span>
+            <Input
+              type="date"
+              value={overviewTo}
+              onChange={(e) => setOverviewTo(e.target.value)}
+              className="w-40"
+            />
+            {(overviewFrom || overviewTo) && (
+              <button
+                onClick={() => { setOverviewFrom(''); setOverviewTo(''); }}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {overviewError && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3">
+              <p className="text-sm text-red-600">{overviewError}</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-4 gap-4">
-            <StatCard label="Total Revenue (Paid)" value={formatCurrency(totalRevenue)} sub="From paid invoices" accent="green" />
-            <StatCard label="Outstanding" value={formatCurrency(totalOutstanding)} sub={overdueCount > 0 ? `${overdueCount} overdue` : 'None overdue'} accent={overdueCount > 0 ? 'red' : 'yellow'} />
-            <StatCard label="Total Expenses" value={formatCurrency(totalExpensesAmt)} accent="yellow" />
-            <StatCard label="Net P&L" value={formatCurrency(netPL)} sub="Revenue minus expenses" accent={netPL >= 0 ? 'green' : 'red'} />
+            {overviewLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-lg border border-gray-200 bg-white p-4 space-y-2">
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="h-7 w-24" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              ))
+            ) : (
+              <>
+                <StatCard label="Total Revenue (Paid)" value={formatCurrency(overview?.totalRevenue ?? 0)} sub="From paid invoices" accent="green" />
+                <StatCard label="Outstanding" value={formatCurrency(overview?.totalOutstanding ?? 0)} sub={(overview?.overdueCount ?? 0) > 0 ? `${overview!.overdueCount} overdue` : 'None overdue'} accent={(overview?.overdueCount ?? 0) > 0 ? 'red' : 'yellow'} />
+                <StatCard label="Total Expenses" value={formatCurrency(overview?.totalExpenses ?? 0)} accent="yellow" />
+                <StatCard label="Net P&L" value={formatCurrency(overview?.netPL ?? 0)} sub="Revenue minus expenses" accent={(overview?.netPL ?? 0) >= 0 ? 'green' : 'red'} />
+              </>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-6">
             <Card>

@@ -61,3 +61,11 @@ export interface Expense {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface FinancesOverview {
+  totalRevenue: number;       // sum of paid invoice totals
+  totalOutstanding: number;   // sum of sent/viewed/overdue invoice totals
+  totalExpenses: number;      // sum of all expense amounts
+  netPL: number;              // totalRevenue - totalExpenses
+  overdueCount: number;       // count of overdue invoices
+}

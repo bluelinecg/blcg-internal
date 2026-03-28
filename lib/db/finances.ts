@@ -13,6 +13,7 @@ import type {
   InvoiceStatus,
   ExpenseCategory,
   PaymentMethod,
+  FinancesOverview,
 } from '@/lib/types/finances';
 import type {
   InvoiceInput,
@@ -506,5 +507,65 @@ export async function deleteExpense(id: string): Promise<{ error: string | null 
   } catch (err) {
     console.error('[deleteExpense]', err);
     return { error: 'Failed to delete expense' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Overview / aggregate queries
+// ---------------------------------------------------------------------------
+
+interface OverviewOptions {
+  /** ISO date string — filter records on or after this date (inclusive) */
+  from?: string;
+  /** ISO date string — filter records on or before this date (inclusive) */
+  to?: string;
+}
+
+/**
+ * Returns aggregated KPI stats across all invoices and expenses.
+ * Fetches only the columns needed for aggregation (no line items).
+ * Optionally filtered by date range (invoices use created_at, expenses use date).
+ */
+export async function getFinancesOverview(
+  options?: OverviewOptions,
+): Promise<{ data: FinancesOverview | null; error: string | null }> {
+  try {
+    const db = serverClient();
+    const { from, to } = options ?? {};
+
+    let invoiceQuery = db.from('invoices').select('total, status');
+    if (from) invoiceQuery = invoiceQuery.gte('created_at', from);
+    if (to)   invoiceQuery = invoiceQuery.lte('created_at', to);
+
+    let expenseQuery = db.from('expenses').select('amount');
+    if (from) expenseQuery = expenseQuery.gte('date', from);
+    if (to)   expenseQuery = expenseQuery.lte('date', to);
+
+    const [invoiceResult, expenseResult] = await Promise.all([invoiceQuery, expenseQuery]);
+
+    if (invoiceResult.error) return { data: null, error: invoiceResult.error.message };
+    if (expenseResult.error) return { data: null, error: expenseResult.error.message };
+
+    const invoices = invoiceResult.data as { total: number; status: InvoiceStatus }[];
+    const expenses = expenseResult.data as { amount: number }[];
+
+    const totalRevenue     = invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0);
+    const totalOutstanding = invoices.filter((i) => ['sent', 'viewed', 'overdue'].includes(i.status)).reduce((s, i) => s + i.total, 0);
+    const totalExpenses    = expenses.reduce((s, e) => s + e.amount, 0);
+    const overdueCount     = invoices.filter((i) => i.status === 'overdue').length;
+
+    return {
+      data: {
+        totalRevenue,
+        totalOutstanding,
+        totalExpenses,
+        netPL: totalRevenue - totalExpenses,
+        overdueCount,
+      },
+      error: null,
+    };
+  } catch (err) {
+    console.error('[getFinancesOverview]', err);
+    return { data: null, error: 'Failed to load finances overview' };
   }
 }
