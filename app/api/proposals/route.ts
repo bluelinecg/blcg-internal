@@ -9,11 +9,8 @@ import { listProposals, createProposal } from '@/lib/db/proposals';
 import { ProposalSchema } from '@/lib/validations/proposals';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
-import { logAction } from '@/lib/utils/audit';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
-import { runAutomations } from '@/lib/automations/engine';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
-import { notifyIfEnabled } from '@/lib/utils/notify-user';
 
 // GET /api/proposals
 export async function GET(request: Request) {
@@ -56,15 +53,13 @@ export async function POST(request: Request) {
     if (error) return apiError(error, 500);
 
     if (data) {
-      void dispatchWebhookEvent('proposal.created', data as unknown as Record<string, unknown>);
-      void runAutomations('proposal.created', data as unknown as Record<string, unknown>);
-      void logAction({ entityType: 'proposal', entityId: data.id, entityLabel: data.title, action: 'created' });
-      void notifyIfEnabled(userId, 'newProposal', {
-        type: 'new_proposal',
-        title: 'New Proposal Created',
-        body: `Proposal "${data.title}" has been created.`,
-        entityType: 'proposal',
-        entityId: data.id,
+      void bus.publish('proposal.created', {
+        actorId:     userId,
+        entityType:  'proposal',
+        entityId:    data.id,
+        entityLabel: data.title,
+        action:      'created',
+        data:        data as unknown as Record<string, unknown>,
       });
     }
 

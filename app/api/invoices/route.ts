@@ -9,8 +9,7 @@ import { listInvoices, createInvoice } from '@/lib/db/finances';
 import { InvoiceSchema } from '@/lib/validations/finances';
 import { guardAdmin } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
-import { logAction } from '@/lib/utils/audit';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 export async function GET(request: Request) {
@@ -36,6 +35,7 @@ export async function POST(request: Request) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -50,8 +50,14 @@ export async function POST(request: Request) {
     if (error) return apiError(error, 500);
 
     if (data) {
-      void dispatchWebhookEvent('invoice.created', data as unknown as Record<string, unknown>);
-      void logAction({ entityType: 'invoice', entityId: data.id, entityLabel: data.invoiceNumber, action: 'created' });
+      void bus.publish('invoice.created', {
+        actorId:     userId,
+        entityType:  'invoice',
+        entityId:    data.id,
+        entityLabel: data.invoiceNumber,
+        action:      'created',
+        data:        data as unknown as Record<string, unknown>,
+      });
     }
 
     return apiOk(data, 201);

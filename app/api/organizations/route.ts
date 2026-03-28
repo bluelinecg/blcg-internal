@@ -9,8 +9,7 @@ import { listOrganizations, createOrganization } from '@/lib/db/organizations';
 import { OrganizationSchema } from '@/lib/validations/organizations';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
-import { logAction } from '@/lib/utils/audit';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 export async function GET(request: Request) {
@@ -33,6 +32,7 @@ export async function POST(request: Request) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -47,8 +47,14 @@ export async function POST(request: Request) {
     if (error) return apiError(error, 500);
 
     if (data) {
-      void dispatchWebhookEvent('organization.created', data as unknown as Record<string, unknown>);
-      void logAction({ entityType: 'organization', entityId: data.id, entityLabel: data.name, action: 'created' });
+      void bus.publish('organization.created', {
+        actorId:     userId,
+        entityType:  'organization',
+        entityId:    data.id,
+        entityLabel: data.name,
+        action:      'created',
+        data:        data as unknown as Record<string, unknown>,
+      });
     }
 
     return apiOk(data, 201);

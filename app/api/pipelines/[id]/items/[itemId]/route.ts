@@ -9,10 +9,8 @@ import { NextResponse } from 'next/server';
 import { getItemById, updateItem, deleteItem } from '@/lib/db/pipelines';
 import { UpdatePipelineItemSchema } from '@/lib/validations/pipelines';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
-import { logAction } from '@/lib/utils/audit';
-import { runAutomations } from '@/lib/automations/engine';
 
 interface RouteContext {
   params: Promise<{ id: string; itemId: string }>;
@@ -39,6 +37,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -62,19 +61,31 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const stageChanged = parsed.data.stageId !== undefined && parsed.data.stageId !== previousStageId;
 
     if (stageChanged) {
-      const triggerData = {
-        id:              data.id,
-        itemId:          data.id,
-        pipelineId,
-        stageId:         data.stageId,
-        previousStageId: previousStageId ?? null,
-        title:           data.title,
-      };
-      void dispatchWebhookEvent('pipeline.item_stage_changed', triggerData as unknown as Record<string, unknown>);
-      void runAutomations('pipeline.item_stage_changed', triggerData as unknown as Record<string, unknown>);
-      void logAction({ entityType: 'pipeline_item', entityId: itemId, entityLabel: data.title, action: 'status_changed', metadata: { to: data.stageId, from: previousStageId } });
+      void bus.publish('pipeline.item_stage_changed', {
+        actorId:     userId,
+        entityType:  'pipeline_item',
+        entityId:    itemId,
+        entityLabel: data.title,
+        action:      'status_changed',
+        data: {
+          id:              data.id,
+          itemId:          data.id,
+          pipelineId,
+          stageId:         data.stageId,
+          previousStageId: previousStageId ?? null,
+          title:           data.title,
+        },
+        metadata: { to: data.stageId, from: previousStageId },
+      });
     } else {
-      void logAction({ entityType: 'pipeline_item', entityId: itemId, entityLabel: data.title, action: 'updated' });
+      void bus.publish('pipeline.item_updated', {
+        actorId:     userId,
+        entityType:  'pipeline_item',
+        entityId:    itemId,
+        entityLabel: data.title,
+        action:      'updated',
+        data:        data as unknown as Record<string, unknown>,
+      });
     }
 
     return apiOk(data);
@@ -87,14 +98,26 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
 
     const { itemId } = await params;
 
+    const { data: item } = await getItemById(itemId);
+
     const { error } = await deleteItem(itemId);
     if (error) return apiError(error, 500);
+
+    void bus.publish('pipeline.item_deleted', {
+      actorId:     userId,
+      entityType:  'pipeline_item',
+      entityId:    itemId,
+      entityLabel: item?.title ?? itemId,
+      action:      'deleted',
+      data:        item as unknown as Record<string, unknown> ?? { id: itemId },
+    });
 
     return apiOk({ id: itemId });
   } catch (err) {

@@ -9,8 +9,7 @@ import { NextResponse } from 'next/server';
 import { getTimeEntryById, updateTimeEntry, deleteTimeEntry } from '@/lib/db/time-entries';
 import { UpdateTimeEntrySchema } from '@/lib/validations/time-tracking';
 import { guardAdmin, guardMember } from '@/lib/auth/roles';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
-import { logAction } from '@/lib/utils/audit';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
@@ -39,6 +38,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -55,12 +55,13 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error) return apiError(error, 500);
     if (!data) return apiError('Time entry not found', 404);
 
-    void dispatchWebhookEvent('time_entry.updated', data as unknown as Record<string, unknown>);
-    void logAction({
+    void bus.publish('time_entry.updated', {
+      actorId:     userId,
       entityType:  'time_entry',
       entityId:    id,
       entityLabel: data.description,
       action:      'updated',
+      data:        data as unknown as Record<string, unknown>,
     });
 
     return apiOk(data);
@@ -74,6 +75,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -85,11 +87,13 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { error } = await deleteTimeEntry(id);
     if (error) return apiError(error, 500);
 
-    void logAction({
+    void bus.publish('time_entry.deleted', {
+      actorId:     userId,
       entityType:  'time_entry',
       entityId:    id,
       entityLabel: entry?.description ?? id,
       action:      'deleted',
+      data:        entry as unknown as Record<string, unknown> ?? { id },
     });
 
     return apiOk({ id });

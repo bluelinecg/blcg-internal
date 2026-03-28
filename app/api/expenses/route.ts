@@ -9,7 +9,7 @@ import { listExpenses, createExpense } from '@/lib/db/finances';
 import { ExpenseSchema } from '@/lib/validations/finances';
 import { guardAdmin } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
-import { logAction } from '@/lib/utils/audit';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 export async function GET(request: Request) {
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardAdmin();
     if (guard) return guard;
@@ -48,7 +49,16 @@ export async function POST(request: Request) {
     const { data, error } = await createExpense(parsed.data);
     if (error) return apiError(error, 500);
 
-    if (data) void logAction({ entityType: 'expense', entityId: data.id, entityLabel: data.description, action: 'created' });
+    if (data) {
+      void bus.publish('expense.created', {
+        actorId:     userId,
+        entityType:  'expense',
+        entityId:    data.id,
+        entityLabel: data.description,
+        action:      'created',
+        data:        data as unknown as Record<string, unknown>,
+      });
+    }
 
     return apiOk(data, 201);
   } catch (err) {

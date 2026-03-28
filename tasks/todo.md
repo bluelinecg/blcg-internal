@@ -1,6 +1,212 @@
+# Implement Central Event Bus System
+**Kanban ID:** c97ff6d8-3dea-48a2-be01-6c266cea724f
+**Branch:** feature/event-bus
+**Status:** Planning
+
+## Overview
+
+Create `/lib/events` — a synchronous, in-process pub/sub event bus that serves as the single
+dispatch point for all domain events. This replaces the scattered per-route pattern of
+manually calling `logAction()`, `dispatchWebhookEvent()`, `runAutomations()`, and
+`notifyIfEnabled()` in each API route.
+
+### Current Problem (Before)
+
+Every API route that mutates data manually calls 2–4 side-effect functions:
+
+```typescript
+// PATCH /api/tasks/[id]/route.ts — current
+void dispatchWebhookEvent('task.status_changed', data);
+void runAutomations('task.status_changed', data);
+void runAutomations('task.completed', data);
+void logAction({ entityType: 'task', entityId, entityLabel, action: 'status_changed' });
+```
+
+Each subsystem (audit, webhooks, automations, notifications) is called independently
+with no central registry or unified schema.
+
+### After
+
+```typescript
+// PATCH /api/tasks/[id]/route.ts — after event bus
+void bus.publish('task.status_changed', {
+  actorId: user.id,
+  actorName: user.fullName ?? user.id,
+  entityType: 'task',
+  entityId: id,
+  entityLabel: task.title,
+  action: 'status_changed',
+  data: task as Record<string, unknown>,
+  metadata: { previousStatus, newStatus: body.status },
+});
+```
+
+All registered handlers (audit, webhooks, automations, notifications) are invoked
+automatically by the bus.
+
+---
+
+## Architecture
+
+```
+/lib/events/
+  types.ts              EventName union, DomainEventPayload interface
+  bus.ts                EventBus class (on, onAny, publish)
+  handlers/
+    audit.ts            wraps logAction()
+    webhooks.ts         wraps dispatchWebhookEvent()
+    automations.ts      wraps runAutomations()
+    notifications.ts    wraps notifyIfEnabled()
+  registry.ts           creates and wires up a singleton bus instance
+  index.ts              public exports (bus, types)
+```
+
+### EventBus API
+
+```typescript
+// Subscribe a handler to a specific event
+bus.on(eventName: EventName, handler: EventHandler): void
+
+// Subscribe a handler to ALL events (used by audit and webhooks)
+bus.onAny(handler: EventHandler): void
+
+// Publish an event — resolves after all handlers settle (Promise.allSettled)
+bus.publish(eventName: EventName, payload: DomainEventPayload): Promise<void>
+```
+
+### Event Payload Shape
+
+All events share one payload type:
+
+```typescript
+interface DomainEventPayload {
+  actorId: string;               // Clerk user ID
+  actorName: string;             // User display name
+  entityType: AuditEntityType;   // 'contact' | 'task' | 'invoice' | ...
+  entityId: string;              // UUID of the entity
+  entityLabel: string;           // Human-readable label
+  action: AuditAction;           // 'created' | 'updated' | 'deleted' | 'status_changed'
+  data: Record<string, unknown>; // Full entity data after mutation
+  metadata?: Record<string, unknown>; // Extra context (e.g. previousStatus, newStatus)
+}
+```
+
+### Handler Routing
+
+| Handler | Registered on | Behaviour |
+|---------|--------------|-----------|
+| `auditHandler` | `onAny` | Calls `logAction()` for every event |
+| `webhooksHandler` | `onAny` | Maps EventName → WebhookEventType; skips unmapped events |
+| `automationsHandler` | named events only | Calls `runAutomations()` for trigger events |
+| `notificationsHandler` | named events only | Checks `metadata.newStatus` and calls `notifyIfEnabled()` |
+
+---
+
+## Implementation Plan
+
+### Step 1 — Types
+- [ ] Create `/lib/events/types.ts`
+  - Export `EventName` union (all domain event names)
+  - Export `DomainEventPayload` interface
+  - Export `EventHandler` type
+
+### Step 2 — EventBus Class
+- [ ] Create `/lib/events/bus.ts`
+  - `on(event, handler)` — register named handler
+  - `onAny(handler)` — register wildcard handler
+  - `async publish(event, payload): Promise<void>` — dispatches to all matching handlers via `Promise.allSettled`
+  - Errors inside handlers are caught and logged; they never propagate out
+
+### Step 3 — Handlers
+- [ ] Create `/lib/events/handlers/audit.ts`
+  - Calls `logAction()` — maps `DomainEventPayload` → `LogActionInput`
+- [ ] Create `/lib/events/handlers/webhooks.ts`
+  - Maps `EventName` → `WebhookEventType`; skips if no mapping
+  - Calls `dispatchWebhookEvent(webhookEventType, payload.data)`
+- [ ] Create `/lib/events/handlers/automations.ts`
+  - Maps `EventName` → `AutomationTriggerType`; skips if not a trigger
+  - Calls `runAutomations(triggerType, payload.data)`
+- [ ] Create `/lib/events/handlers/notifications.ts`
+  - Contains per-event notification logic
+  - `proposal.status_changed` + `newStatus === 'accepted'` → `notifyIfEnabled(proposalAccepted)`
+  - `invoice.status_changed` + `newStatus === 'paid'` → `notifyIfEnabled(invoicePaid)`
+  - `invoice.status_changed` + `newStatus === 'overdue'` → `notifyIfEnabled(invoiceOverdue)`
+
+### Step 4 — Registry
+- [ ] Create `/lib/events/registry.ts`
+  - Instantiates EventBus
+  - Registers all handlers
+  - Exports the configured `bus` singleton
+
+### Step 5 — Index
+- [ ] Create `/lib/events/index.ts`
+  - Re-exports `bus`, `EventName`, `DomainEventPayload`, `EventHandler`
+
+### Step 6 — Route Integration
+Replace scattered side-effect calls with `void bus.publish(...)` in:
+
+- [ ] `/api/contacts/route.ts` — POST (contact.created)
+- [ ] `/api/contacts/[id]/route.ts` — PATCH (contact.updated), DELETE (contact.deleted)
+- [ ] `/api/organizations/route.ts` — POST (organization.created)
+- [ ] `/api/organizations/[id]/route.ts` — PATCH (organization.updated), DELETE (organization.deleted)
+- [ ] `/api/clients/route.ts` — POST (client.created)
+- [ ] `/api/clients/[id]/route.ts` — PATCH (client.updated), DELETE (client.deleted)
+- [ ] `/api/projects/route.ts` — POST (project.created)
+- [ ] `/api/projects/[id]/route.ts` — PATCH (project.updated), DELETE (project.deleted)
+- [ ] `/api/tasks/route.ts` — POST (task.created)
+- [ ] `/api/tasks/[id]/route.ts` — PATCH (task.status_changed / task.updated / task.completed), DELETE (task.deleted)
+- [ ] `/api/invoices/route.ts` — POST (invoice.created)
+- [ ] `/api/invoices/[id]/route.ts` — PATCH (invoice.status_changed / invoice.updated), DELETE (invoice.deleted)
+- [ ] `/api/proposals/route.ts` — POST (proposal.created)
+- [ ] `/api/proposals/[id]/route.ts` — PATCH (proposal.status_changed / proposal.updated), DELETE (proposal.deleted)
+- [ ] `/api/pipelines/[id]/items/route.ts` — POST (pipeline.item_created)
+- [ ] `/api/pipelines/[id]/items/[itemId]/route.ts` — PATCH (pipeline.item_stage_changed / pipeline.item_updated), DELETE (pipeline.item_deleted)
+- [ ] `/api/expenses/route.ts` — POST (expense.created)
+- [ ] `/api/expenses/[id]/route.ts` — PATCH (expense.updated), DELETE (expense.deleted)
+- [ ] `/api/time-entries/route.ts` — POST (time_entry.created)
+- [ ] `/api/time-entries/[id]/route.ts` — PATCH (time_entry.updated), DELETE (time_entry.deleted)
+
+### Step 7 — Tests
+- [ ] `/lib/events/bus.test.ts` — EventBus unit tests
+  - subscribe + publish a named event
+  - onAny receives all events
+  - handler errors are caught, others still run
+  - publish resolves after all handlers settle
+- [ ] `/lib/events/handlers/audit.test.ts`
+- [ ] `/lib/events/handlers/webhooks.test.ts`
+- [ ] `/lib/events/handlers/automations.test.ts`
+- [ ] `/lib/events/handlers/notifications.test.ts`
+
+---
+
+## Risks & Notes
+
+- **No new dependencies required** — the bus is pure TypeScript, no external packages
+- **Backwards-compatible** — routes that aren't updated yet still work (existing direct calls remain until replaced)
+- **Serverless safe** — synchronous in-process pattern; no persistent state between requests
+- **KI-001** — test infrastructure is broken (69 files fail with ERR_MODULE_NOT_FOUND). Tests will be written but may not run until KI-001 is resolved. Follow existing test file patterns.
+- **Task.completed edge case** — currently two separate automation calls (`task.status_changed` AND `task.completed`) fire when a task is marked done. The automations handler will fire both `task.status_changed` and `task.completed` events as two separate publishes from the route.
+
+---
+
+## Definition of Done
+
+- `/lib/events` directory fully implemented and typed
+- All 20+ API routes emit events via `bus.publish()`
+- No direct calls to `logAction`, `dispatchWebhookEvent`, `runAutomations`, `notifyIfEnabled` remain in routes (they exist only in handlers)
+- Tests written for bus + all handlers
+- TypeScript: zero new errors
+- No `any` types introduced
+
+---
+
+*Previous task notes archived below.*
+
+---
+
 # Mobile Responsiveness Audit & Fixes
 **Kanban ID:** 7b88a272-17a7-46d3-b785-bf34a4e24850
-**Status:** Planning
+**Status:** Done
 
 ## Overview
 

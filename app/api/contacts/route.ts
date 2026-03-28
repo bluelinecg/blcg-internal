@@ -9,8 +9,7 @@ import { listContacts, createContact } from '@/lib/db/contacts';
 import { ContactSchema } from '@/lib/validations/contacts';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
-import { dispatchWebhookEvent } from '@/lib/utils/webhook-delivery';
-import { logAction } from '@/lib/utils/audit';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 export async function GET(request: Request) {
@@ -36,6 +35,7 @@ export async function POST(request: Request) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -50,8 +50,14 @@ export async function POST(request: Request) {
     if (error) return apiError(error, 500);
 
     if (data) {
-      void dispatchWebhookEvent('contact.created', data as unknown as Record<string, unknown>);
-      void logAction({ entityType: 'contact', entityId: data.id, entityLabel: `${data.firstName} ${data.lastName}`, action: 'created' });
+      void bus.publish('contact.created', {
+        actorId:     userId,
+        entityType:  'contact',
+        entityId:    data.id,
+        entityLabel: `${data.firstName} ${data.lastName}`,
+        action:      'created',
+        data:        data as unknown as Record<string, unknown>,
+      });
     }
 
     return apiOk(data, 201);

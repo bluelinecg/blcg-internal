@@ -9,6 +9,7 @@ import { listItems, createItem } from '@/lib/db/pipelines';
 import { PipelineItemSchema } from '@/lib/validations/pipelines';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
+import { bus } from '@/lib/events';
 import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 interface RouteContext {
@@ -36,6 +37,7 @@ export async function POST(request: Request, { params }: RouteContext) {
   try {
     const authResult = await requireAuth();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
     const guard = await guardMember();
     if (guard) return guard;
@@ -51,6 +53,17 @@ export async function POST(request: Request, { params }: RouteContext) {
 
     const { data, error } = await createItem(parsed.data);
     if (error) return apiError(error, 500);
+
+    if (data) {
+      void bus.publish('pipeline.item_created', {
+        actorId:     userId,
+        entityType:  'pipeline_item',
+        entityId:    data.id,
+        entityLabel: data.title,
+        action:      'created',
+        data:        data as unknown as Record<string, unknown>,
+      });
+    }
 
     return apiOk(data, 201);
   } catch (err) {
