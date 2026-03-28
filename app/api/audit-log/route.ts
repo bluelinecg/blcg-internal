@@ -17,13 +17,8 @@ import { NextResponse } from 'next/server';
 import { listLogs, listLogsForEntity } from '@/lib/db/audit-log';
 import { guardAdmin } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
-import type { AuditEntityType } from '@/lib/types/audit-log';
+import { AuditLogQuerySchema } from '@/lib/validations/audit-log';
 import { requireAuth, apiError } from '@/lib/api/utils';
-
-const VALID_ENTITY_TYPES: AuditEntityType[] = [
-  'client', 'contact', 'organization', 'proposal',
-  'project', 'task', 'invoice', 'expense',
-];
 
 export async function GET(request: Request) {
   try {
@@ -31,21 +26,23 @@ export async function GET(request: Request) {
     if (authResult instanceof NextResponse) return authResult;
 
     const url = new URL(request.url);
-    const entityType = url.searchParams.get('entityType');
-    const entityId   = url.searchParams.get('entityId');
-    const options    = parseListParams(url.searchParams);
+    const options = parseListParams(url.searchParams);
+
+    const parsed = AuditLogQuerySchema.safeParse({
+      entityType: url.searchParams.get('entityType') ?? undefined,
+      entityId:   url.searchParams.get('entityId')   ?? undefined,
+    });
+
+    if (!parsed.success) {
+      const error = parsed.error.issues[0]?.message ?? 'Invalid query parameters';
+      return apiError(error, 400);
+    }
+
+    const { entityType, entityId } = parsed.data;
 
     // Entity-scoped request — any authenticated user
     if (entityType && entityId) {
-      if (!VALID_ENTITY_TYPES.includes(entityType as AuditEntityType)) {
-        return apiError(`Invalid entityType: ${entityType}`, 400);
-      }
-
-      const { data, total, error } = await listLogsForEntity(
-        entityType as AuditEntityType,
-        entityId,
-        options,
-      );
+      const { data, total, error } = await listLogsForEntity(entityType, entityId, options);
       if (error) return apiError(error, 500);
       return NextResponse.json({ data, total, error: null });
     }
