@@ -14,6 +14,7 @@ import { InvoiceFormModal, ExpenseFormModal } from '@/components/modules';
 import type { Invoice, Expense, InvoiceStatus, ExpenseCategory } from '@/lib/types/finances';
 import type { Organization } from '@/lib/types/crm';
 import type { Project } from '@/lib/types/projects';
+import type { CatalogItem } from '@/lib/types/catalog';
 
 const TABS: TabItem[] = [
   { id: 'overview',  label: 'Overview' },
@@ -73,6 +74,15 @@ export function FinancesPage() {
       setOrganizations(oj.data ?? []);
       setProjects(pj.data ?? []);
     }).catch(() => { /* non-critical */ });
+  }, []);
+
+  // Active catalog items for the line item picker
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  useEffect(() => {
+    fetch('/api/catalog?activeOnly=true&pageSize=200&sort=name')
+      .then((r) => r.json())
+      .then((j: { data: CatalogItem[] | null }) => setCatalogItems(j.data ?? []))
+      .catch(() => setCatalogItems([]));
   }, []);
 
   const [activeTab, setActiveTab]                           = useState('overview');
@@ -476,6 +486,7 @@ export function FinancesPage() {
         organizations={organizations}
         projects={projects}
         nextInvoiceNumber={nextInvoiceNum()}
+        catalogItems={catalogItems}
         isSaving={isInvoiceSaving}
         saveError={invoiceSaveError}
       />

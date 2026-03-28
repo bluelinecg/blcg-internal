@@ -112,6 +112,16 @@ function IconUsers() {
   );
 }
 
+function IconCatalog() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="3" width="20" height="5" rx="1" />
+      <rect x="2" y="10" width="20" height="5" rx="1" />
+      <rect x="2" y="17" width="20" height="5" rx="1" />
+    </svg>
+  );
+}
+
 function IconContacts() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -126,6 +136,15 @@ function IconOrganizations() {
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  );
+}
+
+function IconTimeTracking() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
     </svg>
   );
 }
@@ -155,6 +174,7 @@ function IconAutomations() {
 // Main nav — Dashboard first, then alphabetical. Settings is pinned to the bottom separately.
 const MAIN_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard /> },
+  { label: 'Catalog',       href: '/catalog',       icon: <IconCatalog /> },
   { label: 'Clients',       href: '/clients',       icon: <IconClients /> },
   { label: 'Contacts',      href: '/contacts',      icon: <IconContacts /> },
   { label: 'Emails',        href: '/emails',        icon: <IconEmails /> },
@@ -164,6 +184,7 @@ const MAIN_NAV_ITEMS: NavItem[] = [
   { label: 'Projects',      href: '/projects',      icon: <IconProjects /> },
   { label: 'Proposals',     href: '/proposals',     icon: <IconProposals /> },
   { label: 'Tasks',         href: '/tasks',         icon: <IconTasks /> },
+  { label: 'Time Tracking', href: '/time-tracking', icon: <IconTimeTracking /> },
   { label: 'Users',         href: '/users',         icon: <IconUsers /> },
 ];
 

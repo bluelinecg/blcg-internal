@@ -15,9 +15,11 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button, Input, Select, Textarea } from '@/components/ui';
+import { CatalogItemPickerModal } from '@/components/modules/CatalogItemPickerModal';
 import type { Invoice, InvoiceLineItem, InvoiceStatus } from '@/lib/types/finances';
 import type { Organization } from '@/lib/types/crm';
 import type { Project } from '@/lib/types/projects';
+import type { CatalogItem } from '@/lib/types/catalog';
 
 type InvoiceFormData = Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -28,6 +30,7 @@ interface InvoiceFormModalProps {
   organizations: Organization[];
   projects: Project[];
   nextInvoiceNumber: string;
+  catalogItems?: CatalogItem[];
   isSaving?: boolean;
   saveError?: string | null;
 }
@@ -68,9 +71,10 @@ function makeDefaults(invoiceNumber: string): InvoiceFormData {
   };
 }
 
-export function InvoiceFormModal({ isOpen, onClose, onSave, organizations, projects, nextInvoiceNumber, isSaving, saveError }: InvoiceFormModalProps) {
+export function InvoiceFormModal({ isOpen, onClose, onSave, organizations, projects, nextInvoiceNumber, catalogItems, isSaving, saveError }: InvoiceFormModalProps) {
   const [form, setForm] = useState<InvoiceFormData>(makeDefaults(nextInvoiceNumber));
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -106,6 +110,24 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, organizations, proje
       const items = prev.lineItems.filter((_, i) => i !== index);
       const subtotal = items.reduce((s, it) => s + it.total, 0);
       return { ...prev, lineItems: items, subtotal, total: subtotal };
+    });
+  }
+
+  function addLineItemFromCatalog(item: Pick<CatalogItem, 'name' | 'description' | 'unitPrice'>) {
+    setForm((prev) => {
+      const newItem: InvoiceLineItem = {
+        id:          `ili_${Date.now()}`,
+        invoiceId:   '',
+        description: item.name + (item.description ? ` — ${item.description}` : ''),
+        quantity:    1,
+        unitPrice:   item.unitPrice,
+        total:       item.unitPrice,
+        isIncluded:  false,
+        sortOrder:   prev.lineItems.length,
+      };
+      const lineItems = [...prev.lineItems, newItem];
+      const subtotal  = lineItems.reduce((s, it) => s + it.total, 0);
+      return { ...prev, lineItems, subtotal, total: subtotal };
     });
   }
 
@@ -242,7 +264,17 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, organizations, proje
               </div>
             ))}
             <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-t border-gray-200">
-              <button onClick={addLineItem} className="text-xs font-medium text-brand-blue hover:underline">+ Add line item</button>
+              <div className="flex items-center gap-4">
+                <button onClick={addLineItem} className="text-xs font-medium text-brand-blue hover:underline">+ Add line item</button>
+                {catalogItems && catalogItems.length > 0 && (
+                  <button
+                    onClick={() => setPickerOpen(true)}
+                    className="text-xs font-medium text-gray-500 hover:text-brand-blue hover:underline"
+                  >
+                    Add from Catalog
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</span>
                 <span className="text-sm font-bold text-gray-900 w-24 text-right">{formatCurrency(form.total)}</span>
@@ -266,6 +298,15 @@ export function InvoiceFormModal({ isOpen, onClose, onSave, organizations, proje
           </Button>
         </div>
       </div>
+
+      {catalogItems && (
+        <CatalogItemPickerModal
+          isOpen={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          onSelect={addLineItemFromCatalog}
+          items={catalogItems.filter((i) => i.isActive)}
+        />
+      )}
     </Modal>
   );
 }

@@ -91,3 +91,24 @@ ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 CREATE INDEX idx_audit_log_entity ON audit_log (entity_type, entity_id, created_at DESC);
 CREATE INDEX idx_audit_log_created_at ON audit_log (created_at DESC);
 ```
+
+### Product & Service Catalog
+
+```sql
+CREATE TABLE catalog_items (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        text NOT NULL,
+  description text,
+  unit_price  numeric(10,2) NOT NULL DEFAULT 0,
+  category    text,
+  is_active   boolean NOT NULL DEFAULT true,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE catalog_items ENABLE ROW LEVEL SECURITY;
+
+CREATE TRIGGER set_catalog_items_updated_at
+  BEFORE UPDATE ON catalog_items
+  FOR EACH ROW EXECUTE FUNCTION moddatetime(updated_at);
+```

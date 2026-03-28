@@ -1,4 +1,6 @@
 export { StatusBadge } from './StatusBadge';
+export { CatalogItemFormModal } from './CatalogItemFormModal';
+export { CatalogItemPickerModal } from './CatalogItemPickerModal';
 export { ClientForm } from './ClientForm';
 export { ClientDetailView } from './ClientDetailView';
 export { ProposalStatusBadge } from './ProposalStatusBadge';

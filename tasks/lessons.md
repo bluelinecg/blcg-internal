@@ -21,6 +21,35 @@ Agents must:
 
 ---
 
+## Lesson: Kanban board is the task source of truth — always use the internal API
+
+**Rule:** At the start of every task, read the Kanban board via the internal API to find the next item. When beginning work, move it to `in_progress`. When complete, move it to `done`. Never source work from tasks/todo.md or memory alone.
+
+**Why:** Ryan requires the Kanban board to be the single authoritative task list. Agents have previously stopped using it mid-session — this must not happen.
+
+**How to apply:**
+```bash
+# Read the INTERNAL_API_KEY from .env.local
+INTERNAL_API_KEY=$(grep INTERNAL_API_KEY .env.local | cut -d'=' -f2)
+
+# Get next backlog item (sorted by sort_order)
+curl -s -H "x-internal-key: $INTERNAL_API_KEY" "http://localhost:3000/api/internal/tasks?status=backlog"
+
+# Move to in_progress when starting
+curl -s -X PATCH -H "x-internal-key: $INTERNAL_API_KEY" -H "Content-Type: application/json" \
+  -d '{"status":"in_progress"}' \
+  http://localhost:3000/api/internal/tasks/<id>
+
+# Move to done when complete
+curl -s -X PATCH -H "x-internal-key: $INTERNAL_API_KEY" -H "Content-Type: application/json" \
+  -d '{"status":"done"}' \
+  http://localhost:3000/api/internal/tasks/<id>
+```
+- Work items are picked by `sortOrder` ascending — lowest number is next
+- Check `in_progress` first at the start of a session; if something is already there, resume it before starting new work
+
+---
+
 ## Lesson: `gh` CLI is not available in this environment
 
 **Rule:** Do not attempt to use `gh pr create` or any `gh` command. The GitHub CLI is not installed.

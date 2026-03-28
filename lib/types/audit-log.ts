@@ -12,7 +12,9 @@ export type AuditEntityType =
   | 'task'
   | 'invoice'
   | 'expense'
-  | 'pipeline_item';
+  | 'pipeline_item'
+  | 'catalog_item'
+  | 'time_entry';
 
 export interface AuditLog {
   id: string;
