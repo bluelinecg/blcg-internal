@@ -11,7 +11,7 @@ import { Tabs, StatCard, Card, Badge, Select, Input, Button, ConfirmDialog, Spin
 import type { TabItem } from '@/components/ui/Tabs';
 import { useListState } from '@/lib/hooks/use-list-state';
 import { InvoiceFormModal, ExpenseFormModal } from '@/components/modules';
-import type { Invoice, Expense, InvoiceStatus, ExpenseCategory } from '@/lib/types/finances';
+import type { Invoice, Expense, InvoiceStatus, ExpenseCategory, FinanceSummary } from '@/lib/types/finances';
 import type { Organization } from '@/lib/types/crm';
 import type { Project } from '@/lib/types/projects';
 import type { CatalogItem } from '@/lib/types/catalog';
@@ -86,6 +86,21 @@ export function FinancesPage() {
   }, []);
 
   const [activeTab, setActiveTab]                           = useState('overview');
+
+  // Finance summary — fetched independently to get accurate all-time aggregates
+  const [summary, setSummary]           = useState<FinanceSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  useEffect(() => {
+    setSummaryLoading(true);
+    fetch('/api/finances/summary')
+      .then((r) => r.json())
+      .then((j: { data: FinanceSummary | null; error: string | null }) => {
+        setSummary(j.data);
+      })
+      .catch(() => { /* non-critical — summary simply won't render */ })
+      .finally(() => setSummaryLoading(false));
+  }, []);
+
   const [invoiceStatusFilter, setInvoiceStatusFilter]       = useState('all');
   const [invoiceSearch, setInvoiceSearch]                   = useState('');
   const [expenseCategoryFilter, setExpenseCategoryFilter]   = useState('all');
@@ -278,13 +293,6 @@ export function FinancesPage() {
     setExpenseSaveError(null);
   }
 
-  // Derived totals (current page)
-  const totalRevenue     = invoices.data.filter((i) => i.status === 'paid').reduce((s, i) => s + i.total, 0);
-  const totalOutstanding = invoices.data.filter((i) => ['sent', 'viewed', 'overdue'].includes(i.status)).reduce((s, i) => s + i.total, 0);
-  const totalExpensesAmt = expenses.data.reduce((s, e) => s + e.amount, 0);
-  const netPL            = totalRevenue - totalExpensesAmt;
-  const overdueCount     = invoices.data.filter((i) => i.status === 'overdue').length;
-
   if (isLoading) {
     return (
       <PageShell>
@@ -328,55 +336,86 @@ export function FinancesPage() {
       <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} className="mb-6" />
 
       {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="Total Revenue (Paid)" value={formatCurrency(totalRevenue)} sub="From paid invoices" accent="green" />
-            <StatCard label="Outstanding" value={formatCurrency(totalOutstanding)} sub={overdueCount > 0 ? `${overdueCount} overdue` : 'None overdue'} accent={overdueCount > 0 ? 'red' : 'yellow'} />
-            <StatCard label="Total Expenses" value={formatCurrency(totalExpensesAmt)} accent="yellow" />
-            <StatCard label="Net P&L" value={formatCurrency(netPL)} sub="Revenue minus expenses" accent={netPL >= 0 ? 'green' : 'red'} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-700">Recent Invoices</h3>
-              </div>
-              <div className="divide-y divide-gray-50">
-                {invoices.data.slice(0, 5).map((inv) => {
-                  const cfg = INVOICE_STATUS_BADGE[inv.status];
-                  return (
-                    <div key={inv.id} className="flex items-center justify-between px-5 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{inv.invoiceNumber}</p>
-                        <p className="text-xs text-gray-400">{inv.organization?.name ?? '—'}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Badge variant={cfg.variant}>{cfg.label}</Badge>
-                        <span className="text-sm font-semibold text-gray-900">{formatCurrency(inv.total)}</span>
-                      </div>
+        summaryLoading ? (
+          <div className="flex items-center justify-center py-16"><Spinner /></div>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard
+                label="Total Revenue (Paid)"
+                value={formatCurrency(summary?.totalRevenue ?? 0)}
+                sub="From paid invoices"
+                accent="green"
+              />
+              <StatCard
+                label="Outstanding"
+                value={formatCurrency(summary?.totalOutstanding ?? 0)}
+                sub={(summary?.overdueCount ?? 0) > 0 ? `${summary!.overdueCount} overdue` : 'None overdue'}
+                accent={(summary?.overdueCount ?? 0) > 0 ? 'red' : 'yellow'}
+              />
+              <StatCard
+                label="Total Expenses"
+                value={formatCurrency(summary?.totalExpenses ?? 0)}
+                accent="yellow"
+              />
+              <StatCard
+                label="Net P&L"
+                value={formatCurrency(summary?.netPL ?? 0)}
+                sub="Revenue minus expenses"
+                accent={(summary?.netPL ?? 0) >= 0 ? 'green' : 'red'}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-700">Recent Invoices</h3>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {(summary?.recentInvoices ?? []).length === 0 ? (
+                    <div className="flex items-center justify-center py-8">
+                      <p className="text-sm text-gray-400">No invoices yet.</p>
                     </div>
-                  );
-                })}
-              </div>
-            </Card>
-            <Card>
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-700">Expenses by Category</h3>
-              </div>
-              <div className="divide-y divide-gray-50">
-                {Object.entries(CATEGORY_LABELS).map(([cat, label]) => {
-                  const total = expenses.data.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0);
-                  if (total === 0) return null;
-                  return (
-                    <div key={cat} className="flex items-center justify-between px-5 py-3">
-                      <span className="text-sm text-gray-700">{label}</span>
-                      <span className="text-sm font-semibold text-gray-900">{formatCurrency(total)}</span>
+                  ) : (
+                    (summary?.recentInvoices ?? []).map((inv) => {
+                      const cfg = INVOICE_STATUS_BADGE[inv.status];
+                      return (
+                        <div key={inv.id} className="flex items-center justify-between px-5 py-3">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{inv.invoiceNumber}</p>
+                            <p className="text-xs text-gray-400">{inv.organization?.name ?? '—'}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                            <span className="text-sm font-semibold text-gray-900">{formatCurrency(inv.total)}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </Card>
+              <Card>
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-700">Expenses by Category</h3>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {(summary?.expensesByCategory ?? []).length === 0 ? (
+                    <div className="flex items-center justify-center py-8">
+                      <p className="text-sm text-gray-400">No expenses yet.</p>
                     </div>
-                  );
-                })}
-              </div>
-            </Card>
+                  ) : (
+                    (summary?.expensesByCategory ?? []).map(({ category, total }) => (
+                      <div key={category} className="flex items-center justify-between px-5 py-3">
+                        <span className="text-sm text-gray-700">{CATEGORY_LABELS[category]}</span>
+                        <span className="text-sm font-semibold text-gray-900">{formatCurrency(total)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {activeTab === 'invoices' && (

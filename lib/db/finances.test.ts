@@ -11,6 +11,7 @@ import {
   createExpense,
   updateExpense,
   deleteExpense,
+  getFinanceSummary,
 } from './finances';
 
 // ---------------------------------------------------------------------------
@@ -398,5 +399,97 @@ describe('deleteExpense', () => {
 
     const { error } = await deleteExpense('exp-1');
     expect(error).toBe('Delete failed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getFinanceSummary
+// ---------------------------------------------------------------------------
+
+describe('getFinanceSummary', () => {
+  it('aggregates revenue, outstanding, overdue, expenses, and net P&L correctly', async () => {
+    const db = { from: jest.fn() };
+
+    const invoiceAggChain = makeChain({
+      data: [
+        { status: 'paid',    total: 1000 },
+        { status: 'paid',    total: 500  },
+        { status: 'sent',    total: 300  },
+        { status: 'overdue', total: 200  },
+      ],
+      error: null,
+    });
+    const expenseAggChain = makeChain({
+      data: [
+        { category: 'software',    amount: 100 },
+        { category: 'software',    amount: 50  },
+        { category: 'contractors', amount: 400 },
+      ],
+      error: null,
+    });
+    const recentChain = makeChain({
+      data: [
+        {
+          id: 'inv-1', invoice_number: 'BL-2026-001', status: 'paid',
+          total: 1000, organizations: null,
+        },
+      ],
+      error: null,
+    });
+
+    db.from
+      .mockReturnValueOnce(invoiceAggChain)
+      .mockReturnValueOnce(expenseAggChain)
+      .mockReturnValueOnce(recentChain);
+    mockServerClient.mockReturnValue(db);
+
+    const { data, error } = await getFinanceSummary();
+
+    expect(error).toBeNull();
+    expect(data!.totalRevenue).toBe(1500);
+    expect(data!.totalOutstanding).toBe(500);  // 300 sent + 200 overdue
+    expect(data!.overdueCount).toBe(1);
+    expect(data!.overdueAmount).toBe(200);
+    expect(data!.totalExpenses).toBe(550);
+    expect(data!.netPL).toBe(950);  // 1500 - 550
+    expect(data!.expensesByCategory).toHaveLength(2);
+    const softwareEntry = data!.expensesByCategory.find((e) => e.category === 'software');
+    expect(softwareEntry!.total).toBe(150);
+    expect(data!.recentInvoices).toHaveLength(1);
+    expect(data!.recentInvoices[0].invoiceNumber).toBe('BL-2026-001');
+  });
+
+  it('returns zeros when there are no invoices or expenses', async () => {
+    const db = { from: jest.fn() };
+    const emptyChain = makeChain({ data: [], error: null });
+    db.from.mockReturnValue(emptyChain);
+    mockServerClient.mockReturnValue(db);
+
+    const { data, error } = await getFinanceSummary();
+
+    expect(error).toBeNull();
+    expect(data!.totalRevenue).toBe(0);
+    expect(data!.totalOutstanding).toBe(0);
+    expect(data!.overdueCount).toBe(0);
+    expect(data!.totalExpenses).toBe(0);
+    expect(data!.netPL).toBe(0);
+    expect(data!.expensesByCategory).toHaveLength(0);
+    expect(data!.recentInvoices).toHaveLength(0);
+  });
+
+  it('returns error string when invoice query fails', async () => {
+    const db = { from: jest.fn() };
+    const failChain   = makeChain({ data: null, error: { message: 'DB error' } });
+    const emptyChain  = makeChain({ data: [], error: null });
+    db.from
+      .mockReturnValueOnce(failChain)
+      .mockReturnValueOnce(emptyChain)
+      .mockReturnValueOnce(emptyChain);
+    mockServerClient.mockReturnValue(db);
+
+    const { data, error } = await getFinanceSummary();
+
+    expect(data).toBeNull();
+    expect(error).toBe('DB error');
   });
 });
