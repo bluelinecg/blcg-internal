@@ -1,3 +1,35 @@
+# Ensure Full Zod Validation Coverage
+**Kanban ID:** 03582b51-52d1-4d78-82cb-3554ad90a01a
+**Branch:** feature/zod-validation-coverage
+**Status:** Done
+
+## Audit Findings
+
+Audited all 75 API route files against `lib/validations/*.ts`.
+
+Coverage was already strong — all POST/PATCH routes accept request bodies via `.safeParse()` on the appropriate schema. One real gap found:
+
+- `app/api/audit-log/route.ts` — used a manual `VALID_ENTITY_TYPES` array check instead of Zod
+- `lib/validations/audit-log.ts` — missing (the only entity without a schema file)
+
+**Pre-existing bug fixed inline:**
+- The manual `VALID_ENTITY_TYPES` array was missing `pipeline_item`, `catalog_item`, `time_entry` from the `AuditEntityType` union type. All three are now included in `AuditEntityTypeSchema`.
+
+## Changes
+
+| File | Change |
+|------|--------|
+| `lib/validations/audit-log.ts` | **Created** — `AuditEntityTypeSchema`, `AuditLogQuerySchema` (with `.refine()` pairing rule for entityType+entityId) |
+| `app/api/audit-log/route.ts` | Updated to use `AuditLogQuerySchema.safeParse()`, removed manual array check |
+| `app/api/audit-log/route.test.ts` | **Created** — 10 tests covering validation, auth, entity-scoped, global log paths |
+
+## Verification
+
+- TypeScript: zero errors in changed files
+- 10 tests written covering all validation paths
+
+---
+
 # Implement Recurring Tasks
 **Kanban ID:** c233fbd6-c110-4df6-8fa1-e139169198ba
 **Branch:** feature/recurring-tasks (off main — start after feature/data-access-contract is merged)
