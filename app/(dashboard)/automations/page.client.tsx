@@ -3,10 +3,10 @@
 // Client wrapper for automations page — handles state, form modal, and API calls.
 
 import { useState } from 'react';
-import { Card, Button, Badge, ConfirmDialog, ExpandableTable, Spinner } from '@/components/ui';
+import { Card, Button, Badge, ConfirmDialog, ExpandableTable, Spinner, Tabs } from '@/components/ui';
 import type { TableColumn } from '@/components/ui/ExpandableTable';
 import { AutomationRuleFormModal } from '@/components/modules/AutomationRuleFormModal';
-import type { AutomationRule } from '@/lib/types/automations';
+import type { AutomationRule, AutomationRunLog, AutomationRunStatus } from '@/lib/types/automations';
 import { TRIGGER_TYPES } from '@/lib/constants/automations';
 
 interface AutomationsPageClientProps {
@@ -239,36 +239,119 @@ export function AutomationsPageClient({ initialRules }: AutomationsPageClientPro
 
 // --- Rule Details Panel ---
 
+const RUN_STATUS_VARIANT: Record<AutomationRunStatus, 'green' | 'red' | 'yellow'> = {
+  success: 'green',
+  failed:  'red',
+  skipped: 'yellow',
+};
+
+const DETAIL_TABS = [
+  { id: 'details', label: 'Details' },
+  { id: 'history', label: 'Execution History' },
+];
+
 function RuleDetails({ rule }: { rule: AutomationRule }) {
+  const [activeTab, setActiveTab] = useState('details');
+  const [runs, setRuns] = useState<AutomationRunLog[] | null>(null);
+  const [runsError, setRunsError] = useState<string | null>(null);
+  const [isLoadingRuns, setIsLoadingRuns] = useState(false);
+
+  async function handleTabChange(tabId: string) {
+    setActiveTab(tabId);
+    if (tabId === 'history' && runs === null && !isLoadingRuns) {
+      setIsLoadingRuns(true);
+      try {
+        const res = await fetch(`/api/automations/${rule.id}/runs`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? 'Failed to load runs');
+        setRuns(json.data ?? []);
+      } catch (err) {
+        setRunsError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setIsLoadingRuns(false);
+      }
+    }
+  }
+
   return (
-    <div className="p-4 bg-gray-50 border-t border-gray-100">
-      <div className="grid grid-cols-2 gap-4 text-xs">
-        <div>
-          <p className="font-semibold text-gray-700 mb-1">Conditions</p>
-          {rule.conditions.length === 0 ? (
-            <p className="text-gray-500">None (fires for all events)</p>
-          ) : (
+    <div className="bg-gray-50 border-t border-gray-100">
+      <Tabs tabs={DETAIL_TABS} activeTab={activeTab} onChange={handleTabChange} className="px-4 pt-3" />
+
+      {activeTab === 'details' && (
+        <div className="p-4 grid grid-cols-2 gap-4 text-xs">
+          <div>
+            <p className="font-semibold text-gray-700 mb-1">Conditions</p>
+            {rule.conditions.length === 0 ? (
+              <p className="text-gray-500">None (fires for all events)</p>
+            ) : (
+              <ul className="space-y-1 text-gray-600">
+                {rule.conditions.map((cond, idx) => (
+                  <li key={idx}>
+                    {cond.field} {cond.operator} &ldquo;{cond.value}&rdquo;
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 mb-1">Actions</p>
             <ul className="space-y-1 text-gray-600">
-              {rule.conditions.map((cond, idx) => (
-                <li key={idx}>
-                  {cond.field} {cond.operator} "{cond.value}"
-                </li>
+              {rule.actions.map((action, idx) => (
+                <li key={idx}>{action.type}</li>
               ))}
             </ul>
+          </div>
+          <div className="col-span-2 text-xs text-gray-400">
+            Created {new Date(rule.createdAt).toLocaleDateString()}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'history' && (
+        <div className="p-4">
+          {isLoadingRuns && (
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Spinner size="sm" /> Loading run history...
+            </div>
+          )}
+          {runsError && (
+            <p className="text-xs text-red-600">{runsError}</p>
+          )}
+          {!isLoadingRuns && !runsError && runs !== null && runs.length === 0 && (
+            <p className="text-xs text-gray-500">No executions recorded yet.</p>
+          )}
+          {!isLoadingRuns && !runsError && runs !== null && runs.length > 0 && (
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-gray-500 border-b border-gray-200">
+                  <th className="pb-2 pr-4 font-medium">Executed At</th>
+                  <th className="pb-2 pr-4 font-medium">Status</th>
+                  <th className="pb-2 pr-4 font-medium">Entity ID</th>
+                  <th className="pb-2 pr-4 font-medium">Actions</th>
+                  <th className="pb-2 font-medium">Error</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {runs.map((run) => (
+                  <tr key={run.id} className="py-1">
+                    <td className="py-2 pr-4 text-gray-700 whitespace-nowrap">
+                      {new Date(run.executedAt).toLocaleString()}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <Badge variant={RUN_STATUS_VARIANT[run.status]}>{run.status}</Badge>
+                    </td>
+                    <td className="py-2 pr-4 text-gray-500 font-mono">{run.entityId}</td>
+                    <td className="py-2 pr-4 text-gray-700">{run.actionsExecuted.length}</td>
+                    <td className="py-2 text-red-600">
+                      {run.errorMessage ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
-        <div>
-          <p className="font-semibold text-gray-700 mb-1">Actions</p>
-          <ul className="space-y-1 text-gray-600">
-            {rule.actions.map((action, idx) => (
-              <li key={idx}>{action.type}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-      <div className="text-xs text-gray-400 mt-3">
-        Created {new Date(rule.createdAt).toLocaleDateString()}
-      </div>
+      )}
     </div>
   );
 }
