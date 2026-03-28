@@ -7,8 +7,12 @@
 // Returns: { rulesChecked, entitiesEvaluated, actionsTriggered }
 
 import { NextResponse } from 'next/server';
-import { serverClient } from '@/lib/db/supabase';
-import { listActiveRulesByTrigger, getLastRunForEntity } from '@/lib/db/automations';
+import {
+  listActiveRulesByTrigger,
+  getLastRunForEntity,
+  fetchStageItemsForRule,
+  fetchOverdueTasksForRule,
+} from '@/lib/db/automations';
 import { runAutomations } from '@/lib/automations/engine';
 import { config } from '@/lib/config';
 import { SCHEDULED_TRIGGER_TYPES } from '@/lib/constants/automations';
@@ -23,65 +27,6 @@ function isCronAuthorized(request: Request): boolean {
   if (!secret) return false;
   const auth = request.headers.get('authorization') ?? '';
   return auth === `Bearer ${secret}`;
-}
-
-// ---------------------------------------------------------------------------
-// Entity fetchers — raw DB queries returning minimal shapes needed for dedup
-// ---------------------------------------------------------------------------
-
-interface StageCandidateRow {
-  id:               string;
-  stage_id:         string;
-  pipeline_id:      string;
-  entered_stage_at: string;
-  title:            string;
-}
-
-interface TaskCandidateRow {
-  id:       string;
-  due_date: string | null;
-  priority: string;
-  assignee_id: string | null;
-}
-
-async function fetchStageItemsForRule(
-  pipelineId: string,
-  stageId: string,
-  thresholdHours: number,
-): Promise<StageCandidateRow[]> {
-  const cutoff = new Date(Date.now() - thresholdHours * 60 * 60 * 1000).toISOString();
-
-  const { data, error } = await serverClient()
-    .from('pipeline_items')
-    .select('id, stage_id, pipeline_id, entered_stage_at, title')
-    .eq('pipeline_id', pipelineId)
-    .eq('stage_id', stageId)
-    .lt('entered_stage_at', cutoff);
-
-  if (error || !data) return [];
-  return data as StageCandidateRow[];
-}
-
-async function fetchOverdueTasksForRule(
-  thresholdHours: number,
-  priority?: string,
-): Promise<TaskCandidateRow[]> {
-  const cutoff = new Date(Date.now() - thresholdHours * 60 * 60 * 1000).toISOString();
-
-  let query = serverClient()
-    .from('tasks')
-    .select('id, due_date, priority, assignee_id')
-    .not('due_date', 'is', null)
-    .lt('due_date', cutoff)
-    .neq('status', 'done');
-
-  if (priority) {
-    query = query.eq('priority', priority);
-  }
-
-  const { data, error } = await query;
-  if (error || !data) return [];
-  return data as TaskCandidateRow[];
 }
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,34 @@
+# Enforce Data Access Contract Across Codebase
+**Kanban ID:** 9dab08bd-a22e-4742-a0a9-541fb206c646
+**Branch:** feature/data-access-contract
+**Status:** Done
+
+## Overview
+
+Enforce the rule that all DB queries go through `/lib/db` — no direct `serverClient()` calls
+in API routes or other application code.
+
+## Finding
+
+One violation found: `app/api/automations/process-scheduled/route.ts` had two inline DB
+query functions (`fetchStageItemsForRule`, `fetchOverdueTasksForRule`) using `serverClient()`
+directly. All other routes already complied.
+
+## Changes
+
+- Moved `StageCandidateRow`, `TaskCandidateRow`, `fetchStageItemsForRule`,
+  `fetchOverdueTasksForRule` to `lib/db/automations.ts`
+- Updated `process-scheduled/route.ts` to import from `@/lib/db/automations`; removed
+  direct `serverClient` import
+- Added 7 unit tests for the two new db functions in `lib/db/automations.test.ts`
+
+## Verification
+
+- TypeScript: zero errors in changed files
+- Grep confirms no `serverClient()` usage outside `lib/db/` in any `.ts` or `.tsx` file
+
+---
+
 # Implement Central Event Bus System
 **Kanban ID:** c97ff6d8-3dea-48a2-be01-6c266cea724f
 **Branch:** feature/event-bus

@@ -250,6 +250,81 @@ export async function getRunsForRule(
   }
 }
 
+// ---------------------------------------------------------------------------
+// SLA / Scheduled automation entity fetchers
+// ---------------------------------------------------------------------------
+
+export interface StageCandidateRow {
+  id:               string;
+  stage_id:         string;
+  pipeline_id:      string;
+  entered_stage_at: string;
+  title:            string;
+}
+
+export interface TaskCandidateRow {
+  id:          string;
+  due_date:    string | null;
+  priority:    string;
+  assignee_id: string | null;
+}
+
+/**
+ * Returns pipeline items in a specific stage that have been there longer than
+ * thresholdHours. Used by the SLA cron to find stage-time-exceeded candidates.
+ */
+export async function fetchStageItemsForRule(
+  pipelineId: string,
+  stageId: string,
+  thresholdHours: number,
+): Promise<StageCandidateRow[]> {
+  const cutoff = new Date(Date.now() - thresholdHours * 60 * 60 * 1000).toISOString();
+
+  try {
+    const { data, error } = await serverClient()
+      .from('pipeline_items')
+      .select('id, stage_id, pipeline_id, entered_stage_at, title')
+      .eq('pipeline_id', pipelineId)
+      .eq('stage_id', stageId)
+      .lt('entered_stage_at', cutoff);
+
+    if (error || !data) return [];
+    return data as StageCandidateRow[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Returns tasks that are past their due date by at least thresholdHours and
+ * are not done. Optionally filtered by priority. Used by the SLA cron.
+ */
+export async function fetchOverdueTasksForRule(
+  thresholdHours: number,
+  priority?: string,
+): Promise<TaskCandidateRow[]> {
+  const cutoff = new Date(Date.now() - thresholdHours * 60 * 60 * 1000).toISOString();
+
+  try {
+    let query = serverClient()
+      .from('tasks')
+      .select('id, due_date, priority, assignee_id')
+      .not('due_date', 'is', null)
+      .lt('due_date', cutoff)
+      .neq('status', 'done');
+
+    if (priority) {
+      query = query.eq('priority', priority);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return data as TaskCandidateRow[];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Returns the most recent run log entry for a (rule, entity) pair.
  * Used by the SLA dedup logic — check if this rule already fired for this entity.
