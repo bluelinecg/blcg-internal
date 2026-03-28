@@ -4,8 +4,11 @@
 // Uses brand-navy background with brand-blue active state indicator.
 // Highlights the active route via usePathname.
 // Finances nav item is hidden for non-admin users.
-// Props: none — nav items are defined as a module-level constant.
+// On mobile (<md): renders as a fixed drawer overlay, controlled by isOpen/onClose.
+// On desktop (md+): renders as a static sidebar in the flex row.
+// Props: isOpen, onClose — passed from DashboardLayout.
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BrandLogo } from './BrandLogo';
@@ -15,6 +18,11 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
+}
+
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 // --- Icons ---
@@ -196,11 +204,12 @@ const SETTINGS_ITEM: NavItem = { label: 'Settings', href: '/settings', icon: <Ic
 
 // --- Nav link ---
 
-function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+function NavLink({ item, pathname, onClick }: { item: NavItem; pathname: string; onClick: () => void }) {
   const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
   return (
     <Link
       href={item.href}
+      onClick={onClick}
       className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
         isActive
           ? 'bg-brand-blue text-white'
@@ -215,7 +224,7 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
 
 // --- Component ---
 
-export function Sidebar() {
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const role = useRole();
   const visibleNavItems = MAIN_NAV_ITEMS.filter(
@@ -225,8 +234,20 @@ export function Sidebar() {
     () => role === 'admin'
   );
 
-  return (
-    <aside className="flex flex-col w-64 min-h-screen bg-brand-navy">
+  // Close drawer on route change (mobile nav)
+  useEffect(() => {
+    onClose();
+  }, [pathname, onClose]);
+
+  const sidebar = (
+    <aside className={[
+      // Base: fixed on mobile, static on desktop
+      'fixed md:static inset-y-0 left-0 z-50',
+      'flex flex-col w-64 min-h-screen bg-brand-navy',
+      // Slide transition on mobile; always visible on desktop
+      'transition-transform duration-200 ease-in-out',
+      isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+    ].join(' ')}>
       {/* Logo */}
       <div className="flex items-center justify-center px-6 h-16 border-b border-white/10">
         <BrandLogo variant="light" width={148} />
@@ -237,7 +258,7 @@ export function Sidebar() {
         {/* Main nav items */}
         <div className="flex flex-col gap-0.5 flex-1">
           {visibleNavItems.map((item) => (
-            <NavLink key={item.href} item={item} pathname={pathname} />
+            <NavLink key={item.href} item={item} pathname={pathname} onClick={onClose} />
           ))}
 
           {/* Admin section */}
@@ -245,7 +266,7 @@ export function Sidebar() {
             <>
               <div className="my-2 border-t border-white/10" />
               {visibleAdminItems.map((item) => (
-                <NavLink key={item.href} item={item} pathname={pathname} />
+                <NavLink key={item.href} item={item} pathname={pathname} onClick={onClose} />
               ))}
             </>
           )}
@@ -253,9 +274,23 @@ export function Sidebar() {
 
         {/* Settings pinned to bottom */}
         <div className="pt-2 border-t border-white/10">
-          <NavLink item={SETTINGS_ITEM} pathname={pathname} />
+          <NavLink item={SETTINGS_ITEM} pathname={pathname} onClick={onClose} />
         </div>
       </nav>
     </aside>
+  );
+
+  return (
+    <>
+      {/* Backdrop — mobile only, visible when drawer is open */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          aria-hidden="true"
+          onClick={onClose}
+        />
+      )}
+      {sidebar}
+    </>
   );
 }
