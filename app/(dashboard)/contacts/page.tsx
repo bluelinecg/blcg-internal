@@ -4,6 +4,7 @@
 // Create/edit via ContactFormModal, delete via ConfirmDialog (no dependency blockers).
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import {
@@ -222,7 +223,9 @@ export default function ContactsPage() {
               {filtered.map((contact) => (
                 <tr key={contact.id} className="transition-colors hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {contact.firstName} {contact.lastName}
+                    <Link href={`/contacts/${contact.id}`} className="hover:text-brand-blue hover:underline">
+                      {contact.firstName} {contact.lastName}
+                    </Link>
                   </td>
                   <td className="px-6 py-4">
                     <Badge variant={STATUS_BADGE_VARIANT[contact.status]}>
