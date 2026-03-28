@@ -521,7 +521,7 @@ interface RecentInvoiceRow {
   invoice_number: string;
   status: InvoiceStatus;
   total: number;
-  organizations: OrganizationJoinRow | null;
+  organizations: OrganizationJoinRow[] | null;
 }
 
 /**
@@ -580,7 +580,7 @@ export async function getFinanceSummary(): Promise<{ data: FinanceSummary | null
       invoiceNumber: row.invoice_number,
       status:        row.status,
       total:         row.total,
-      organization:  row.organizations ? orgFromJoinRow(row.organizations) : undefined,
+      organization:  row.organizations?.[0] ? orgFromJoinRow(row.organizations[0]) : undefined,
     }));
 
     return {
