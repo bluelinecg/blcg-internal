@@ -292,10 +292,10 @@ export function TasksPage() {
         </div>
       ) : (
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div className="flex items-center gap-3 mb-5">
-            <Select options={projectFilterOptions} value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="w-56" />
-            <Select options={ASSIGNEE_OPTIONS} value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="w-40" />
-            <span className="text-xs text-gray-400 ml-1">{filtered.length} tasks shown</span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+            <Select options={projectFilterOptions} value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="w-full sm:w-56" />
+            <Select options={ASSIGNEE_OPTIONS} value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="w-full sm:w-40" />
+            <span className="text-xs text-gray-400">{filtered.length} tasks shown</span>
           </div>
 
           <div className="flex-1 min-h-0 overflow-hidden">

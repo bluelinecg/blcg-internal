@@ -57,30 +57,30 @@ of the codebase. All layouts are desktop-first and hardcoded.
 
 ### Phase 2 — Priority Pages
 
-- [ ] **2.1 Tasks Kanban** — `app/(dashboard)/tasks/page.tsx` + `components/ui/KanbanBoard.tsx`
+- [x] **2.1 Tasks Kanban** — `app/(dashboard)/tasks/page.tsx` + `components/ui/KanbanBoard.tsx`
   - **Mobile UX (confirmed): Option A — tab/column switcher on phones (<768px)**
   - One column visible at a time; tabs across the top to switch columns
   - Horizontal scroll acceptable for tablet (768px+)
   - Filter selects: stack vertically on mobile (`flex-col sm:flex-row`)
   - Remove fixed `w-56` / `w-40` on filter selects; use `w-full sm:w-56`
 
-- [ ] **2.2 Client Detail** — `components/modules/ClientDetailView.tsx`
+- [x] **2.2 Client Detail** — `components/modules/ClientDetailView.tsx`
   - Main grid: `grid-cols-1 md:grid-cols-3`
   - Inner 2-col card: `grid-cols-1 sm:grid-cols-2`
   - Action buttons: wrap on small screens (`flex-wrap`)
 
-- [ ] **2.3 Finances (Invoices & Expenses)** — `app/(dashboard)/finances/page.tsx`
+- [x] **2.3 Finances (Invoices & Expenses)** — `app/(dashboard)/finances/page.tsx`
   - Stat cards: `grid-cols-2 md:grid-cols-4`
   - Overview 2-col cards: `grid-cols-1 md:grid-cols-2`
   - Search/filter bar: `flex-col sm:flex-row`, inputs `w-full sm:w-64`
   - Tables: wrap in `overflow-x-auto` container
 
-- [ ] **2.4 Proposals** — `app/(dashboard)/proposals/page.tsx`
+- [x] **2.4 Proposals** — `app/(dashboard)/proposals/page.tsx`
   - Stat pills row: `flex-wrap`; `min-w-32` stays, but wrap is allowed
   - Search/filter: `flex-col sm:flex-row`, inputs `w-full sm:w-72`
   - Table: wrap in `overflow-x-auto`
 
-- [ ] **2.5 Dashboard overview** — `app/(dashboard)/dashboard/page.tsx`
+- [x] **2.5 Dashboard overview** — `app/(dashboard)/dashboard/page.tsx`
   - Stat card grid: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`
   - Any 2-col secondary grids: `grid-cols-1 md:grid-cols-2`
 

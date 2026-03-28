@@ -56,7 +56,7 @@ export async function DashboardPage() {
       />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Active Clients"
           value={activeClients}
@@ -88,7 +88,7 @@ export async function DashboardPage() {
       </div>
 
       {/* Two-column content area */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Recent proposals */}
         <Card>

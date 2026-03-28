@@ -3,6 +3,9 @@
 // Generic Kanban board with HTML5 drag-and-drop between columns and within columns.
 // No external library required — uses native draggable API.
 //
+// Mobile (<md): tab switcher showing one column at a time.
+// Tablet/Desktop (md+): horizontal scroll layout with all columns visible.
+//
 // Props:
 //   columns          — ordered column definitions with id and label
 //   items            — full data array (pre-sorted by sortOrder)
@@ -43,10 +46,10 @@ export function KanbanBoard<T>({
   renderCard,
   columnAccent = {},
 }: KanbanBoardProps<T>) {
-  const [draggingId, setDraggingId]   = useState<string | null>(null);
+  const [draggingId, setDraggingId]     = useState<string | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
-  // The card id the dragged card is hovering above (insertion point indicator)
-  const [overItemId, setOverItemId]   = useState<string | null>(null);
+  const [overItemId, setOverItemId]     = useState<string | null>(null);
+  const [activeMobileColumn, setActiveMobileColumn] = useState(columns[0]?.id ?? '');
 
   function handleDragStart(itemId: string) {
     setDraggingId(itemId);
@@ -64,7 +67,6 @@ export function KanbanBoard<T>({
   }
 
   function handleDragLeaveCard(e: React.DragEvent) {
-    // Only clear when actually leaving the card element (not entering a child)
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setOverItemId(null);
     }
@@ -78,7 +80,6 @@ export function KanbanBoard<T>({
     );
 
     if (sourceColumnId === columnId) {
-      // Same column — reorder
       if (onReorderColumn) {
         const fromIndex = colItems.findIndex((item) => getItemId(item) === draggingId);
         const toIndex   = colItems.findIndex((item) => getItemId(item) === targetId);
@@ -88,7 +89,6 @@ export function KanbanBoard<T>({
         }
       }
     } else {
-      // Different column — status change
       onMoveItem(draggingId, columnId);
     }
 
@@ -98,7 +98,6 @@ export function KanbanBoard<T>({
   }
 
   function handleDrop(columnId: string) {
-    // Only fires when dropping on the empty area below all cards
     if (overItemId) return;
     if (draggingId && columnId) {
       onMoveItem(draggingId, columnId);
@@ -114,63 +113,105 @@ export function KanbanBoard<T>({
     setOverItemId(null);
   }
 
+  // Shared column body renderer used by both mobile and desktop layouts
+  function renderColumnBody(col: KanbanColumn) {
+    const colItems   = items.filter((item) => getItemColumn(item) === col.id);
+    const isOver     = overColumnId === col.id;
+    const accentClass = columnAccent[col.id] ?? 'border-t-gray-300';
+
+    return (
+      <div
+        key={col.id}
+        onDragOver={(e) => handleDragOver(e, col.id)}
+        onDrop={() => handleDrop(col.id)}
+        className={`flex flex-col flex-1 min-w-52 h-full rounded-lg border border-gray-200 border-t-4 transition-colors ${accentClass} ${
+          isOver ? 'bg-brand-blue/5 border-brand-blue/30' : 'bg-gray-50'
+        }`}
+      >
+        {/* Column header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
+          <span className="text-sm font-semibold text-gray-700">{col.label}</span>
+          <span className="text-xs font-medium text-gray-400 bg-gray-200 rounded-full px-2 py-0.5">
+            {colItems.length}
+          </span>
+        </div>
+
+        {/* Cards */}
+        <div className="flex flex-col gap-2 p-3 flex-1 min-h-0 overflow-y-auto">
+          {colItems.map((item) => {
+            const id = getItemId(item);
+            const isDragging    = draggingId === id;
+            const isInsertPoint = overItemId === id && draggingId !== id;
+
+            return (
+              <div
+                key={id}
+                draggable
+                onDragStart={() => handleDragStart(id)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOverCard(e, id)}
+                onDragLeave={handleDragLeaveCard}
+                onDrop={(e) => { e.stopPropagation(); handleDropOnCard(col.id, colItems, id); }}
+                className={`rounded-md bg-white border border-gray-200 shadow-sm cursor-grab active:cursor-grabbing transition-opacity ${
+                  isDragging ? 'opacity-40' : 'opacity-100'
+                } ${isInsertPoint ? 'border-t-2 border-t-brand-blue' : ''}`}
+              >
+                {renderCard(item)}
+              </div>
+            );
+          })}
+          {colItems.length === 0 && (
+            <div className="flex items-center justify-center py-6 rounded-md border-2 border-dashed border-gray-200">
+              <p className="text-xs text-gray-400">No items</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 h-full">
-      {columns.map((col) => {
-        const colItems = items.filter((item) => getItemColumn(item) === col.id);
-        const isOver = overColumnId === col.id;
-        const accentClass = columnAccent[col.id] ?? 'border-t-gray-300';
+    <>
+      {/* Mobile layout: tab switcher + single column */}
+      <div className="flex flex-col h-full md:hidden">
+        {/* Scrollable tab bar */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 flex-shrink-0">
+          {columns.map((col) => {
+            const count = items.filter((item) => getItemColumn(item) === col.id).length;
+            const isActive = activeMobileColumn === col.id;
+            return (
+              <button
+                key={col.id}
+                onClick={() => setActiveMobileColumn(col.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors ${
+                  isActive
+                    ? 'bg-brand-blue text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {col.label}
+                <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold ${
+                  isActive ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-500'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-        return (
-          <div
-            key={col.id}
-            onDragOver={(e) => handleDragOver(e, col.id)}
-            onDrop={() => handleDrop(col.id)}
-            className={`flex flex-col flex-1 min-w-52 h-full rounded-lg border border-gray-200 border-t-4 transition-colors ${accentClass} ${
-              isOver ? 'bg-brand-blue/5 border-brand-blue/30' : 'bg-gray-50'
-            }`}
-          >
-            {/* Column header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
-              <span className="text-sm font-semibold text-gray-700">{col.label}</span>
-              <span className="text-xs font-medium text-gray-400 bg-gray-200 rounded-full px-2 py-0.5">
-                {colItems.length}
-              </span>
-            </div>
+        {/* Active column — takes remaining height */}
+        <div className="flex-1 min-h-0">
+          {columns
+            .filter((col) => col.id === activeMobileColumn)
+            .map((col) => renderColumnBody(col))}
+        </div>
+      </div>
 
-            {/* Cards — scrolls independently when the list is long */}
-            <div className="flex flex-col gap-2 p-3 flex-1 min-h-0 overflow-y-auto">
-              {colItems.map((item) => {
-                const id = getItemId(item);
-                const isDragging    = draggingId === id;
-                const isInsertPoint = overItemId === id && draggingId !== id;
-
-                return (
-                  <div
-                    key={id}
-                    draggable
-                    onDragStart={() => handleDragStart(id)}
-                    onDragEnd={handleDragEnd}
-                    onDragOver={(e) => handleDragOverCard(e, id)}
-                    onDragLeave={handleDragLeaveCard}
-                    onDrop={(e) => { e.stopPropagation(); handleDropOnCard(col.id, colItems, id); }}
-                    className={`rounded-md bg-white border border-gray-200 shadow-sm cursor-grab active:cursor-grabbing transition-opacity ${
-                      isDragging ? 'opacity-40' : 'opacity-100'
-                    } ${isInsertPoint ? 'border-t-2 border-t-brand-blue' : ''}`}
-                  >
-                    {renderCard(item)}
-                  </div>
-                );
-              })}
-              {colItems.length === 0 && (
-                <div className="flex items-center justify-center py-6 rounded-md border-2 border-dashed border-gray-200">
-                  <p className="text-xs text-gray-400">No items</p>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+      {/* Desktop layout: horizontal scroll, all columns */}
+      <div className="hidden md:flex gap-4 overflow-x-auto pb-4 h-full">
+        {columns.map((col) => renderColumnBody(col))}
+      </div>
+    </>
   );
 }
