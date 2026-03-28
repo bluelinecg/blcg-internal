@@ -20,8 +20,9 @@ At the start of every task:
 1. Read CLAUDE.md
 2. Read TASKS.md
 3. Read tasks/lessons.md (if it exists)
-4. Reference ARCHITECTURE.md when deciding structure
-5. Reference STANDARDS.md when writing or validating code
+4. Read tasks/known-issues.md (if it exists) — pre-existing bugs that must not be silently skipped
+5. Reference ARCHITECTURE.md when deciding structure
+6. Reference STANDARDS.md when writing or validating code
 
 Do not begin implementation until this context is understood.
 
