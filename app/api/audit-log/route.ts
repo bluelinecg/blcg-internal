@@ -18,7 +18,7 @@ import { listLogs, listLogsForEntity } from '@/lib/db/audit-log';
 import { guardAdmin } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 import type { AuditEntityType } from '@/lib/types/audit-log';
-import { requireAuth, apiError } from '@/lib/api/utils';
+import { requireAuth, apiError, apiList } from '@/lib/api/utils';
 
 const VALID_ENTITY_TYPES: AuditEntityType[] = [
   'client', 'contact', 'organization', 'proposal',
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
         options,
       );
       if (error) return apiError(error, 500);
-      return NextResponse.json({ data, total, error: null });
+      return apiList(data, total);
     }
 
     // Global log — admin only
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     const { data, total, error } = await listLogs(options);
     if (error) return apiError(error, 500);
 
-    return NextResponse.json({ data, total, error: null });
+    return apiList(data, total);
   } catch (err) {
     console.error('[GET /api/audit-log]', err);
     return apiError('Failed to load audit log', 500);

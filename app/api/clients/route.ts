@@ -10,7 +10,7 @@ import { ClientSchema } from '@/lib/validations/clients';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 import { bus } from '@/lib/events';
-import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
+import { requireAuth, apiError, apiOk, apiList } from '@/lib/api/utils';
 
 // GET /api/clients
 export async function GET(request: Request) {
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const { data, total, error } = await listClients(options);
     if (error) return apiError(error, 500);
 
-    return NextResponse.json({ data, total, error: null });
+    return apiList(data, total);
   } catch (err) {
     console.error('[GET /api/clients]', err);
     return apiError('Failed to load clients', 500);

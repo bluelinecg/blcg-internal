@@ -1,3 +1,38 @@
+# Standardize API Response Contract
+**Kanban ID:** 52bf6322-32af-44ec-b739-455cb543ea6a
+**Branch:** feature/data-access-contract
+**Status:** Done
+
+## Summary
+
+All API routes now return responses exclusively through typed helpers in `lib/api/utils.ts`.
+No route uses a bare `NextResponse.json()` for success responses.
+
+### Changes
+
+- **`lib/api/utils.ts`** — Added `apiList<T>(data, total, status?)` helper for paginated
+  list endpoints, complementing `apiOk` (single-item) and `apiError`.
+
+- **14 paginated GET routes** — Replaced `NextResponse.json({ data, total, error: null })`
+  with `apiList(data, total)`:
+  clients, tasks, contacts, organizations, projects, invoices, expenses, proposals,
+  catalog, pipelines, pipelines/[id]/items, time-entries, internal/tasks, audit-log.
+
+- **`app/api/emails/route.ts`** — Replaced `NextResponse.json({ data: merged, error: null })`
+  with `apiOk(merged)`.
+
+### Intentional exceptions (not changed)
+
+- `app/api/invoices/[id]/pdf/route.ts` — Returns raw PDF buffer, not JSON.
+- `app/api/automations/process-scheduled/route.ts` — Cron handler with task-specific payload.
+
+### Verification
+
+- Grepped entire `app/api/` for `NextResponse.json({.*error.*null` → zero matches.
+- Response shapes are byte-for-byte identical; only the call site changed.
+
+---
+
 # Enforce Data Access Contract Across Codebase
 **Kanban ID:** 9dab08bd-a22e-4742-a0a9-541fb206c646
 **Branch:** feature/data-access-contract

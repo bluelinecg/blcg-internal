@@ -10,7 +10,7 @@ import { PipelineItemSchema } from '@/lib/validations/pipelines';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 import { bus } from '@/lib/events';
-import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
+import { requireAuth, apiError, apiOk, apiList } from '@/lib/api/utils';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -26,7 +26,7 @@ export async function GET(request: Request, { params }: RouteContext) {
     const { data, total, error } = await listItems(id, options);
     if (error) return apiError(error, 500);
 
-    return NextResponse.json({ data, total, error: null });
+    return apiList(data, total);
   } catch (err) {
     console.error('[GET /api/pipelines/[id]/items]', err);
     return apiError('Failed to load items', 500);

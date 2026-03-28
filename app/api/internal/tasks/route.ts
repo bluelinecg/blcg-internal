@@ -8,7 +8,7 @@
 import { NextResponse } from 'next/server';
 import { listTasks, createTask } from '@/lib/db/tasks';
 import { TaskSchema } from '@/lib/validations/tasks';
-import { apiError, apiOk } from '@/lib/api/utils';
+import { apiError, apiOk, apiList } from '@/lib/api/utils';
 
 function requireInternalKey(request: Request): NextResponse<{ data: null; error: string }> | null {
   const key = request.headers.get('x-internal-key');
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       ? (data ?? []).filter((t) => t.status === status)
       : (data ?? []);
 
-    return NextResponse.json({ data: filtered, total: filtered.length, error: null });
+    return apiList(filtered, filtered.length);
   } catch (err) {
     console.error('[GET /api/internal/tasks]', err);
     return apiError('Failed to load tasks', 500);

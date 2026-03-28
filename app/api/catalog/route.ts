@@ -10,7 +10,7 @@ import { CatalogItemSchema } from '@/lib/validations/catalog';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
 import { logAction } from '@/lib/utils/audit';
-import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
+import { requireAuth, apiError, apiOk, apiList } from '@/lib/api/utils';
 
 // GET /api/catalog
 export async function GET(request: Request) {
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     const { data, total, error } = await listCatalogItems({ ...options, activeOnly });
     if (error) return apiError(error, 500);
 
-    return NextResponse.json({ data, total, error: null });
+    return apiList(data, total);
   } catch (err) {
     console.error('[GET /api/catalog]', err);
     return apiError('Failed to load catalog items', 500);

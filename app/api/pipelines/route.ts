@@ -9,7 +9,7 @@ import { listPipelines, createPipeline } from '@/lib/db/pipelines';
 import { PipelineSchema } from '@/lib/validations/pipelines';
 import { guardMember } from '@/lib/auth/roles';
 import { parseListParams } from '@/lib/utils/parse-list-params';
-import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
+import { requireAuth, apiError, apiOk, apiList } from '@/lib/api/utils';
 
 export async function GET(request: Request) {
   try {
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const { data, total, error } = await listPipelines(options);
     if (error) return apiError(error, 500);
 
-    return NextResponse.json({ data, total, error: null });
+    return apiList(data, total);
   } catch (err) {
     console.error('[GET /api/pipelines]', err);
     return apiError('Failed to load pipelines', 500);

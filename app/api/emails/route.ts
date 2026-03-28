@@ -11,7 +11,7 @@ import {
   threadFromGmailMetadata,
 } from '@/lib/integrations/gmail';
 import type { EmailThread } from '@/lib/types/emails';
-import { requireAuth, apiError } from '@/lib/api/utils';
+import { requireAuth, apiError, apiOk } from '@/lib/api/utils';
 
 const THREADS_PER_ACCOUNT = 20;
 
@@ -56,7 +56,7 @@ export async function GET(): Promise<NextResponse> {
       .flat()
       .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
 
-    return NextResponse.json({ data: merged, error: null });
+    return apiOk(merged);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to fetch emails';
     console.error('[GET /api/emails]', err);

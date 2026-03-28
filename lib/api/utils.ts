@@ -36,3 +36,14 @@ export function apiError(message: string, status: number): NextResponse<{ data: 
 export function apiOk<T>(data: T, status = 200): NextResponse<{ data: T; error: null }> {
   return NextResponse.json({ data, error: null }, { status });
 }
+
+/** Returns a NextResponse with `{ data, total, error: null }` for paginated list
+ *  endpoints.  Pass the raw DB result directly — both fields may be null on
+ *  empty results. */
+export function apiList<T>(
+  data: T[] | null,
+  total: number | null,
+  status = 200,
+): NextResponse<{ data: T[] | null; total: number | null; error: null }> {
+  return NextResponse.json({ data, total, error: null }, { status });
+}
