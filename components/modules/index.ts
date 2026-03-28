@@ -14,6 +14,7 @@ export { InviteUserModal } from './InviteUserModal';
 export { OrganizationFormModal } from './OrganizationFormModal';
 export { OrganizationDetailView } from './OrganizationDetailView';
 export { ContactFormModal } from './ContactFormModal';
+export { ContactDetailView } from './ContactDetailView';
 export { ActivityFeed } from './ActivityFeed';
 export { PipelineFormModal } from './PipelineFormModal';
 export { PipelineItemFormModal } from './PipelineItemFormModal';
