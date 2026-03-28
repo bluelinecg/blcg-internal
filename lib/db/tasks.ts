@@ -190,6 +190,42 @@ export async function deleteTask(id: string): Promise<{ error: string | null }> 
 }
 
 // ---------------------------------------------------------------------------
+// Reorder
+// ---------------------------------------------------------------------------
+
+/**
+ * Bulk-updates sort_order for a set of tasks within a given column.
+ * Each task in orderedIds receives sort_order = its index in the array.
+ * The .eq('status', status) guard prevents reordering tasks outside the column.
+ *
+ * NOTE: Supabase JS v2 does not support multi-row UPDATE in a single call,
+ * so updates are parallelised via Promise.all. For typical column sizes
+ * (< 50 tasks) this is negligible. A Postgres stored procedure can replace
+ * this if atomicity becomes a requirement.
+ */
+export async function reorderTasks(
+  status: TaskStatus,
+  orderedIds: string[],
+): Promise<{ error: string | null }> {
+  try {
+    const updates = orderedIds.map((id, index) =>
+      serverClient()
+        .from('tasks')
+        .update({ sort_order: index })
+        .eq('id', id)
+        .eq('status', status),
+    );
+    const results = await Promise.all(updates);
+    const failed  = results.find((r) => r.error);
+    if (failed?.error) return { error: failed.error.message };
+    return { error: null };
+  } catch (err) {
+    console.error('[reorderTasks]', err);
+    return { error: 'Failed to reorder tasks' };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Recurrence
 // ---------------------------------------------------------------------------
 

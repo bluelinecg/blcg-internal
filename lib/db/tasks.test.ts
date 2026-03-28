@@ -8,6 +8,7 @@ import {
   updateTask,
   deleteTask,
   createNextRecurrence,
+  reorderTasks,
 } from './tasks';
 
 // ---------------------------------------------------------------------------
@@ -301,5 +302,46 @@ describe('createNextRecurrence', () => {
 
     expect(data).toBeNull();
     expect(error).toBe('insert failed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reorderTasks
+// ---------------------------------------------------------------------------
+
+describe('reorderTasks', () => {
+  it('returns null error when all updates succeed', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: null, error: null });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const { error } = await reorderTasks('todo', ['task-1', 'task-2', 'task-3']);
+    expect(error).toBeNull();
+  });
+
+  it('calls update + eq(id) + eq(status) for each id', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: null, error: null });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    await reorderTasks('in_progress', ['task-a', 'task-b']);
+
+    expect(chain.update).toHaveBeenCalledWith({ sort_order: 0 });
+    expect(chain.update).toHaveBeenCalledWith({ sort_order: 1 });
+    expect(chain.eq).toHaveBeenCalledWith('id', 'task-a');
+    expect(chain.eq).toHaveBeenCalledWith('id', 'task-b');
+    expect(chain.eq).toHaveBeenCalledWith('status', 'in_progress');
+  });
+
+  it('returns error string when a DB update fails', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: null, error: { message: 'update failed' } });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    const { error } = await reorderTasks('todo', ['task-1']);
+    expect(error).toBe('update failed');
   });
 });

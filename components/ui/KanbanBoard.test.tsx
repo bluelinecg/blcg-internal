@@ -131,6 +131,92 @@ describe('KanbanBoard', () => {
     expect(onMoveItem).toHaveBeenCalledWith('task-1', 'done');
   });
 
+  it('calls onReorderColumn when a card is dropped onto a card in the same column', () => {
+    const onMoveItem      = jest.fn();
+    const onReorderColumn = jest.fn();
+    const tasks: Task[] = [
+      { id: 'task-1', title: 'First',  status: 'todo' },
+      { id: 'task-2', title: 'Second', status: 'todo' },
+      { id: 'task-3', title: 'Third',  status: 'done' },
+    ];
+    render(
+      <KanbanBoard
+        columns={COLUMNS}
+        items={tasks}
+        getItemId={getItemId}
+        getItemColumn={getItemColumn}
+        onMoveItem={onMoveItem}
+        onReorderColumn={onReorderColumn}
+        renderCard={renderCard}
+      />,
+    );
+
+    const dragCard   = screen.getByText('First').closest('[draggable]') as HTMLElement;
+    const targetCard = screen.getByText('Second').closest('[draggable]') as HTMLElement;
+
+    fireEvent.dragStart(dragCard);
+    fireEvent.dragOver(targetCard);
+    fireEvent.drop(targetCard);
+
+    expect(onReorderColumn).toHaveBeenCalledWith('todo', ['task-2', 'task-1']);
+    expect(onMoveItem).not.toHaveBeenCalled();
+  });
+
+  it('calls onMoveItem (not onReorderColumn) when a card is dropped onto a card in a different column', () => {
+    const onMoveItem      = jest.fn();
+    const onReorderColumn = jest.fn();
+    render(
+      <KanbanBoard
+        columns={COLUMNS}
+        items={TASKS}
+        getItemId={getItemId}
+        getItemColumn={getItemColumn}
+        onMoveItem={onMoveItem}
+        onReorderColumn={onReorderColumn}
+        renderCard={renderCard}
+      />,
+    );
+
+    const dragCard   = screen.getByText('Write tests').closest('[draggable]') as HTMLElement;  // todo
+    const targetCard = screen.getByText('Review PR').closest('[draggable]') as HTMLElement;    // in_progress
+
+    fireEvent.dragStart(dragCard);
+    fireEvent.dragOver(targetCard);
+    fireEvent.drop(targetCard);
+
+    expect(onMoveItem).toHaveBeenCalledWith('task-1', 'in_progress');
+    expect(onReorderColumn).not.toHaveBeenCalled();
+  });
+
+  it('does not crash and does not call onMoveItem when onReorderColumn is absent and drop is same-column', () => {
+    const onMoveItem = jest.fn();
+    const tasks: Task[] = [
+      { id: 'task-1', title: 'First',  status: 'todo' },
+      { id: 'task-2', title: 'Second', status: 'todo' },
+    ];
+    render(
+      <KanbanBoard
+        columns={COLUMNS}
+        items={tasks}
+        getItemId={getItemId}
+        getItemColumn={getItemColumn}
+        onMoveItem={onMoveItem}
+        renderCard={renderCard}
+      />,
+    );
+
+    const dragCard   = screen.getByText('First').closest('[draggable]') as HTMLElement;
+    const targetCard = screen.getByText('Second').closest('[draggable]') as HTMLElement;
+
+    // Should not throw, and onMoveItem should not be called for a same-column card drop
+    expect(() => {
+      fireEvent.dragStart(dragCard);
+      fireEvent.dragOver(targetCard);
+      fireEvent.drop(targetCard);
+    }).not.toThrow();
+    expect(onMoveItem).not.toHaveBeenCalled();
+  });
+
   it('does not call onMoveItem when drag ends without a drop', () => {
     const onMoveItem = jest.fn();
     render(

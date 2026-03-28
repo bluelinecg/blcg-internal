@@ -35,5 +35,11 @@ export const TaskSchema = z.object({
 
 export const UpdateTaskSchema = TaskSchema.partial();
 
+export const ReorderTasksSchema = z.object({
+  status:     TaskStatusSchema,
+  orderedIds: z.array(z.string().uuid()).min(1),
+});
+
 export type TaskInput = z.infer<typeof TaskSchema>;
 export type UpdateTaskInput = z.infer<typeof UpdateTaskSchema>;
+export type ReorderTasksInput = z.infer<typeof ReorderTasksSchema>;
