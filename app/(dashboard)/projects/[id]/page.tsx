@@ -52,7 +52,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       />
 
       {/* Overview cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="rounded-lg border border-gray-200 bg-white px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Budget</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{formatCurrency(project.budget)}</p>
@@ -88,43 +88,45 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="text-sm font-semibold text-gray-700">Milestones</h3>
         </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-100">
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">#</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Milestone</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Due</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Completed</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {[...project.milestones]
-              .sort((a, b) => a.order - b.order)
-              .map((ms) => (
-                <tr key={ms.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 text-sm text-gray-400">{ms.order}</td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-gray-900">{ms.name}</p>
-                    {ms.description && <p className="text-xs text-gray-400 mt-0.5">{ms.description}</p>}
-                  </td>
-                  <td className="px-6 py-4">
-                    <MilestoneStatusBadge status={ms.status} />
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {ms.dueDate ? formatDate(ms.dueDate) : '—'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {ms.completedDate ? formatDate(ms.completedDate) : '—'}
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">#</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Milestone</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Due</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Completed</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {[...project.milestones]
+                .sort((a, b) => a.order - b.order)
+                .map((ms) => (
+                  <tr key={ms.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 text-sm text-gray-400">{ms.order}</td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-medium text-gray-900">{ms.name}</p>
+                      {ms.description && <p className="text-xs text-gray-400 mt-0.5">{ms.description}</p>}
+                    </td>
+                    <td className="px-6 py-4">
+                      <MilestoneStatusBadge status={ms.status} />
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {ms.dueDate ? formatDate(ms.dueDate) : '—'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {ms.completedDate ? formatDate(ms.completedDate) : '—'}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       {/* Linked records */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {organization && (
           <Card className="p-5">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Organization</h3>

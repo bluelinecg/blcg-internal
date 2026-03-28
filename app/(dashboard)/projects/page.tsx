@@ -188,7 +188,7 @@ export function ProjectsPage() {
       )}
 
       {/* Summary row (current page) */}
-      <div className="flex gap-4 mb-5">
+      <div className="flex flex-wrap gap-4 mb-5">
         {(['active', 'on_hold', 'completed'] as ProjectStatus[]).map((status) => (
           <div key={status} className="flex flex-col rounded-md border border-gray-200 bg-white px-4 py-3 min-w-28">
             <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">{STATUS_BADGE[status].label}</span>
@@ -203,9 +203,9 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-4">
-        <Input placeholder="Search by project name or client..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-72" />
-        <Select options={STATUS_FILTER_OPTIONS} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="w-40" />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+        <Input placeholder="Search by project name or client..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-72" />
+        <Select options={STATUS_FILTER_OPTIONS} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="w-full sm:w-40" />
       </div>
 
       <Card>
@@ -220,20 +220,21 @@ export function ProjectsPage() {
             <p className="text-sm text-gray-400">No projects match your search.</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <SortableHeader column="name" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Project</SortableHeader>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Organization</th>
-                <SortableHeader column="status" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</SortableHeader>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Milestones</th>
-                <SortableHeader column="budget" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Budget</SortableHeader>
-                <SortableHeader column="end_date" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Target</SortableHeader>
-                <th className="px-6 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((project) => {
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <SortableHeader column="name" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Project</SortableHeader>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Organization</th>
+                  <SortableHeader column="status" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</SortableHeader>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Milestones</th>
+                  <SortableHeader column="budget" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Budget</SortableHeader>
+                  <SortableHeader column="end_date" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Target</SortableHeader>
+                  <th className="px-6 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((project) => {
                 const cfg       = STATUS_BADGE[project.status];
                 const completed = project.milestones.filter((m) => m.status === 'completed').length;
                 const total     = project.milestones.length;
@@ -269,9 +270,10 @@ export function ProjectsPage() {
                     </td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 

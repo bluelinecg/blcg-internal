@@ -164,7 +164,7 @@ export default function OrganizationsPage() {
           placeholder="Search organizations..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-72"
+          className="w-full sm:w-72"
         />
       </div>
 
@@ -180,55 +180,57 @@ export default function OrganizationsPage() {
             <p className="text-sm text-gray-400">No organizations yet. Add one to get started.</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Industry</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Phone</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Contacts</th>
-                <th className="px-6 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((org) => (
-                <tr key={org.id} className="transition-colors hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    <Link href={`/organizations/${org.id}`} className="hover:text-brand-blue hover:underline">
-                      {org.name}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{org.industry ?? <span className="text-gray-400">—</span>}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{org.phone ?? <span className="text-gray-400">—</span>}</td>
-                  <td className="px-6 py-4">
-                    <Badge variant={(org.contactCount ?? 0) > 0 ? 'blue' : 'gray'}>
-                      {org.contactCount ?? 0}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {canEdit && (
-                        <button
-                          onClick={() => { setEditing(org); setSaveError(null); setFormOpen(true); }}
-                          className="text-xs text-gray-400 hover:text-brand-blue transition-colors px-1"
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {isAdmin && (
-                        <button
-                          onClick={() => openDelete(org)}
-                          className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Industry</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Phone</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Contacts</th>
+                  <th className="px-6 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((org) => (
+                  <tr key={org.id} className="transition-colors hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <Link href={`/organizations/${org.id}`} className="hover:text-brand-blue hover:underline">
+                        {org.name}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{org.industry ?? <span className="text-gray-400">—</span>}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{org.phone ?? <span className="text-gray-400">—</span>}</td>
+                    <td className="px-6 py-4">
+                      <Badge variant={(org.contactCount ?? 0) > 0 ? 'blue' : 'gray'}>
+                        {org.contactCount ?? 0}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {canEdit && (
+                          <button
+                            onClick={() => { setEditing(org); setSaveError(null); setFormOpen(true); }}
+                            className="text-xs text-gray-400 hover:text-brand-blue transition-colors px-1"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button
+                            onClick={() => openDelete(org)}
+                            className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 

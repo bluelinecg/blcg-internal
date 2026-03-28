@@ -54,18 +54,18 @@ export function ClientsPage() {
       />
 
       {/* Filters */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <Input
           placeholder="Search by company, contact, or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-72"
+          className="w-full sm:w-72"
         />
         <Select
           options={STATUS_FILTER_OPTIONS}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="w-40"
+          className="w-full sm:w-40"
         />
       </div>
 
@@ -84,41 +84,43 @@ export function ClientsPage() {
             <p className="text-sm text-gray-400">No clients match your search.</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <SortableHeader column="name" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Client</SortableHeader>
-                <SortableHeader column="contact_name" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Contact</SortableHeader>
-                <SortableHeader column="email" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Email</SortableHeader>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Phone</th>
-                <SortableHeader column="status" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</SortableHeader>
-                <th className="px-6 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((client) => (
-                <tr key={client.id} className="transition-colors hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-blue/10 text-xs font-semibold text-brand-blue">
-                        {getInitials(client.name)}
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{client.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{client.contactName}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{client.email}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{client.phone ?? '—'}</td>
-                  <td className="px-6 py-4"><StatusBadge status={client.status} /></td>
-                  <td className="px-6 py-4 text-right">
-                    <Link href={`/clients/${client.id}`}>
-                      <Button variant="ghost" size="sm">View →</Button>
-                    </Link>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <SortableHeader column="name" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Client</SortableHeader>
+                  <SortableHeader column="contact_name" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Contact</SortableHeader>
+                  <SortableHeader column="email" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Email</SortableHeader>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Phone</th>
+                  <SortableHeader column="status" currentSort={sort} order={order} onSort={setSort} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</SortableHeader>
+                  <th className="px-6 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((client) => (
+                  <tr key={client.id} className="transition-colors hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-blue/10 text-xs font-semibold text-brand-blue">
+                          {getInitials(client.name)}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">{client.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{client.contactName}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{client.email}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{client.phone ?? '—'}</td>
+                    <td className="px-6 py-4"><StatusBadge status={client.status} /></td>
+                    <td className="px-6 py-4 text-right">
+                      <Link href={`/clients/${client.id}`}>
+                        <Button variant="ghost" size="sm">View →</Button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 

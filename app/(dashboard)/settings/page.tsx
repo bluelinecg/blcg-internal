@@ -98,7 +98,7 @@ function ProfileTab() {
       <Card className="p-6">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Personal Information</h3>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="First Name"
               value={firstName}
@@ -463,7 +463,7 @@ function WebhooksTab() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-gray-800">Webhook Endpoints</h2>
           <p className="text-xs text-gray-400 mt-0.5">Receive signed HTTP POST events when key actions occur in the app.</p>
@@ -545,54 +545,56 @@ function WebhooksTab() {
             <p className="text-sm text-gray-400">No endpoints configured. Add one to start receiving events.</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">URL</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Events</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
-                <th className="px-6 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {endpoints.map((ep) => (
-                <tr key={ep.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-gray-900 truncate max-w-xs" title={ep.url}>{ep.url}</p>
-                    {ep.description && <p className="text-xs text-gray-400 mt-0.5">{ep.description}</p>}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {ep.events.map((ev) => (
-                        <span key={ev} className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-brand-navy/10 text-brand-navy font-medium">
-                          {ev}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant={ep.isActive ? 'green' : 'gray'}>{ep.isActive ? 'Active' : 'Inactive'}</Badge>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openLog(ep)}
-                        className="text-xs text-gray-400 hover:text-brand-blue transition-colors px-1"
-                      >
-                        View Log
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(ep)}
-                        className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">URL</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Events</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                  <th className="px-6 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {endpoints.map((ep) => (
+                  <tr key={ep.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-medium text-gray-900 truncate max-w-xs" title={ep.url}>{ep.url}</p>
+                      {ep.description && <p className="text-xs text-gray-400 mt-0.5">{ep.description}</p>}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {ep.events.map((ev) => (
+                          <span key={ev} className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-brand-navy/10 text-brand-navy font-medium">
+                            {ev}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant={ep.isActive ? 'green' : 'gray'}>{ep.isActive ? 'Active' : 'Inactive'}</Badge>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openLog(ep)}
+                          className="text-xs text-gray-400 hover:text-brand-blue transition-colors px-1"
+                        >
+                          View Log
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(ep)}
+                          className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
@@ -613,28 +615,30 @@ function WebhooksTab() {
           ) : deliveries.length === 0 ? (
             <p className="text-sm text-gray-400 py-4">No deliveries recorded yet.</p>
           ) : (
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="pb-2 text-left font-semibold text-gray-500">Event</th>
-                  <th className="pb-2 text-left font-semibold text-gray-500">Status</th>
-                  <th className="pb-2 text-left font-semibold text-gray-500">HTTP</th>
-                  <th className="pb-2 text-left font-semibold text-gray-500">Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {deliveries.map((d) => (
-                  <tr key={d.id}>
-                    <td className="py-2 text-gray-700 font-mono">{d.eventType}</td>
-                    <td className="py-2">
-                      <Badge variant={DELIVERY_STATUS_VARIANT[d.status] ?? 'gray'}>{d.status}</Badge>
-                    </td>
-                    <td className="py-2 text-gray-500">{d.httpStatus ?? '—'}</td>
-                    <td className="py-2 text-gray-400">{new Date(d.attemptedAt).toLocaleString()}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="pb-2 text-left font-semibold text-gray-500">Event</th>
+                    <th className="pb-2 text-left font-semibold text-gray-500">Status</th>
+                    <th className="pb-2 text-left font-semibold text-gray-500">HTTP</th>
+                    <th className="pb-2 text-left font-semibold text-gray-500">Time</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {deliveries.map((d) => (
+                    <tr key={d.id}>
+                      <td className="py-2 text-gray-700 font-mono">{d.eventType}</td>
+                      <td className="py-2">
+                        <Badge variant={DELIVERY_STATUS_VARIANT[d.status] ?? 'gray'}>{d.status}</Badge>
+                      </td>
+                      <td className="py-2 text-gray-500">{d.httpStatus ?? '—'}</td>
+                      <td className="py-2 text-gray-400">{new Date(d.attemptedAt).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
       )}

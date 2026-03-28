@@ -88,26 +88,32 @@ of the codebase. All layouts are desktop-first and hardcoded.
 
 ### Phase 3 — Remaining Pages
 
-- [ ] **3.1 Clients list** — `app/(dashboard)/clients/page.tsx`
-  - Table: `overflow-x-auto`, filter inputs `w-full sm:w-auto`
+- [x] **3.1 Clients list** — `app/(dashboard)/clients/page.tsx`
+  - Filter bar: `flex-col sm:flex-row sm:items-center`; inputs `w-full sm:w-{n}`; table wrapped in `overflow-x-auto`
 
-- [ ] **3.2 Contacts list** — `app/(dashboard)/contacts/page.tsx`
+- [x] **3.2 Contacts list** — `app/(dashboard)/contacts/page.tsx`
   - Same table + filter treatment as clients
 
-- [ ] **3.3 Organizations list** — `app/(dashboard)/organizations/page.tsx`
-  - Same table + filter treatment
+- [x] **3.3 Organizations list** — `app/(dashboard)/organizations/page.tsx`
+  - Search input `w-full sm:w-72`; table wrapped in `overflow-x-auto`
 
-- [ ] **3.4 Projects list + detail** — `app/(dashboard)/projects/[id]/page.tsx`
-  - Any grid layouts to responsive breakpoints
+- [x] **3.4 Projects list** — `app/(dashboard)/projects/page.tsx`
+  - Summary row: `flex-wrap`; filter bar stacks; inputs `w-full sm:w-{n}`; table `overflow-x-auto`
 
-- [ ] **3.5 Pipelines list + board** — `app/(dashboard)/pipelines/[id]/page.tsx`
-  - Already has one responsive grid (`sm:grid-cols-2 lg:grid-cols-3`) — verify consistency
+- [x] **3.4 Projects detail** — `app/(dashboard)/projects/[id]/page.tsx`
+  - Stat grid: `grid-cols-2 md:grid-cols-4`; milestone table `overflow-x-auto`; linked records `grid-cols-1 md:grid-cols-2`
 
-- [ ] **3.6 Automations** — `app/(dashboard)/automations/page.tsx`
-  - Check for hardcoded widths and grids
+- [x] **3.5 Pipelines list + board** — `app/(dashboard)/pipelines/[id]/page.tsx`
+  - List page already had `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` — no changes needed
+  - Detail header: `flex-col sm:flex-row sm:justify-between`; action buttons `flex-wrap`
 
-- [ ] **3.7 Settings** — `app/(dashboard)/settings/page.tsx`
-  - Check for hardcoded widths and grids
+- [x] **3.6 Automations** — `app/(dashboard)/automations/page.client.tsx`
+  - RuleDetails expanded panel grid: `grid-cols-1 sm:grid-cols-2`; execution history table `overflow-x-auto`
+
+- [x] **3.7 Settings** — `app/(dashboard)/settings/page.tsx`
+  - Profile first/last name grid: `grid-cols-1 sm:grid-cols-2`
+  - Webhooks header: `flex-col sm:flex-row sm:justify-between`
+  - Endpoint list table and delivery log table: both wrapped in `overflow-x-auto`
 
 ---
 

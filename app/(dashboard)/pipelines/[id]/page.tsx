@@ -248,7 +248,7 @@ export function PipelineDetailPage({ params }: PageProps) {
       </Link>
 
       {/* Header */}
-      <div className="mb-5 flex items-center justify-between gap-4">
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{pipeline.name}</h2>
@@ -260,7 +260,7 @@ export function PipelineDetailPage({ params }: PageProps) {
             {pipeline.isActive ? 'Active' : 'Inactive'}
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {canEdit && (
             <Button variant="secondary" size="sm" onClick={() => { setSavePipelineError(null); setEditPipelineOpen(true); }}>
               Edit Pipeline
