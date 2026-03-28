@@ -318,17 +318,17 @@ export default function TimeTrackingPage() {
         <StatCard
           label="Total Hours"
           value={loading ? '—' : (summary?.totalHours ?? 0).toFixed(1)}
-          subLabel="This week"
+          sub="This week"
         />
         <StatCard
           label="Billable Hours"
           value={loading ? '—' : (summary?.billableHours ?? 0).toFixed(1)}
-          subLabel="This week"
+          sub="This week"
         />
         <StatCard
           label="Non-Billable Hours"
           value={loading ? '—' : (summary?.nonBillableHours ?? 0).toFixed(1)}
-          subLabel="This week"
+          sub="This week"
         />
       </div>
 
