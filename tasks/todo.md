@@ -1,3 +1,122 @@
+# Implement Recurring Tasks
+**Kanban ID:** c233fbd6-c110-4df6-8fa1-e139169198ba
+**Branch:** feature/recurring-tasks (off main — start after feature/data-access-contract is merged)
+**Status:** Planning
+
+## What Exists
+
+The recurring tasks data model is already in place:
+- DB column `recurrence` (none/daily/weekly/biweekly/monthly) on the `tasks` table
+- `createNextRecurrence()` in `lib/db/tasks.ts` — creates the next occurrence when a task is marked done
+- `nextDueDate()` helper — computes the next due date from a base date + recurrence rule
+- API route `PATCH /api/tasks/[id]` already calls `createNextRecurrence` when `status=done` and `recurrence!='none'`
+- UI form (`TaskFormModal`) already has a recurrence selector
+- Task card shows a `↻` badge for recurring tasks
+- Tasks page reloads after a recurring task is marked done to surface the new occurrence
+
+## Gaps to Fill
+
+Four specific gaps remain before the feature is production-ready:
+
+### Gap 1: New occurrence isn't published to the event bus
+`createNextRecurrence` creates the next task but never publishes `task.created`. This means the new occurrence is invisible to the audit log, webhooks, and automations.
+
+**Fix:** In `app/api/tasks/[id]/route.ts`, replace `void createNextRecurrence(data)` with an awaited call. If successful, publish `task.created` via `bus.publish(...)`.
+
+### Gap 2: Zod schema doesn't require `dueDate` when `recurrence !== 'none'`
+`nextDueDate()` falls back to `new Date().toISOString()` when the task has no `dueDate`. A recurring task created without a due date will generate a next occurrence with today's date, causing silent drift on every completion.
+
+**Fix:** In `lib/validations/tasks.ts`, extract `TaskBaseSchema` (plain object, no refinements), add a `.refine()` to `TaskSchema` that requires `dueDate` when `recurrence !== 'none'`, and update `UpdateTaskSchema = TaskBaseSchema.partial()` (PATCH payloads can update either field independently — no refinement needed there).
+
+### Gap 3: UI form doesn't validate recurrence + dueDate together
+Even with the Zod fix, the modal should give immediate feedback before the user hits submit.
+
+**Fix:** In `TaskFormModal.tsx`, add client-side validation: if `recurrence !== 'none'` and `!dueDate`, set an error on the `dueDate` field — "Due date is required for recurring tasks."
+
+### Gap 4: Error from `createNextRecurrence` is silently swallowed
+`void createNextRecurrence(data)` discards the result entirely. If it fails, the task is marked done but no next occurrence is created — with no indication to the user or logs.
+
+**Fix:** Awaiting the call (Gap 1 fix) handles this. If `createNextRecurrence` returns an error, log it so it's visible in server logs. The user-facing response still returns 200 (the task update succeeded); the recurrence failure is a secondary concern but must not be invisible.
+
+---
+
+## Implementation Steps
+
+- [ ] **1. Checkout main after merge, create `feature/recurring-tasks` branch**
+
+- [ ] **2. Fix event publishing + error handling** — `app/api/tasks/[id]/route.ts`
+  - Replace `void createNextRecurrence(data)` with `const { data: nextTask, error: recurrenceError } = await createNextRecurrence(data)`
+  - If `recurrenceError`, log it (`console.error` is acceptable here — it's a server-side error boundary)
+  - If `nextTask`, publish `task.created` event via `bus.publish(...)` using the same `userId` as the parent operation
+
+- [ ] **3. Fix Zod validation** — `lib/validations/tasks.ts`
+  - Rename current `z.object({...})` to `TaskBaseSchema` (unexported)
+  - `export const TaskSchema = TaskBaseSchema.refine(data => data.recurrence === 'none' || !!data.dueDate, { message: 'Due date is required for recurring tasks', path: ['dueDate'] })`
+  - `export const UpdateTaskSchema = TaskBaseSchema.partial()` (no refinement — partial patch)
+  - Confirm `TaskInput = z.infer<typeof TaskSchema>` still resolves correctly
+
+- [ ] **4. Add UI validation** — `components/modules/TaskFormModal.tsx`
+  - In `validate()`, add: `if (form.recurrence !== 'none' && !form.dueDate) next.dueDate = 'Due date is required for recurring tasks.'`
+
+- [ ] **5. Write tests** — `lib/db/tasks.test.ts` (new file) + `app/api/tasks/[id]/route.test.ts` (extend existing)
+  - `nextDueDate` unit tests: daily, weekly, biweekly, monthly — assert correct output date for each
+  - `createNextRecurrence` unit test: verify the inserted task has correct title, recurrence, dueDate, status='todo', empty checklist
+  - Route test — recurring task marked done: assert `bus.publish('task.created', ...)` is called with the new occurrence data
+  - Route test — non-recurring task marked done: assert `createNextRecurrence` is NOT called
+  - Zod validation test: `TaskSchema.safeParse` fails when `recurrence='weekly'` and `dueDate` is absent
+
+- [ ] **6. Verify**
+  - TypeScript: zero new errors
+  - No `any` types introduced
+  - No `console.log` left in code (server-side `console.error` for recurrence failure is acceptable)
+  - Manually test: create a weekly task with a due date, mark it done — confirm new task appears in To Do column with correct due date one week out
+  - Manually test: attempt to create a weekly task without a due date — confirm form validation blocks it
+
+---
+
+## Risks & Notes
+
+- `UpdateTaskSchema` is used by the PATCH handler. It must remain a partial without the refinement — a PATCH may change only `recurrence` or only `dueDate`, and the DB record already holds the other field. The refinement only applies at create time.
+- The `console.error` on recurrence failure is the correct pattern here (matches existing usage in `lib/db/tasks.ts`) and keeps the audit log clean. A structured log entry isn't necessary until the Structured Logging System task is implemented.
+- The existing tests in `app/api/tasks/[id]/route.test.ts` mock `@/lib/utils/webhook-delivery`, `@/lib/automations/engine`, and `@/lib/utils/audit` at the leaf level (not the bus). New tests for recurrence event publishing should mock `@/lib/events` at the bus level or follow the same leaf-mock pattern — stay consistent with the existing test style.
+
+---
+
+# Standardize API Response Contract
+**Kanban ID:** 52bf6322-32af-44ec-b739-455cb543ea6a
+**Branch:** feature/data-access-contract
+**Status:** Done
+
+## Summary
+
+All API routes now return responses exclusively through typed helpers in `lib/api/utils.ts`.
+No route uses a bare `NextResponse.json()` for success responses.
+
+### Changes
+
+- **`lib/api/utils.ts`** — Added `apiList<T>(data, total, status?)` helper for paginated
+  list endpoints, complementing `apiOk` (single-item) and `apiError`.
+
+- **14 paginated GET routes** — Replaced `NextResponse.json({ data, total, error: null })`
+  with `apiList(data, total)`:
+  clients, tasks, contacts, organizations, projects, invoices, expenses, proposals,
+  catalog, pipelines, pipelines/[id]/items, time-entries, internal/tasks, audit-log.
+
+- **`app/api/emails/route.ts`** — Replaced `NextResponse.json({ data: merged, error: null })`
+  with `apiOk(merged)`.
+
+### Intentional exceptions (not changed)
+
+- `app/api/invoices/[id]/pdf/route.ts` — Returns raw PDF buffer, not JSON.
+- `app/api/automations/process-scheduled/route.ts` — Cron handler with task-specific payload.
+
+### Verification
+
+- Grepped entire `app/api/` for `NextResponse.json({.*error.*null` → zero matches.
+- Response shapes are byte-for-byte identical; only the call site changed.
+
+---
+
 # Enforce Data Access Contract Across Codebase
 **Kanban ID:** 9dab08bd-a22e-4742-a0a9-541fb206c646
 **Branch:** feature/data-access-contract

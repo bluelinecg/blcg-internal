@@ -91,6 +91,7 @@ export function TaskFormModal({
   function validate(): boolean {
     const next: typeof errors = {};
     if (!form.title.trim()) next.title = 'Title is required.';
+    if (form.recurrence !== 'none' && !form.dueDate) next.dueDate = 'Due date is required for recurring tasks.';
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -189,10 +190,11 @@ export function TaskFormModal({
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Input
-            label="Due Date (optional)"
+            label={form.recurrence !== 'none' ? 'Due Date' : 'Due Date (optional)'}
             type="date"
             value={form.dueDate ? form.dueDate.split('T')[0] : ''}
             onChange={(e) => setField('dueDate', e.target.value ? `${e.target.value}T00:00:00Z` : undefined)}
+            error={errors.dueDate}
           />
           <Select
             label="Recurrence"

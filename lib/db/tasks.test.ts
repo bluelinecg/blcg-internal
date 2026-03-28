@@ -282,12 +282,74 @@ describe('createNextRecurrence', () => {
     expect(error).toBeNull();
     expect(data).not.toBeNull();
     expect(data!.status).toBe('todo');
-    // Verify insert was called (chain.insert was invoked)
     expect(chain.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         status:     'todo',
         recurrence: 'weekly',
         checklist:  [],
+        due_date:   '2026-04-14',
+      }),
+    );
+  });
+
+  it('computes correct due date for daily recurrence (+1 day)', async () => {
+    const task = { ...RECURRING_TASK, recurrence: 'daily' as const, dueDate: '2026-04-07T00:00:00Z' };
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: { ...RECURRING_TASK_ROW, due_date: '2026-04-08' }, error: null });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    await createNextRecurrence(task);
+
+    expect(chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ due_date: '2026-04-08' }),
+    );
+  });
+
+  it('computes correct due date for biweekly recurrence (+14 days)', async () => {
+    const task = { ...RECURRING_TASK, recurrence: 'biweekly' as const, dueDate: '2026-04-07T00:00:00Z' };
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: { ...RECURRING_TASK_ROW, due_date: '2026-04-21' }, error: null });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    await createNextRecurrence(task);
+
+    expect(chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ due_date: '2026-04-21' }),
+    );
+  });
+
+  it('computes correct due date for monthly recurrence (+1 month)', async () => {
+    const task = { ...RECURRING_TASK, recurrence: 'monthly' as const, dueDate: '2026-04-07T00:00:00Z' };
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: { ...RECURRING_TASK_ROW, due_date: '2026-05-07' }, error: null });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    await createNextRecurrence(task);
+
+    expect(chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ due_date: '2026-05-07' }),
+    );
+  });
+
+  it('carries over title, priority, assignee, projectId, recurrence; clears checklist', async () => {
+    const db = { from: jest.fn() };
+    const chain = makeChain({ data: { ...RECURRING_TASK_ROW, status: 'todo' }, error: null });
+    db.from.mockReturnValue(chain);
+    mockServerClient.mockReturnValue(db);
+
+    await createNextRecurrence(RECURRING_TASK);
+
+    expect(chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title:       RECURRING_TASK.title,
+        priority:    RECURRING_TASK.priority,
+        assignee_id: RECURRING_TASK.assignee,
+        project_id:  RECURRING_TASK.projectId,
+        recurrence:  RECURRING_TASK.recurrence,
+        checklist:   [],
       }),
     );
   });
