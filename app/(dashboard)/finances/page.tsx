@@ -329,13 +329,13 @@ export function FinancesPage() {
 
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard label="Total Revenue (Paid)" value={formatCurrency(totalRevenue)} sub="From paid invoices" accent="green" />
             <StatCard label="Outstanding" value={formatCurrency(totalOutstanding)} sub={overdueCount > 0 ? `${overdueCount} overdue` : 'None overdue'} accent={overdueCount > 0 ? 'red' : 'yellow'} />
             <StatCard label="Total Expenses" value={formatCurrency(totalExpensesAmt)} accent="yellow" />
             <StatCard label="Net P&L" value={formatCurrency(netPL)} sub="Revenue minus expenses" accent={netPL >= 0 ? 'green' : 'red'} />
           </div>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <div className="px-5 py-4 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-700">Recent Invoices</h3>
@@ -381,11 +381,12 @@ export function FinancesPage() {
 
       {activeTab === 'invoices' && (
         <div>
-          <div className="flex items-center gap-3 mb-4">
-            <Input placeholder="Search by invoice # or client..." value={invoiceSearch} onChange={(e) => setInvoiceSearch(e.target.value)} className="w-64" />
-            <Select options={INVOICE_FILTER_OPTIONS} value={invoiceStatusFilter} onChange={(e) => setInvoiceStatusFilter(e.target.value)} className="w-40" />
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+            <Input placeholder="Search by invoice # or client..." value={invoiceSearch} onChange={(e) => setInvoiceSearch(e.target.value)} className="w-full sm:w-64" />
+            <Select options={INVOICE_FILTER_OPTIONS} value={invoiceStatusFilter} onChange={(e) => setInvoiceStatusFilter(e.target.value)} className="w-full sm:w-40" />
           </div>
           <Card>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
@@ -427,6 +428,7 @@ export function FinancesPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </Card>
           <Pagination page={invoices.page} totalPages={invoices.totalPages} onPageChange={invoices.setPage} className="mt-4" />
         </div>
@@ -434,13 +436,14 @@ export function FinancesPage() {
 
       {activeTab === 'expenses' && (
         <div>
-          <div className="flex items-center gap-3 mb-4">
-            <Select options={EXPENSE_CATEGORY_OPTIONS} value={expenseCategoryFilter} onChange={(e) => setExpenseCategoryFilter(e.target.value)} className="w-48" />
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+            <Select options={EXPENSE_CATEGORY_OPTIONS} value={expenseCategoryFilter} onChange={(e) => setExpenseCategoryFilter(e.target.value)} className="w-full sm:w-48" />
             <span className="text-sm text-gray-500">
               Total: <span className="font-semibold text-gray-900">{formatCurrency(filteredExpenses.reduce((s, e) => s + e.amount, 0))}</span>
             </span>
           </div>
           <Card>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
@@ -473,6 +476,7 @@ export function FinancesPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </Card>
           <Pagination page={expenses.page} totalPages={expenses.totalPages} onPageChange={expenses.setPage} className="mt-4" />
         </div>

@@ -57,30 +57,30 @@ of the codebase. All layouts are desktop-first and hardcoded.
 
 ### Phase 2 — Priority Pages
 
-- [ ] **2.1 Tasks Kanban** — `app/(dashboard)/tasks/page.tsx` + `components/ui/KanbanBoard.tsx`
+- [x] **2.1 Tasks Kanban** — `app/(dashboard)/tasks/page.tsx` + `components/ui/KanbanBoard.tsx`
   - **Mobile UX (confirmed): Option A — tab/column switcher on phones (<768px)**
   - One column visible at a time; tabs across the top to switch columns
   - Horizontal scroll acceptable for tablet (768px+)
   - Filter selects: stack vertically on mobile (`flex-col sm:flex-row`)
   - Remove fixed `w-56` / `w-40` on filter selects; use `w-full sm:w-56`
 
-- [ ] **2.2 Client Detail** — `components/modules/ClientDetailView.tsx`
+- [x] **2.2 Client Detail** — `components/modules/ClientDetailView.tsx`
   - Main grid: `grid-cols-1 md:grid-cols-3`
   - Inner 2-col card: `grid-cols-1 sm:grid-cols-2`
   - Action buttons: wrap on small screens (`flex-wrap`)
 
-- [ ] **2.3 Finances (Invoices & Expenses)** — `app/(dashboard)/finances/page.tsx`
+- [x] **2.3 Finances (Invoices & Expenses)** — `app/(dashboard)/finances/page.tsx`
   - Stat cards: `grid-cols-2 md:grid-cols-4`
   - Overview 2-col cards: `grid-cols-1 md:grid-cols-2`
   - Search/filter bar: `flex-col sm:flex-row`, inputs `w-full sm:w-64`
   - Tables: wrap in `overflow-x-auto` container
 
-- [ ] **2.4 Proposals** — `app/(dashboard)/proposals/page.tsx`
+- [x] **2.4 Proposals** — `app/(dashboard)/proposals/page.tsx`
   - Stat pills row: `flex-wrap`; `min-w-32` stays, but wrap is allowed
   - Search/filter: `flex-col sm:flex-row`, inputs `w-full sm:w-72`
   - Table: wrap in `overflow-x-auto`
 
-- [ ] **2.5 Dashboard overview** — `app/(dashboard)/dashboard/page.tsx`
+- [x] **2.5 Dashboard overview** — `app/(dashboard)/dashboard/page.tsx`
   - Stat card grid: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`
   - Any 2-col secondary grids: `grid-cols-1 md:grid-cols-2`
 
@@ -88,40 +88,46 @@ of the codebase. All layouts are desktop-first and hardcoded.
 
 ### Phase 3 — Remaining Pages
 
-- [ ] **3.1 Clients list** — `app/(dashboard)/clients/page.tsx`
-  - Table: `overflow-x-auto`, filter inputs `w-full sm:w-auto`
+- [x] **3.1 Clients list** — `app/(dashboard)/clients/page.tsx`
+  - Filter bar: `flex-col sm:flex-row sm:items-center`; inputs `w-full sm:w-{n}`; table wrapped in `overflow-x-auto`
 
-- [ ] **3.2 Contacts list** — `app/(dashboard)/contacts/page.tsx`
+- [x] **3.2 Contacts list** — `app/(dashboard)/contacts/page.tsx`
   - Same table + filter treatment as clients
 
-- [ ] **3.3 Organizations list** — `app/(dashboard)/organizations/page.tsx`
-  - Same table + filter treatment
+- [x] **3.3 Organizations list** — `app/(dashboard)/organizations/page.tsx`
+  - Search input `w-full sm:w-72`; table wrapped in `overflow-x-auto`
 
-- [ ] **3.4 Projects list + detail** — `app/(dashboard)/projects/[id]/page.tsx`
-  - Any grid layouts to responsive breakpoints
+- [x] **3.4 Projects list** — `app/(dashboard)/projects/page.tsx`
+  - Summary row: `flex-wrap`; filter bar stacks; inputs `w-full sm:w-{n}`; table `overflow-x-auto`
 
-- [ ] **3.5 Pipelines list + board** — `app/(dashboard)/pipelines/[id]/page.tsx`
-  - Already has one responsive grid (`sm:grid-cols-2 lg:grid-cols-3`) — verify consistency
+- [x] **3.4 Projects detail** — `app/(dashboard)/projects/[id]/page.tsx`
+  - Stat grid: `grid-cols-2 md:grid-cols-4`; milestone table `overflow-x-auto`; linked records `grid-cols-1 md:grid-cols-2`
 
-- [ ] **3.6 Automations** — `app/(dashboard)/automations/page.tsx`
-  - Check for hardcoded widths and grids
+- [x] **3.5 Pipelines list + board** — `app/(dashboard)/pipelines/[id]/page.tsx`
+  - List page already had `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` — no changes needed
+  - Detail header: `flex-col sm:flex-row sm:justify-between`; action buttons `flex-wrap`
 
-- [ ] **3.7 Settings** — `app/(dashboard)/settings/page.tsx`
-  - Check for hardcoded widths and grids
+- [x] **3.6 Automations** — `app/(dashboard)/automations/page.client.tsx`
+  - RuleDetails expanded panel grid: `grid-cols-1 sm:grid-cols-2`; execution history table `overflow-x-auto`
+
+- [x] **3.7 Settings** — `app/(dashboard)/settings/page.tsx`
+  - Profile first/last name grid: `grid-cols-1 sm:grid-cols-2`
+  - Webhooks header: `flex-col sm:flex-row sm:justify-between`
+  - Endpoint list table and delivery log table: both wrapped in `overflow-x-auto`
 
 ---
 
 ### Phase 4 — UI Component Hardening
 
-- [ ] **4.1 Modal** — `components/ui/Modal.tsx`
-  - All sizes: add `w-full mx-4` on mobile so modals don't clip viewport
+- [x] **4.1 Modal** — `components/ui/Modal.tsx`
+  - Already correct: `w-full` + outer `p-4` on the container provides `mx-4` margin on all screen sizes. No additional change needed.
 
-- [ ] **4.2 ExpandableTable** — `components/ui/ExpandableTable.tsx`
-  - Wrap in `overflow-x-auto` by default
-  - Expanded detail panel: `flex-col md:flex-row` instead of fixed `flex gap-8`
+- [x] **4.2 ExpandableTable** — `components/ui/ExpandableTable.tsx`
+  - Wrapped `<table>` in `<div className="overflow-x-auto">`
+  - Fixed `ProposalLineItemsPanel` in `proposals/page.tsx`: `flex flex-col md:flex-row gap-8`, sidebar `w-full md:w-56`
 
-- [ ] **4.3 StatCard** — `components/ui/StatCard.tsx`
-  - Value font: `text-2xl md:text-3xl` to prevent overflow on small screens
+- [x] **4.3 StatCard** — `components/ui/StatCard.tsx`
+  - Value font: `text-2xl md:text-3xl`
 
 ---
 

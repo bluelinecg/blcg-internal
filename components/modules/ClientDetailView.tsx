@@ -102,7 +102,7 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
       </Link>
 
       {/* Page header */}
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-brand-blue/10 text-base font-bold text-brand-blue">
             {getInitials(client.name)}
@@ -114,7 +114,7 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Link href={`/clients/${client.id}/edit`}>
             <Button variant="secondary">Edit Client</Button>
           </Link>
@@ -136,9 +136,9 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
       )}
 
       {/* Body: 2-col layout */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left column */}
-        <div className="col-span-2 flex flex-col gap-6">
+        <div className="md:col-span-2 flex flex-col gap-6">
           {/* Contact / Organization info */}
           <Card className="p-6">
             {client.organization ? (
@@ -152,8 +152,8 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
                     View org →
                   </Link>
                 </div>
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-                  <div className="col-span-2">
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="sm:col-span-2">
                     <dt className="mb-0.5 text-xs text-gray-500">Organization</dt>
                     <dd className="text-sm font-medium text-gray-900">{client.organization.name}</dd>
                   </div>
@@ -198,7 +198,7 @@ export function ClientDetailView({ client }: ClientDetailViewProps) {
             ) : (
               <>
                 <h3 className="mb-4 text-sm font-semibold text-gray-700">Contact Information</h3>
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                   <div>
                     <dt className="mb-0.5 text-xs text-gray-500">Email</dt>
                     <dd className="text-sm text-gray-900">

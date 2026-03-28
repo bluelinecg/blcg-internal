@@ -297,23 +297,23 @@ export function ProposalsPage() {
       )}
 
       {/* Filters */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <Input
           placeholder="Search by title or client..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-72"
+          className="w-full sm:w-72"
         />
         <Select
           options={STATUS_FILTER_OPTIONS}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="w-44"
+          className="w-full sm:w-44"
         />
       </div>
 
       {/* Summary stats (current page) */}
-      <div className="flex gap-4 mb-5">
+      <div className="flex flex-wrap gap-4 mb-5">
         {[
           { label: 'Page Value',  value: formatCurrency(totalValue) },
           { label: 'Accepted',    value: formatCurrency(acceptedValue) },
@@ -329,6 +329,7 @@ export function ProposalsPage() {
 
       {/* Table */}
       <Card>
+        <div className="overflow-x-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-16"><Spinner /></div>
         ) : fetchError ? (
@@ -344,6 +345,7 @@ export function ProposalsPage() {
             emptyMessage="No proposals match your search."
           />
         )}
+        </div>
       </Card>
 
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-4" />
@@ -485,7 +487,7 @@ function SendPdfModal({
 
 function ProposalLineItemsPanel({ proposal }: { proposal: Proposal }) {
   return (
-    <div className="flex gap-8">
+    <div className="flex flex-col md:flex-row gap-8">
       <div className="flex-1">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Line Items</p>
         <table className="w-full text-sm">
@@ -515,7 +517,7 @@ function ProposalLineItemsPanel({ proposal }: { proposal: Proposal }) {
           </tfoot>
         </table>
       </div>
-      <div className="w-56 flex-shrink-0 space-y-4">
+      <div className="w-full md:w-56 flex-shrink-0 space-y-4">
         {proposal.organization && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Organization</p>

@@ -32,7 +32,7 @@ export function StatCard({ label, value, sub, icon, accent = 'blue' }: StatCardP
         <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">{label}</p>
         {icon && <span className="text-gray-400">{icon}</span>}
       </div>
-      <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
+      <p className="mt-2 text-2xl md:text-3xl font-bold text-gray-900">{value}</p>
       {sub && <p className="mt-1 text-xs text-gray-500">{sub}</p>}
     </div>
   );

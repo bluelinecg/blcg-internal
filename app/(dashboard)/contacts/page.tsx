@@ -180,18 +180,18 @@ export default function ContactsPage() {
         </div>
       )}
 
-      <div className="mb-5 flex gap-3">
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-center gap-3">
         <Input
           placeholder="Search contacts..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-72"
+          className="w-full sm:w-72"
         />
         <Select
           options={STATUS_OPTIONS}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="w-44"
+          className="w-full sm:w-44"
         />
       </div>
 
@@ -207,61 +207,63 @@ export default function ContactsPage() {
             <p className="text-sm text-gray-400">No contacts yet. Add one to get started.</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Title</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Organization</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Phone</th>
-                <th className="px-6 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((contact) => (
-                <tr key={contact.id} className="transition-colors hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    <Link href={`/contacts/${contact.id}`} className="hover:text-brand-blue hover:underline">
-                      {contact.firstName} {contact.lastName}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant={STATUS_BADGE_VARIANT[contact.status]}>
-                      {contact.status.charAt(0).toUpperCase() + contact.status.slice(1)}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{contact.title ?? <span className="text-gray-400">—</span>}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {contact.organizationId ? (orgMap.get(contact.organizationId) ?? <span className="text-gray-400">—</span>) : <span className="text-gray-400">—</span>}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{contact.email ?? <span className="text-gray-400">—</span>}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{contact.phone ?? <span className="text-gray-400">—</span>}</td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {canEdit && (
-                        <button
-                          onClick={() => { setEditing(contact); setSaveError(null); setFormOpen(true); }}
-                          className="text-xs text-gray-400 hover:text-brand-blue transition-colors px-1"
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {isAdmin && (
-                        <button
-                          onClick={() => { setDeleteTarget(contact); setDeleteError(null); }}
-                          className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Title</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Organization</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Phone</th>
+                  <th className="px-6 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((contact) => (
+                  <tr key={contact.id} className="transition-colors hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <Link href={`/contacts/${contact.id}`} className="hover:text-brand-blue hover:underline">
+                        {contact.firstName} {contact.lastName}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant={STATUS_BADGE_VARIANT[contact.status]}>
+                        {contact.status.charAt(0).toUpperCase() + contact.status.slice(1)}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{contact.title ?? <span className="text-gray-400">—</span>}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {contact.organizationId ? (orgMap.get(contact.organizationId) ?? <span className="text-gray-400">—</span>) : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{contact.email ?? <span className="text-gray-400">—</span>}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{contact.phone ?? <span className="text-gray-400">—</span>}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {canEdit && (
+                          <button
+                            onClick={() => { setEditing(contact); setSaveError(null); setFormOpen(true); }}
+                            className="text-xs text-gray-400 hover:text-brand-blue transition-colors px-1"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button
+                            onClick={() => { setDeleteTarget(contact); setDeleteError(null); }}
+                            className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 

@@ -51,6 +51,7 @@ export function ExpandableTable<T>({
   }
 
   return (
+    <div className="overflow-x-auto">
     <table className="w-full">
       <thead>
         <tr className="border-b border-gray-100">
@@ -134,5 +135,6 @@ export function ExpandableTable<T>({
         })}
       </tbody>
     </table>
+    </div>
   );
 }

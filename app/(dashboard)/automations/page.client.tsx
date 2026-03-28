@@ -278,7 +278,7 @@ function RuleDetails({ rule }: { rule: AutomationRule }) {
       <Tabs tabs={DETAIL_TABS} activeTab={activeTab} onChange={handleTabChange} className="px-4 pt-3" />
 
       {activeTab === 'details' && (
-        <div className="p-4 grid grid-cols-2 gap-4 text-xs">
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div>
             <p className="font-semibold text-gray-700 mb-1">Conditions</p>
             {rule.conditions.length === 0 ? (
@@ -321,34 +321,36 @@ function RuleDetails({ rule }: { rule: AutomationRule }) {
             <p className="text-xs text-gray-500">No executions recorded yet.</p>
           )}
           {!isLoadingRuns && !runsError && runs !== null && runs.length > 0 && (
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left text-gray-500 border-b border-gray-200">
-                  <th className="pb-2 pr-4 font-medium">Executed At</th>
-                  <th className="pb-2 pr-4 font-medium">Status</th>
-                  <th className="pb-2 pr-4 font-medium">Entity ID</th>
-                  <th className="pb-2 pr-4 font-medium">Actions</th>
-                  <th className="pb-2 font-medium">Error</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {runs.map((run) => (
-                  <tr key={run.id} className="py-1">
-                    <td className="py-2 pr-4 text-gray-700 whitespace-nowrap">
-                      {new Date(run.executedAt).toLocaleString()}
-                    </td>
-                    <td className="py-2 pr-4">
-                      <Badge variant={RUN_STATUS_VARIANT[run.status]}>{run.status}</Badge>
-                    </td>
-                    <td className="py-2 pr-4 text-gray-500 font-mono">{run.entityId}</td>
-                    <td className="py-2 pr-4 text-gray-700">{run.actionsExecuted.length}</td>
-                    <td className="py-2 text-red-600">
-                      {run.errorMessage ?? '—'}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b border-gray-200">
+                    <th className="pb-2 pr-4 font-medium">Executed At</th>
+                    <th className="pb-2 pr-4 font-medium">Status</th>
+                    <th className="pb-2 pr-4 font-medium">Entity ID</th>
+                    <th className="pb-2 pr-4 font-medium">Actions</th>
+                    <th className="pb-2 font-medium">Error</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {runs.map((run) => (
+                    <tr key={run.id} className="py-1">
+                      <td className="py-2 pr-4 text-gray-700 whitespace-nowrap">
+                        {new Date(run.executedAt).toLocaleString()}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <Badge variant={RUN_STATUS_VARIANT[run.status]}>{run.status}</Badge>
+                      </td>
+                      <td className="py-2 pr-4 text-gray-500 font-mono">{run.entityId}</td>
+                      <td className="py-2 pr-4 text-gray-700">{run.actionsExecuted.length}</td>
+                      <td className="py-2 text-red-600">
+                        {run.errorMessage ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
