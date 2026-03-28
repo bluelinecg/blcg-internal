@@ -12,7 +12,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div className="flex items-start justify-between mb-6">
+    <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
         {subtitle && (
@@ -20,7 +20,7 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
         )}
       </div>
       {actions && (
-        <div className="flex items-center gap-3">{actions}</div>
+        <div className="flex items-center gap-3 flex-wrap">{actions}</div>
       )}
     </div>
   );

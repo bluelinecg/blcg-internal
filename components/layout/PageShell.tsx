@@ -11,7 +11,7 @@ interface PageShellProps {
 
 export function PageShell({ children, scrollable = true }: PageShellProps) {
   return (
-    <div className={`flex flex-col flex-1 px-8 py-6 ${scrollable ? 'overflow-y-auto' : 'overflow-hidden'}`}>
+    <div className={`flex flex-col flex-1 px-4 py-4 md:px-8 md:py-6 ${scrollable ? 'overflow-y-auto' : 'overflow-hidden'}`}>
       {children}
     </div>
   );

@@ -29,7 +29,11 @@ function resolvePageTitle(pathname: string): string {
   return match ? PAGE_TITLES[match] : 'BLCG Internal';
 }
 
-export function TopNav() {
+interface TopNavProps {
+  onMenuClick: () => void;
+}
+
+export function TopNav({ onMenuClick }: TopNavProps) {
   const pathname = usePathname();
   const title = resolvePageTitle(pathname);
 
@@ -78,8 +82,22 @@ export function TopNav() {
   }
 
   return (
-    <header className="flex items-center justify-between px-6 h-16 bg-white border-b border-gray-200">
-      <h1 className="text-lg font-semibold text-brand-navy">{title}</h1>
+    <header className="flex items-center justify-between px-4 md:px-6 h-16 bg-white border-b border-gray-200">
+      <div className="flex items-center gap-3">
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={onMenuClick}
+          className="flex items-center justify-center rounded-md p-1.5 text-gray-500 hover:bg-gray-100 transition-colors md:hidden"
+          aria-label="Open navigation"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+        <h1 className="text-lg font-semibold text-brand-navy">{title}</h1>
+      </div>
 
       <div className="flex items-center gap-4">
         {/* Bell icon + dropdown */}

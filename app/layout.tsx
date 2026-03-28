@@ -1,13 +1,18 @@
 // Next.js requires a default export for layout files.
 // Named export + re-export as default satisfies both that requirement
 // and the CLAUDE.md named-exports convention.
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "BLCG Internal",
   description: "Blue Line Consulting Group internal admin",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 interface RootLayoutProps {
