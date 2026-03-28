@@ -442,14 +442,13 @@ export default function TimeTrackingPage() {
       )}
 
       {/* Delete confirmation */}
-      {deleteEntry && (
-        <ConfirmDialog
-          title="Delete Time Entry"
-          description={`Delete "${deleteEntry.description}" (${deleteEntry.hours}h)? This cannot be undone.`}
-          onConfirm={() => void handleDelete(deleteEntry)}
-          onCancel={() => setDeleteEntry(null)}
-        />
-      )}
+      <ConfirmDialog
+        isOpen={!!deleteEntry}
+        title="Delete Time Entry"
+        description={deleteEntry ? `Delete "${deleteEntry.description}" (${deleteEntry.hours}h)? This cannot be undone.` : ''}
+        onConfirm={() => deleteEntry && void handleDelete(deleteEntry)}
+        onClose={() => setDeleteEntry(null)}
+      />
     </PageShell>
   );
 }
