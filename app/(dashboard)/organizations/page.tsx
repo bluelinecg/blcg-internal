@@ -4,6 +4,7 @@
 // Create/edit via OrganizationFormModal, delete via ConfirmDialog (blocked if contacts exist).
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { PageShell } from '@/components/layout';
 import { PageHeader } from '@/components/layout';
 import {
@@ -192,7 +193,11 @@ export default function OrganizationsPage() {
             <tbody className="divide-y divide-gray-50">
               {filtered.map((org) => (
                 <tr key={org.id} className="transition-colors hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{org.name}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    <Link href={`/organizations/${org.id}`} className="hover:text-brand-blue hover:underline">
+                      {org.name}
+                    </Link>
+                  </td>
                   <td className="px-6 py-4 text-sm text-gray-600">{org.industry ?? <span className="text-gray-400">—</span>}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{org.phone ?? <span className="text-gray-400">—</span>}</td>
                   <td className="px-6 py-4">

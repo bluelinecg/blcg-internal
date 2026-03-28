@@ -12,6 +12,7 @@ export { ExpenseFormModal } from './ExpenseFormModal';
 export { ComposeEmailModal } from './ComposeEmailModal';
 export { InviteUserModal } from './InviteUserModal';
 export { OrganizationFormModal } from './OrganizationFormModal';
+export { OrganizationDetailView } from './OrganizationDetailView';
 export { ContactFormModal } from './ContactFormModal';
 export { ActivityFeed } from './ActivityFeed';
 export { PipelineFormModal } from './PipelineFormModal';
