@@ -123,6 +123,39 @@ export function TasksPage() {
 
   // --- CRUD handlers ---
 
+  async function handleReorderColumn(columnId: string, orderedIds: string[]) {
+    if (!canEdit) return;
+
+    // Optimistic update: reassign sortOrder based on new position within the column.
+    // Include hidden tasks (filtered out by project/assignee) at the end to preserve their relative order.
+    const fullColumnIds = [
+      ...orderedIds,
+      ...tasks
+        .filter((t) => t.status === columnId && !orderedIds.includes(t.id))
+        .map((t) => t.id),
+    ];
+
+    setTasks((prev) => {
+      const updated = prev.map((t) => {
+        const idx = fullColumnIds.indexOf(t.id);
+        return idx !== -1 ? { ...t, sortOrder: idx } : t;
+      });
+      return updated;
+    });
+
+    try {
+      const res  = await fetch('/api/tasks/reorder', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ status: columnId, orderedIds: fullColumnIds }),
+      });
+      const json = await res.json() as { data: unknown; error: string | null };
+      if (!res.ok || json.error) void loadData();
+    } catch {
+      void loadData();
+    }
+  }
+
   async function handleMoveItem(taskId: string, toColumnId: string) {
     // Optimistic update
     setTasks((prev) =>
@@ -272,6 +305,7 @@ export function TasksPage() {
               getItemId={(t) => t.id}
               getItemColumn={(t) => t.status}
               onMoveItem={handleMoveItem}
+              onReorderColumn={canEdit ? handleReorderColumn : undefined}
               columnAccent={COLUMN_ACCENT}
               renderCard={(task) => (
                 <TaskCard
