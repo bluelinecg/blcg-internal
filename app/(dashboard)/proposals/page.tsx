@@ -487,7 +487,7 @@ function SendPdfModal({
 
 function ProposalLineItemsPanel({ proposal }: { proposal: Proposal }) {
   return (
-    <div className="flex gap-8">
+    <div className="flex flex-col md:flex-row gap-8">
       <div className="flex-1">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Line Items</p>
         <table className="w-full text-sm">
@@ -517,7 +517,7 @@ function ProposalLineItemsPanel({ proposal }: { proposal: Proposal }) {
           </tfoot>
         </table>
       </div>
-      <div className="w-56 flex-shrink-0 space-y-4">
+      <div className="w-full md:w-56 flex-shrink-0 space-y-4">
         {proposal.organization && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Organization</p>

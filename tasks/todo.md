@@ -119,15 +119,15 @@ of the codebase. All layouts are desktop-first and hardcoded.
 
 ### Phase 4 — UI Component Hardening
 
-- [ ] **4.1 Modal** — `components/ui/Modal.tsx`
-  - All sizes: add `w-full mx-4` on mobile so modals don't clip viewport
+- [x] **4.1 Modal** — `components/ui/Modal.tsx`
+  - Already correct: `w-full` + outer `p-4` on the container provides `mx-4` margin on all screen sizes. No additional change needed.
 
-- [ ] **4.2 ExpandableTable** — `components/ui/ExpandableTable.tsx`
-  - Wrap in `overflow-x-auto` by default
-  - Expanded detail panel: `flex-col md:flex-row` instead of fixed `flex gap-8`
+- [x] **4.2 ExpandableTable** — `components/ui/ExpandableTable.tsx`
+  - Wrapped `<table>` in `<div className="overflow-x-auto">`
+  - Fixed `ProposalLineItemsPanel` in `proposals/page.tsx`: `flex flex-col md:flex-row gap-8`, sidebar `w-full md:w-56`
 
-- [ ] **4.3 StatCard** — `components/ui/StatCard.tsx`
-  - Value font: `text-2xl md:text-3xl` to prevent overflow on small screens
+- [x] **4.3 StatCard** — `components/ui/StatCard.tsx`
+  - Value font: `text-2xl md:text-3xl`
 
 ---
 
