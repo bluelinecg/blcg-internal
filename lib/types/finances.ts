@@ -61,3 +61,14 @@ export interface Expense {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface FinanceSummary {
+  totalRevenue: number;
+  totalOutstanding: number;
+  overdueCount: number;
+  overdueAmount: number;
+  totalExpenses: number;
+  netPL: number;
+  expensesByCategory: { category: ExpenseCategory; total: number }[];
+  recentInvoices: Pick<Invoice, 'id' | 'invoiceNumber' | 'status' | 'total' | 'organization'>[];
+}

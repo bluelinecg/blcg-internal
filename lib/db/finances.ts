@@ -13,6 +13,7 @@ import type {
   InvoiceStatus,
   ExpenseCategory,
   PaymentMethod,
+  FinanceSummary,
 } from '@/lib/types/finances';
 import type {
   InvoiceInput,
@@ -506,5 +507,97 @@ export async function deleteExpense(id: string): Promise<{ error: string | null 
   } catch (err) {
     console.error('[deleteExpense]', err);
     return { error: 'Failed to delete expense' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Finance summary
+// ---------------------------------------------------------------------------
+
+interface InvoiceAggRow { status: InvoiceStatus; total: number }
+interface ExpenseAggRow { category: ExpenseCategory; amount: number }
+interface RecentInvoiceRow {
+  id: string;
+  invoice_number: string;
+  status: InvoiceStatus;
+  total: number;
+  organizations: OrganizationJoinRow | null;
+}
+
+/**
+ * Returns aggregate financial KPIs across ALL invoices and expenses.
+ * Three lightweight queries run in parallel — no pagination applied.
+ */
+export async function getFinanceSummary(): Promise<{ data: FinanceSummary | null; error: string | null }> {
+  try {
+    const db = serverClient();
+
+    const [invoiceAggResult, expenseAggResult, recentResult] = await Promise.all([
+      db.from('invoices').select('status, total'),
+      db.from('expenses').select('category, amount'),
+      db.from('invoices')
+        .select('id, invoice_number, status, total, organizations(id, name, website, phone, industry, address, notes, created_at, updated_at)')
+        .order('created_at', { ascending: false })
+        .limit(5),
+    ]);
+
+    if (invoiceAggResult.error) return { data: null, error: invoiceAggResult.error.message };
+    if (expenseAggResult.error) return { data: null, error: expenseAggResult.error.message };
+    if (recentResult.error)     return { data: null, error: recentResult.error.message };
+
+    const invoiceRows = (invoiceAggResult.data ?? []) as InvoiceAggRow[];
+    const expenseRows = (expenseAggResult.data ?? []) as ExpenseAggRow[];
+    const recentRows  = (recentResult.data ?? []) as RecentInvoiceRow[];
+
+    let totalRevenue     = 0;
+    let totalOutstanding = 0;
+    let overdueCount     = 0;
+    let overdueAmount    = 0;
+
+    for (const row of invoiceRows) {
+      if (row.status === 'paid') {
+        totalRevenue += row.total;
+      } else if (row.status === 'sent' || row.status === 'viewed' || row.status === 'overdue') {
+        totalOutstanding += row.total;
+        if (row.status === 'overdue') {
+          overdueCount += 1;
+          overdueAmount += row.total;
+        }
+      }
+    }
+
+    let totalExpenses = 0;
+    const categoryMap = new Map<ExpenseCategory, number>();
+    for (const row of expenseRows) {
+      totalExpenses += row.amount;
+      categoryMap.set(row.category, (categoryMap.get(row.category) ?? 0) + row.amount);
+    }
+
+    const expensesByCategory = Array.from(categoryMap.entries()).map(([category, total]) => ({ category, total }));
+
+    const recentInvoices = recentRows.map((row) => ({
+      id:            row.id,
+      invoiceNumber: row.invoice_number,
+      status:        row.status,
+      total:         row.total,
+      organization:  row.organizations ? orgFromJoinRow(row.organizations) : undefined,
+    }));
+
+    return {
+      data: {
+        totalRevenue,
+        totalOutstanding,
+        overdueCount,
+        overdueAmount,
+        totalExpenses,
+        netPL: totalRevenue - totalExpenses,
+        expensesByCategory,
+        recentInvoices,
+      },
+      error: null,
+    };
+  } catch (err) {
+    console.error('[getFinanceSummary]', err);
+    return { data: null, error: 'Failed to load finance summary' };
   }
 }
